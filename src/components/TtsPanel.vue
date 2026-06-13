@@ -14,7 +14,7 @@ const props = defineProps({
 const voices = ref([])
 const selectedVoiceName = ref('')
 const rate = ref(1.0)
-const pitch = ref(1.0)
+const volume = ref(1.0)
 const isSpeaking = ref(false)
 const isPaused = ref(false)
 
@@ -22,6 +22,15 @@ const isPaused = ref(false)
 const words = ref([])
 const activeWordIndex = ref(-1)
 let highlightInterval = null
+
+// Live Audio Controls
+watch(rate, (newRate) => {
+  if (currentAudio) currentAudio.playbackRate = newRate
+})
+
+watch(volume, (newVol) => {
+  if (currentAudio) currentAudio.volume = newVol
+})
 
 // Audio Object for Google TTS
 let currentAudio = null
@@ -80,22 +89,11 @@ const prepareWords = (textToSplit) => {
     return
   }
   
-  const trimmed = textToSplit.trim()
-  if (trimmed.includes(' ')) {
-    words.value = trimmed.split(/\s+/).map(w => ({ text: w, id: Math.random() }))
-  } else {
-    const list = []
-    let i = 0
-    while (i < trimmed.length) {
-      const length = Math.floor(Math.random() * 4) + 3
-      list.push({
-        text: trimmed.substring(i, i + length),
-        id: Math.random()
-      })
-      i += length
-    }
-    words.value = list
-  }
+  // Split strictly by any whitespace (newlines, spaces, tabs)
+  // This prevents randomly slicing Khmer words in the middle of a syllable
+  const tokens = textToSplit.trim().split(/\s+/).filter(w => w.length > 0)
+  
+  words.value = tokens.map(w => ({ text: w, id: Math.random() }))
 }
 
 // Word-by-word visual highlight simulation
@@ -163,8 +161,12 @@ const startSpeech = async () => {
       const voiceName = selectedVoice ? selectedVoice.name : 'km-KH-PisethNeural'
       const gender = selectedVoice && selectedVoice.gender ? selectedVoice.gender : 'Male'
 
-      const audioUrl = await synthesizeTextAzureTTS(props.text, apiKey, endpoint, rate.value, pitch.value, voiceName, gender)
+      // We request 1.0x speed from Azure and handle Speed/Volume dynamically via HTML5 Audio so sliders are instantly responsive!
+      const audioUrl = await synthesizeTextAzureTTS(props.text, apiKey, endpoint, 1.0, 1.0, voiceName, gender)
       currentAudio = new Audio(audioUrl)
+      currentAudio.playbackRate = rate.value
+      currentAudio.volume = volume.value
+      
       currentAudio.onended = () => {
         stopSpeech()
       }
@@ -200,7 +202,7 @@ const startSpeech = async () => {
       const voice = (voices.value || []).find(v => v?.name === selectedVoiceName.value)
       if (voice) utterance.voice = voice
       utterance.rate = rate.value
-      utterance.pitch = pitch.value
+      utterance.volume = volume.value
       
       utterance.onend = () => {
         stopSpeech()
@@ -393,9 +395,9 @@ watch(() => props.text, (newText) => {
         <div class="slider-field">
           <div class="slider-header">
             <span class="khmer-font">កម្រិតសំឡេង៖</span>
-            <span class="val-text">{{ pitch }}</span>
+            <span class="val-text">{{ Math.round(volume * 100) }}%</span>
           </div>
-          <input type="range" min="0.5" max="2.0" step="0.1" v-model.number="pitch" class="custom-slider" />
+          <input type="range" min="0.0" max="1.0" step="0.1" v-model.number="volume" class="custom-slider" />
         </div>
       </div>
 
@@ -434,14 +436,14 @@ watch(() => props.text, (newText) => {
 
 <style scoped>
 .tts-card {
-  background: linear-gradient(145deg, #2b61a2, #1e4b85);
-  border-radius: 24px;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  border-radius: 0;
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;
   width: 100%;
-  box-shadow: 0 10px 30px rgba(43, 97, 162, 0.4);
   height: 100%;
 }
 
@@ -458,19 +460,19 @@ watch(() => props.text, (newText) => {
 }
 
 .icon-box-indigo {
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  color: #FFFFFF;
   padding: 10px;
-  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .title-wrap h2 {
-  color: #ffffff;
+  color: #FFFFFF;
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 2rem;
   font-weight: 800;
 }
 
@@ -483,38 +485,37 @@ watch(() => props.text, (newText) => {
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  border-radius: 9999px;
-  font-size: 0.8rem;
-  font-weight: 700;
+  border-radius: 0;
+  font-size: 1.2rem;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  border: 4px solid #FFFFFF;
 }
 
 .badge-green {
-  background: rgba(16, 185, 129, 0.2);
-  color: #4ade80;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: #FFFF00;
+  color: #000000;
+  border-color: #FFFF00;
 }
 
 .badge-amber {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fcd34d;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: #000000;
+  color: #FFFFFF;
 }
 
 .badge-slate {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #000000;
+  color: #FFFFFF;
 }
 
 /* Words container */
 .words-container {
-  min-height: 100px;
-  max-height: 140px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  min-height: 150px;
+  max-height: 250px;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  border-radius: 0;
   padding: 16px;
   overflow-y: auto;
 }
@@ -525,40 +526,37 @@ watch(() => props.text, (newText) => {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.5rem;
+  color: #FFFFFF;
   text-align: center;
 }
 
 .words-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 8px;
+  gap: 8px 12px;
   text-align: left;
 }
 
 .word-token {
-  padding: 2px 6px;
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 1.05rem;
-  transition: all 0.2s ease;
+  padding: 4px 8px;
+  border-radius: 0;
+  color: #FFFFFF;
+  font-size: 1.8rem;
 }
 
 .word-active {
-  background: #ffffff;
-  color: #2b61a2;
-  font-weight: 700;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-  transform: scale(1.05);
+  background: #FFFF00;
+  color: #000000;
+  font-weight: 800;
 }
 
 /* Visualizer wrapper */
 .visualizer-wrapper {
   height: 50px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -595,79 +593,72 @@ watch(() => props.text, (newText) => {
 }
 
 .label-title {
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.8);
-  font-weight: 600;
+  font-size: 1.2rem;
+  color: #FFFFFF;
+  font-weight: 800;
 }
 
 .voice-select {
-  padding: 12px 14px;
-  font-size: 0.95rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
+  padding: 16px 20px;
+  font-size: 1.5rem;
+  background: #000000;
+  color: #FFFFFF;
+  border: 4px solid #FFFFFF;
+  border-radius: 0;
   outline: none;
   cursor: pointer;
-  transition: all 0.2s ease;
 }
 .voice-select option {
-  color: #1e293b;
+  color: #000000;
 }
 
 .voice-select:focus {
-  border-color: rgba(255, 255, 255, 0.6);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
+  border-color: #FFFF00;
 }
 
 .slider-field {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .slider-header {
   display: flex;
   justify-content: space-between;
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.8);
-  font-weight: 500;
+  font-size: 1.2rem;
+  color: #FFFFFF;
+  font-weight: 800;
 }
 
 .val-text {
-  font-weight: 700;
-  color: #ffffff;
+  font-weight: 800;
+  color: #FFFF00;
 }
 
 .custom-slider {
   -webkit-appearance: none;
   width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
+  height: 12px;
+  background: #FFFFFF;
+  border-radius: 0;
   outline: none;
 }
 
 .custom-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #ffffff;
+  width: 32px;
+  height: 32px;
+  border-radius: 0;
+  background: #FFFF00;
+  border: 4px solid #000000;
   cursor: pointer;
-  transition: transform 0.1s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-}
-
-.custom-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
 }
 
 .btn-actions-row {
   display: flex;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 16px;
+  margin-top: 16px;
 }
 
 .flex-grow {
@@ -682,57 +673,32 @@ watch(() => props.text, (newText) => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 1.05rem;
+  gap: 12px;
+  padding: 20px;
+  border-radius: 0;
+  font-weight: 800;
+  font-size: 1.5rem;
   cursor: pointer;
-  border: none;
-  transition: all 0.2s ease;
+  background: #000000;
+  color: #FFFFFF;
+  border: 4px solid #FFFFFF;
 }
 
-.btn-primary {
-  background: #ffffff;
-  color: #2b61a2;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+.btn:hover:not(:disabled) {
+  background: #FFFF00;
+  color: #000000;
+  border-color: #FFFF00;
 }
 
-.btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-  background: #f8fafc;
-}
-
-.btn-warning {
-  background: linear-gradient(145deg, #f59e0b, #d97706);
-  color: white;
-  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.3);
-}
-
-.btn-warning:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.4);
-}
-
-.btn-outline {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.btn-outline:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: #ef4444;
-  color: #ffffff;
-  transform: translateY(-2px);
-}
+.btn-primary { }
+.btn-warning { }
+.btn-outline { }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
-  box-shadow: none !important;
+  border-color: #666666;
+  color: #666666;
 }
 
 @media (max-width: 480px) {

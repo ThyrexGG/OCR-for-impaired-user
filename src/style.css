@@ -1,40 +1,40 @@
 @import url('https://fonts.googleapis.com/css2?family=Battambang:wght@400;700&family=Outfit:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap');
 
 :root {
-  /* Colors - Light Theme based on user's mockup */
-  --bg-primary: #f5f7fb;
-  --bg-secondary: #ffffff;
-  --bg-card: #ffffff;
+  /* High Contrast Accessibility Theme */
+  --bg-primary: #000000;
+  --bg-secondary: #000000;
+  --bg-card: #000000;
   
-  --border-color: #e2e8f0;
-  --border-color-hover: #cbd5e1;
-  --border-color-active: #3b82f6;
+  --border-color: #FFFFFF;
+  --border-color-hover: #FFFF00;
+  --border-color-active: #FFFF00;
   
-  --color-blue: #3b82f6;
-  --color-blue-light: #eff6ff;
-  --color-blue-dark: #1d4ed8;
+  --color-blue: #FFFF00;
+  --color-blue-light: #333333;
+  --color-blue-dark: #FFCC00;
 
-  --color-green: #10b981;
-  --color-green-light: #ecfdf5;
-  --color-gold: #b88a38;
-  --color-gold-light: #fef3c7;
+  --color-green: #00FF00;
+  --color-green-light: #003300;
+  --color-gold: #FFFF00;
+  --color-gold-light: #333300;
   
-  --text-primary: #1e293b;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
+  --text-primary: #FFFFFF;
+  --text-secondary: #FFFF00;
+  --text-muted: #CCCCCC;
   
   /* Fonts */
   --font-sans: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
   --font-khmer: 'Battambang', system-ui, sans-serif;
   
-  /* Layout & Shadows */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.03);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
-  --transition-smooth: all 0.2s ease-in-out;
+  /* Layout & Shadows - Disabled for High Contrast */
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --transition-smooth: none;
 }
 
 /* Base resets */
@@ -44,43 +44,50 @@
   padding: 0;
 }
 
+*:focus {
+  outline: 6px solid #FFFF00 !important;
+  outline-offset: 2px !important;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--bg-primary);
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
-  line-height: 1.5;
+  line-height: 1.6;
+  font-size: 24px; /* Massive base font for low vision */
   -webkit-font-smoothing: antialiased;
 }
 
 /* Scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 16px;
+  height: 16px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  background: #000000;
+  border-left: 2px solid #FFFFFF;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: var(--radius-sm);
+  background: #FFFFFF;
+  border: 2px solid #000000;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted);
+  background: #FFFF00;
 }
 
 /* Typography */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-sans);
-  font-weight: 600;
+  font-weight: 800;
   color: var(--text-primary);
 }
 
 .khmer-font {
   font-family: var(--font-khmer) !important;
   line-height: 1.8;
-  font-size: 1.05rem;
+  font-size: 1.5rem;
 }
 
 /* Mockup Layout Card styles */

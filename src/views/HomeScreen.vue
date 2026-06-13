@@ -146,29 +146,26 @@ const goBack = () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 40px;
-  background: white;
+  background: #000000;
   padding: 16px 24px;
-  border-radius: 24px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+  border: 4px solid #FFFFFF;
 }
 
 .btn-back {
-  background: #f1f5f9;
-  border: none;
-  color: #64748b;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  color: #FFFFFF;
   cursor: pointer;
   padding: 12px;
-  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
 }
 
 .btn-back:hover {
-  background: #e2e8f0;
-  color: #0f172a;
-  transform: scale(1.05);
+  background: #FFFF00;
+  color: #000000;
+  border-color: #FFFF00;
 }
 
 .app-logo-small {

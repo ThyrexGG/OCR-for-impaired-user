@@ -108,14 +108,14 @@ const downloadTxt = () => {
 
 <style scoped>
 .results-card {
-  background: linear-gradient(145deg, #2b61a2, #1e4b85);
-  border-radius: 24px;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  border-radius: 0;
   padding: 24px;
   display: flex;
   flex-direction: column;
   gap: 20px;
   width: 100%;
-  box-shadow: 0 10px 30px rgba(43, 97, 162, 0.4);
   height: 100%;
 }
 
@@ -132,18 +132,18 @@ const downloadTxt = () => {
 }
 
 .icon-box-teal {
-  background: rgba(255, 255, 255, 0.15);
-  color: #4ade80;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  color: #FFFFFF;
   padding: 10px;
-  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .results-title {
-  font-size: 1.2rem;
-  color: #ffffff;
+  font-size: 2rem;
+  color: #FFFFFF;
   font-weight: 800;
   margin: 0;
 }
@@ -156,36 +156,35 @@ const downloadTxt = () => {
 .btn-action-outline {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  color: #ffffff;
-  font-size: 0.9rem;
-  font-weight: 600;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  gap: 8px;
+  color: #FFFFFF;
+  font-size: 1.2rem;
+  font-weight: 800;
+  background: #000000;
+  border: 4px solid #FFFFFF;
   cursor: pointer;
-  padding: 8px 12px;
-  border-radius: 10px;
-  transition: all 0.2s ease;
+  padding: 12px 16px;
+  border-radius: 0;
 }
 
 .btn-action-outline:hover:not(:disabled) {
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.4);
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
+  color: #000000;
+  background: #FFFF00;
+  border-color: #FFFF00;
 }
 
 .btn-action-outline:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: rgba(255, 255, 255, 0.05);
+  border-color: #666666;
+  color: #666666;
 }
 
 .icon-success {
-  color: #4ade80;
+  color: #000000;
 }
 .text-success {
-  color: #4ade80;
+  color: #000000;
 }
 
 /* Textarea styling */
@@ -197,46 +196,43 @@ const downloadTxt = () => {
 
 .results-textarea {
   width: 100%;
-  min-height: 200px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  min-height: 300px;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  border-radius: 0;
   padding: 20px;
-  color: #ffffff;
-  font-size: 1.05rem;
-  line-height: 1.8;
+  color: #FFFFFF;
+  font-size: 1.5rem;
+  line-height: 2;
   resize: vertical;
-  transition: all 0.2s ease;
   outline: none;
 }
 
 .results-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: #FFFFFF;
 }
 
 .results-textarea:focus {
-  background: rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.4);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
+  border-color: #FFFF00;
 }
 
 /* Skeleton loader */
 .skeleton-textarea {
   width: 100%;
-  min-height: 200px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  min-height: 300px;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  border-radius: 0;
   padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
 }
 
 .pulse-line {
-  height: 16px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  height: 24px;
+  background: #333333;
+  border-radius: 0;
   position: relative;
   overflow: hidden;
 }
@@ -248,7 +244,7 @@ const downloadTxt = () => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
   animation: loading-shimmer 1.5s infinite;
 }
 

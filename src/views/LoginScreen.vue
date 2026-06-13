@@ -129,8 +129,9 @@ const handleLogin = () => {
     display: flex;
     flex-direction: column;
     flex: 1;
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    color: white;
+    background: #000000;
+    border-right: 4px solid #FFFFFF;
+    color: #FFFFFF;
     padding: 60px 40px;
     align-items: center;
     justify-content: center;
@@ -150,17 +151,17 @@ const handleLogin = () => {
 }
 
 .features-title {
-  font-size: 2.2rem;
+  font-size: 2.5rem;
   font-weight: 800;
   margin: 0 0 12px 0;
-  color: white;
+  color: #FFFFFF;
   line-height: 1.2;
 }
 
 .features-subtitle {
-  font-size: 1.1rem;
+  font-size: 1.4rem;
   line-height: 1.5;
-  color: #94a3b8;
+  color: #FFFF00;
   margin: 0;
 }
 
@@ -173,19 +174,21 @@ const handleLogin = () => {
 }
 
 .theme-card {
-  border-radius: 16px;
+  border: 4px solid #FFFFFF;
   padding: 20px;
   display: flex;
-  transition: transform 0.3s ease;
+  background: #000000;
 }
 
 .theme-card:hover {
-  transform: translateX(8px);
+  background: #FFFF00;
 }
 
-.card-blue { background: linear-gradient(145deg, rgba(43,97,162,0.8), rgba(30,75,133,0.8)); border: 1px solid rgba(255,255,255,0.1); }
-.card-teal { background: linear-gradient(145deg, rgba(13,148,136,0.8), rgba(15,118,110,0.8)); border: 1px solid rgba(255,255,255,0.1); }
-.card-indigo { background: linear-gradient(145deg, rgba(99,102,241,0.8), rgba(79,70,229,0.8)); border: 1px solid rgba(255,255,255,0.1); }
+.theme-card:hover .card-title,
+.theme-card:hover .card-desc,
+.theme-card:hover .icon-container svg {
+  color: #000000;
+}
 
 .card-content {
   display: flex;
@@ -197,11 +200,12 @@ const handleLogin = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.15);
+  border: 4px solid #FFFFFF;
   padding: 14px;
-  border-radius: 14px;
-  backdrop-filter: blur(10px);
   flex-shrink: 0;
+}
+.icon-container svg {
+  color: #FFFFFF;
 }
 
 .text-container {
@@ -211,16 +215,16 @@ const handleLogin = () => {
 }
 
 .card-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: white;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #FFFFFF;
   margin: 0;
 }
 
 .card-desc {
-  font-size: 0.85rem;
+  font-size: 1rem;
   line-height: 1.4;
-  color: rgba(255, 255, 255, 0.8);
+  color: #FFFFFF;
   margin: 0;
 }
 
@@ -231,7 +235,8 @@ const handleLogin = () => {
   align-items: center;
   justify-content: center;
   padding: 40px 24px;
-  background: #ffffff;
+  background: #000000;
+  color: #FFFFFF;
 }
 
 @media (max-width: 480px) {
@@ -274,24 +279,24 @@ const handleLogin = () => {
 }
 
 .login-title {
-  font-size: 1.4rem;
+  font-size: 2rem;
   font-weight: 800;
-  color: #0f172a;
+  color: #FFFFFF;
   margin: 0 0 4px 0;
 }
 
 .login-subtitle {
-  font-size: 0.9rem;
-  color: #64748b;
+  font-size: 1.2rem;
+  color: #FFFF00;
   margin: 0 0 20px 0;
 }
 
 @media (min-width: 480px) {
   .login-title {
-    font-size: 1.8rem;
+    font-size: 2.5rem;
   }
   .login-subtitle {
-    font-size: 1rem;
+    font-size: 1.4rem;
     margin: 0 0 32px 0;
   }
 }
@@ -303,26 +308,23 @@ const handleLogin = () => {
 
 .btn-social {
   width: 100%;
-  background: white;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  padding: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #334155;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  padding: 16px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #FFFFFF;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  transition: all 0.2s ease;
 }
 
 .btn-social:hover {
-  background: #f8fafc;
-  border-color: #94a3b8;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  background: #FFFF00;
+  border-color: #FFFF00;
+  color: #000000;
 }
 
 .divider-text {
@@ -336,109 +338,113 @@ const handleLogin = () => {
 .divider-text::after {
   content: '';
   flex: 1;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 4px solid #FFFFFF;
 }
 
 .divider-text span {
   padding: 0 12px;
-  color: #94a3b8;
-  font-size: 0.85rem;
-  font-weight: 500;
+  color: #FFFFFF;
+  font-size: 1.2rem;
+  font-weight: 800;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
 }
 
 .input-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .input-group label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #334155;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #FFFFFF;
 }
 
 .input-group input {
-  padding: 10px 14px;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  font-size: 0.95rem;
-  color: #1e293b;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  padding: 16px;
+  background: #000000;
+  border: 4px solid #FFFFFF;
+  font-size: 1.2rem;
+  color: #FFFFFF;
 }
 
 .input-group input:focus {
   outline: none;
-  border-color: #2b61a2;
-  box-shadow: 0 0 0 4px rgba(43, 97, 162, 0.1);
+  border-color: #FFFF00;
 }
 
 .form-options {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 0px;
+  margin-top: 10px;
 }
 
 .remember-me {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.85rem;
-  color: #475569;
+  font-size: 1.1rem;
+  color: #FFFFFF;
+  font-weight: 800;
   cursor: pointer;
+}
+
+.remember-me input {
+  width: 24px;
+  height: 24px;
+  accent-color: #FFFF00;
 }
 
 .forgot-password {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #2b61a2;
-  text-decoration: none;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #FFFF00;
+  text-decoration: underline;
 }
 
 .forgot-password:hover {
-  text-decoration: underline;
+  background: #FFFF00;
+  color: #000000;
 }
 
 .btn-login {
-  margin-top: 4px;
-  background: linear-gradient(145deg, #f97316, #ea580c);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 14px;
-  font-size: 1.05rem;
-  font-weight: 700;
+  margin-top: 20px;
+  background: #FFFF00;
+  color: #000000;
+  border: 4px solid #FFFF00;
+  padding: 20px;
+  font-size: 1.5rem;
+  font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(249, 115, 22, 0.3);
-  transition: all 0.3s ease;
 }
 
 .btn-login:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(249, 115, 22, 0.4);
+  background: #000000;
+  color: #FFFF00;
 }
 
 .signup-text {
-  margin-top: 20px;
+  margin-top: 24px;
   text-align: center;
-  font-size: 0.9rem;
-  color: #64748b;
+  font-size: 1.2rem;
+  color: #FFFFFF;
 }
 
 .signup-text a {
-  font-weight: 700;
-  color: #2b61a2;
-  text-decoration: none;
+  font-weight: 800;
+  color: #FFFF00;
+  text-decoration: underline;
 }
 
 .signup-text a:hover {
-  text-decoration: underline;
+  background: #FFFF00;
+  color: #000000;
 }
 </style>
