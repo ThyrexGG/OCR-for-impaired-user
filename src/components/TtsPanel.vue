@@ -101,24 +101,32 @@ const prepareWords = (textToSplit) => {
 // Word-by-word visual highlight simulation
 const startHighlighting = () => {
   activeWordIndex.value = 0
-  const durationPerWord = Math.max(300, 600 - (rate.value - 1) * 250)
+  // Khmer text typically takes a bit longer per visual "word" segment to read
+  const durationPerWord = Math.max(400, 800 - (rate.value - 1) * 300)
   
   highlightInterval = setInterval(() => {
     if (activeWordIndex.value < words.value.length - 1) {
       activeWordIndex.value++
     } else {
-      stopSpeech()
+      // Just stop highlighting, let the audio finish playing naturally
+      if (highlightInterval) {
+        clearInterval(highlightInterval)
+        highlightInterval = null
+      }
     }
   }, durationPerWord)
 }
 
 const resumeHighlighting = () => {
-  const durationPerWord = Math.max(300, 600 - (rate.value - 1) * 250)
+  const durationPerWord = Math.max(400, 800 - (rate.value - 1) * 300)
   highlightInterval = setInterval(() => {
     if (activeWordIndex.value < words.value.length - 1) {
       activeWordIndex.value++
     } else {
-      stopSpeech()
+      if (highlightInterval) {
+        clearInterval(highlightInterval)
+        highlightInterval = null
+      }
     }
   }, durationPerWord)
 }
