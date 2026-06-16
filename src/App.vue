@@ -46,4 +46,4 @@ onMounted(() => {
   </div>
 </template>
 
-<style src="./App.css"></style>
+

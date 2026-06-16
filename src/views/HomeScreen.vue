@@ -130,4 +130,3 @@ const goBack = () => {
   </div>
 </template>
 
-<style scoped src="./HomeScreen.css"></style>

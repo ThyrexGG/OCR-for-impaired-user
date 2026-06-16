@@ -233,4 +233,3 @@ const getFileSize = (bytes) => {
   </div>
 </template>
 
-<style scoped src="./DocumentUploader.css"></style>

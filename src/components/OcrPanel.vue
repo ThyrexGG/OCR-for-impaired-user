@@ -106,4 +106,3 @@ const downloadTxt = () => {
   </div>
 </template>
 
-<style scoped src="./OcrPanel.css"></style>

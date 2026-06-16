@@ -440,4 +440,3 @@ watch(() => props.text, (newText) => {
   </div>
 </template>
 
-<style scoped src="./TtsPanel.css"></style>
