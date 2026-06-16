@@ -13,7 +13,6 @@ export const fileToBase64 = (file) => {
     reader.readAsDataURL(file)
   })
 }
-
 /**
  * Perform text detection using Google Cloud Vision API
  * @param {File} file - Selected image or document file
@@ -26,7 +25,7 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
     const base64Image = await fileToBase64(file)
     const baseEndpoint = endpoint || 'https://vision.googleapis.com/v1/images:annotate'
     const url = `${baseEndpoint}?key=${apiKey}`
-    
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -58,11 +57,11 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
 
     const data = await response.json()
     const fullText = data.responses?.[0]?.fullTextAnnotation?.text || ''
-    
+
     if (!fullText) {
       throw new Error('No Khmer text was detected in the uploaded document.')
     }
-    
+
     return fullText
   } catch (error) {
     console.error('OCR API Execution Error:', error)
@@ -82,14 +81,14 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
     if (!endpoint) {
       throw new Error('Azure Vision endpoint is required')
     }
-    
+
     // Ensure endpoint doesn't end with a slash
     const baseEndpoint = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint
     const url = `${baseEndpoint}/computervision/imageanalysis:analyze?api-version=2023-10-01&features=read`
-    
+
     // Convert file to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer()
-    
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -105,11 +104,11 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
     }
 
     const data = await response.json()
-    
+
     if (!data.readResult || !data.readResult.blocks) {
       throw new Error('No text was detected in the uploaded document.')
     }
-    
+
     // Extract text from blocks
     let fullText = ''
     for (const block of data.readResult.blocks) {
@@ -117,7 +116,7 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
         fullText += line.text + '\n'
       }
     }
-    
+
     return fullText.trim()
   } catch (error) {
     console.error('Azure OCR API Execution Error:', error)

@@ -1,6 +1,6 @@
 <script setup>
-import { ref } from 'vue'
-import { Upload, FileImage, Trash2, FileText, Check } from 'lucide-vue-next'
+import { ref, onBeforeUnmount, nextTick } from 'vue'
+import { Upload, FileImage, Trash2, FileText, Check, Camera, X } from 'lucide-vue-next'
 
 const props = defineProps({
   isProcessing: {
@@ -14,6 +14,59 @@ const emit = defineEmits(['file-selected', 'clear-file', 'trigger-ocr'])
 const isDragActive = ref(false)
 const selectedFile = ref(null)
 const previewUrl = ref(null)
+
+const isCameraMode = ref(false)
+const videoRef = ref(null)
+const canvasRef = ref(null)
+let stream = null
+
+const startCamera = async () => {
+  isCameraMode.value = true
+  await nextTick()
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    })
+    if (videoRef.value) {
+      videoRef.value.srcObject = stream
+    }
+  } catch (error) {
+    alert('មិនអាចបើកកាមេរ៉ាបានទេ / Unable to access camera: ' + error.message)
+    isCameraMode.value = false
+  }
+}
+
+const stopCamera = () => {
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop())
+    stream = null
+  }
+  isCameraMode.value = false
+}
+
+const captureImage = () => {
+  if (!videoRef.value || !canvasRef.value) return
+  
+  const video = videoRef.value
+  const canvas = canvasRef.value
+  const ctx = canvas.getContext('2d')
+  
+  canvas.width = video.videoWidth
+  canvas.height = video.videoHeight
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+  
+  canvas.toBlob((blob) => {
+    if (blob) {
+      const file = new File([blob], `photo_${new Date().getTime()}.jpg`, { type: 'image/jpeg' })
+      stopCamera()
+      processFile(file)
+    }
+  }, 'image/jpeg', 0.9)
+}
+
+onBeforeUnmount(() => {
+  stopCamera()
+})
 
 const handleDragEnter = () => {
   isDragActive.value = true
@@ -64,6 +117,7 @@ const processFile = (file) => {
 const clearFile = () => {
   selectedFile.value = null
   previewUrl.value = null
+  isCameraMode.value = false
   emit('clear-file')
 }
 
@@ -83,28 +137,55 @@ const getFileSize = (bytes) => {
 
 <template>
   <div class="uploader-wrapper">
-    <!-- State 1: No file selected -> Modern Dropzone -->
-    <div v-if="!selectedFile" class="dropzone-card" @click="$refs.fileInput.click()" @dragenter.prevent="handleDragEnter" @dragleave.prevent="handleDragLeave" @dragover.prevent @drop.prevent="handleDrop" :class="{ 'drag-active': isDragActive }">
-      <input 
-        type="file" 
-        ref="fileInput" 
-        class="hidden-input" 
-        accept="image/*,application/pdf"
-        @change="handleFileSelect"
-      />
-      
-      <div class="dropzone-content">
+    <!-- State 1: Selection (Upload or Camera) -->
+    <div v-if="!selectedFile && !isCameraMode" class="selection-panel">
+      <!-- Upload Card -->
+      <div class="action-card" @click="$refs.fileInput.click()" @dragenter.prevent="handleDragEnter" @dragleave.prevent="handleDragLeave" @dragover.prevent @drop.prevent="handleDrop" :class="{ 'drag-active': isDragActive }">
+        <input 
+          type="file" 
+          ref="fileInput" 
+          class="hidden-input" 
+          accept="image/*,application/pdf"
+          @change="handleFileSelect"
+        />
         <div class="icon-circle">
-          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="upload-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+          <Upload size="48" class="action-icon" />
         </div>
-        <h3 class="dropzone-title">Upload your document</h3>
-        <h4 class="dropzone-subtitle-kh khmer-font">ផ្ទុកឯកសាររបស់អ្នកឡើង</h4>
-        <p class="dropzone-desc">Drag and drop or click to browse</p>
-        <p class="dropzone-hint">Supports JPG, PNG, and PDF</p>
+        <h3 class="action-title khmer-font">ផ្ទុកឯកសារ</h3>
+        <p class="action-desc">Upload File</p>
+      </div>
+
+      <!-- Camera Card -->
+      <div class="action-card" @click="startCamera">
+        <div class="icon-circle">
+          <Camera size="48" class="action-icon" />
+        </div>
+        <h3 class="action-title khmer-font">ថតឯកសារ</h3>
+        <p class="action-desc">Open Camera</p>
       </div>
     </div>
 
-    <!-- State 2: File selected -> Show preview -->
+    <!-- State 2: Camera Feed -->
+    <div v-else-if="isCameraMode && !selectedFile" class="camera-panel">
+      <div class="camera-header">
+        <h3 class="preview-title khmer-font">កាមេរ៉ា / Camera</h3>
+        <button class="btn-icon" @click="stopCamera" title="Close Camera">
+          <X size="24" />
+        </button>
+      </div>
+      
+      <div class="video-container">
+        <video ref="videoRef" autoplay playsinline class="camera-video"></video>
+        <canvas ref="canvasRef" style="display: none;"></canvas>
+      </div>
+      
+      <button class="btn-capture khmer-font" @click="captureImage">
+        <Camera size="24" />
+        ថតរូបភាព (Capture)
+      </button>
+    </div>
+
+    <!-- State 3: File selected -> Show preview -->
     <div v-else class="preview-panel">
       <div class="preview-header">
         <h3 class="preview-title">Document Preview</h3>
@@ -152,330 +233,4 @@ const getFileSize = (bytes) => {
   </div>
 </template>
 
-<style scoped>
-.uploader-wrapper {
-  width: 100%;
-  height: 100%;
-}
-
-/* Dropzone Styles */
-.dropzone-card {
-  background: #f4f7fa;
-  border: 2px dashed #2b61a2;
-  border-radius: 24px;
-  padding: 60px 24px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  transition: all 0.3s ease;
-  min-height: 380px;
-  height: 100%;
-}
-
-.dropzone-card:hover, .drag-active {
-  background: #eef2ff;
-  border-color: #1e4b85;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px -5px rgba(43, 97, 162, 0.2);
-}
-
-.hidden-input {
-  display: none;
-}
-
-.dropzone-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.icon-circle {
-  width: 80px;
-  height: 80px;
-  background: rgba(43, 97, 162, 0.1);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 8px;
-  transition: all 0.3s ease;
-}
-
-.dropzone-card:hover .icon-circle, .drag-active .icon-circle {
-  background: rgba(43, 97, 162, 0.2);
-  transform: scale(1.05);
-}
-
-.upload-icon {
-  color: #2b61a2;
-  transition: color 0.3s ease;
-}
-
-.dropzone-title {
-  font-size: 1.3rem;
-  font-weight: 800;
-  color: #0f172a;
-  margin: 0;
-}
-
-.dropzone-subtitle-kh {
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #2b61a2;
-  margin: 0;
-}
-
-.dropzone-desc {
-  font-size: 1rem;
-  color: #64748b;
-  margin: 8px 0 0 0;
-}
-
-.dropzone-hint {
-  font-size: 0.85rem;
-  color: #94a3b8;
-  margin: 0;
-}
-
-/* Preview Panel */
-.preview-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  background: linear-gradient(145deg, #2b61a2, #1e4b85);
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: 0 10px 30px rgba(43, 97, 162, 0.4);
-  height: 100%;
-}
-
-.preview-header {
-  display: flex;
-  align-items: center;
-}
-
-.preview-title {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: #ffffff;
-  margin: 0;
-}
-
-.preview-container {
-  width: 100%;
-  height: 280px;
-  background: rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.preview-img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-}
-
-.pdf-preview-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.pdf-icon {
-  color: #fca5a5;
-  width: 64px;
-  height: 64px;
-}
-
-.pdf-label {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-.file-details {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.1);
-  padding: 12px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-}
-
-.details-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  overflow: hidden;
-}
-
-.file-icon-box {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 10px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-slate {
-  color: #ffffff;
-}
-
-.file-meta {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.file-name {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #ffffff;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  max-width: 200px;
-}
-
-.file-size {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.btn-delete {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
-  cursor: pointer;
-  padding: 10px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.btn-delete:hover:not(:disabled) {
-  background: #ef4444;
-  color: white;
-  transform: scale(1.05);
-}
-
-.btn-process {
-  margin-top: auto;
-  width: 100%;
-  padding: 18px;
-  font-size: 1.2rem;
-  font-weight: 700;
-  border-radius: 16px;
-  background: linear-gradient(145deg, #f97316, #ea580c);
-  color: white;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  transition: all 0.3s ease;
-  box-shadow: 0 8px 20px rgba(249, 115, 22, 0.4);
-}
-
-.btn-process:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 25px rgba(249, 115, 22, 0.5);
-}
-
-.btn-process:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.spinner-sm {
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(255,255,255,0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-@media (max-width: 480px) {
-  .dropzone-card {
-    padding: 40px 16px;
-    min-height: 280px;
-    border-radius: 16px;
-  }
-  
-  .icon-circle {
-    width: 60px;
-    height: 60px;
-  }
-
-  .upload-icon {
-    width: 28px;
-    height: 28px;
-  }
-
-  .dropzone-title {
-    font-size: 1.15rem;
-  }
-
-  .dropzone-subtitle-kh {
-    font-size: 1.05rem;
-  }
-
-  .preview-panel {
-    padding: 16px;
-    border-radius: 16px;
-    gap: 16px;
-  }
-
-  .preview-title {
-    font-size: 1.05rem;
-  }
-
-  .preview-container {
-    height: 220px;
-  }
-
-  .file-details {
-    padding: 10px 12px;
-    border-radius: 12px;
-  }
-
-  .details-left {
-    gap: 10px;
-  }
-
-  .file-name {
-    font-size: 0.85rem;
-    max-width: 140px;
-  }
-
-  .btn-process {
-    padding: 14px;
-    font-size: 1.05rem;
-    border-radius: 12px;
-  }
-}
-</style>
+<style scoped src="./DocumentUploader.css"></style>
