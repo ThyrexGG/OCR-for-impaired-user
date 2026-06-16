@@ -11,7 +11,7 @@
    ------------------------------------------ */
 :root {
   /* Backgrounds */
-  --bg-primary: #FAF9F6;
+  --bg-primary: #FFFFFF;
   --bg-secondary: #F5F3EE;
   --bg-card: #FFFFFF;
   --bg-elevated: #FFFFFF;
@@ -1619,18 +1619,4 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-primary: #1C1C1C;
-    --bg-secondary: #262626;
-    --bg-card: #2D2D2D;
-    --text-primary: #F5F5F0;
-    --text-secondary: #B8B5AE;
-    --text-muted: #8A8780;
-    --border: #3D3D3D;
-    --border-strong: #4D4D4D;
-    --accent-light: rgba(217, 119, 6, 0.2);
-    --accent-subtle: rgba(217, 119, 6, 0.1);
-  }
-}
+/* Dark mode disabled — light theme always active */
