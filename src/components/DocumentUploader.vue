@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onBeforeUnmount, nextTick } from 'vue'
-import { Upload, FileImage, Trash2, FileText, Check, Camera, X } from 'lucide-vue-next'
+import { ref, onBeforeUnmount, nextTick, inject } from 'vue'
+import { Upload, Camera, FileText, Trash2, X, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-vue-next'
 
 const props = defineProps({
   isProcessing: {
@@ -10,6 +10,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['file-selected', 'clear-file', 'trigger-ocr'])
+const speakAccessibility = inject('speakAccessibility', () => {})
 
 const isDragActive = ref(false)
 const selectedFile = ref(null)
@@ -22,15 +23,18 @@ let stream = null
 
 const startCamera = async () => {
   isCameraMode.value = true
+  speakAccessibility('កំពុងបើកកាមេរ៉ា សូមរង់ចាំ...')
   await nextTick()
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' }
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
     })
     if (videoRef.value) {
       videoRef.value.srcObject = stream
+      speakAccessibility('កាមេរ៉ាបានបើករួចរាល់។ សូមតម្រង់ឯកសារក្នុងប្រអប់ ហើយចុចប៊ូតុងថតរូបភាព។')
     }
   } catch (error) {
+    speakAccessibility('មិនអាចបើកកាមេរ៉ាបានទេ៖ ' + error.message)
     alert('មិនអាចបើកកាមេរ៉ាបានទេ / Unable to access camera: ' + error.message)
     isCameraMode.value = false
   }
@@ -51,17 +55,18 @@ const captureImage = () => {
   const canvas = canvasRef.value
   const ctx = canvas.getContext('2d')
   
-  canvas.width = video.videoWidth
-  canvas.height = video.videoHeight
+  canvas.width = video.videoWidth || 1280
+  canvas.height = video.videoHeight || 720
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
   
   canvas.toBlob((blob) => {
     if (blob) {
-      const file = new File([blob], `photo_${new Date().getTime()}.jpg`, { type: 'image/jpeg' })
+      const file = new File([blob], `document_scan_${Date.now()}.jpg`, { type: 'image/jpeg' })
       stopCamera()
       processFile(file)
+      speakAccessibility('បានថតរូបភាពឯកសារជោគជ័យ។ រូបភាពបានផ្ទុកចូលប្រព័ន្ធរួចរាល់។')
     }
-  }, 'image/jpeg', 0.9)
+  }, 'image/jpeg', 0.92)
 }
 
 onBeforeUnmount(() => {
@@ -96,7 +101,8 @@ const processFile = (file) => {
   const isPdf = file.type === 'application/pdf'
   
   if (!isImage && !isPdf) {
-    alert('Invalid format. Please upload an Image or PDF document.')
+    alert('សូមជ្រើសរើសប្រភេទរូបភាព (JPG, PNG) ឬឯកសារ PDF')
+    speakAccessibility('ទម្រង់ឯកសារមិនត្រឹមត្រូវ សូមជ្រើសរើសរូបភាព ឬ PDF')
     return
   }
 
@@ -136,97 +142,169 @@ const getFileSize = (bytes) => {
 </script>
 
 <template>
-  <div class="uploader-wrapper">
-    <!-- State 1: Selection (Upload or Camera) -->
-    <div v-if="!selectedFile && !isCameraMode" class="selection-panel">
-      <!-- Upload Card -->
-      <div class="action-card" @click="$refs.fileInput.click()" @dragenter.prevent="handleDragEnter" @dragleave.prevent="handleDragLeave" @dragover.prevent @drop.prevent="handleDrop" :class="{ 'drag-active': isDragActive }">
-        <input 
-          type="file" 
-          ref="fileInput" 
-          class="hidden-input" 
-          accept="image/*,application/pdf"
-          @change="handleFileSelect"
-        />
-        <div class="icon-circle">
-          <Upload size="48" class="action-icon" />
+  <div class="uploader-wrapper glass-card">
+    <div class="card-header-bar">
+      <div class="header-left">
+        <div class="header-icon-box bg-accent">
+          <Upload :size="20" />
         </div>
-        <h3 class="action-title khmer-font">ផ្ទុកឯកសារ</h3>
-        <p class="action-desc">Upload File</p>
+        <h2 class="card-title khmer-font">បញ្ចូល ឬថតឯកសារ</h2>
       </div>
-
-      <!-- Camera Card -->
-      <div class="action-card" @click="startCamera">
-        <div class="icon-circle">
-          <Camera size="48" class="action-icon" />
-        </div>
-        <h3 class="action-title khmer-font">ថតឯកសារ</h3>
-        <p class="action-desc">Open Camera</p>
+      <div class="header-right">
+        <span v-if="selectedFile" class="status-chip chip-ready khmer-font">
+          <CheckCircle2 :size="14" />
+          <span>បានត្រៀម</span>
+        </span>
+        <span v-else class="status-chip chip-idle khmer-font">
+          <span>រង់ចាំឯកសារ</span>
+        </span>
       </div>
     </div>
 
-    <!-- State 2: Camera Feed -->
-    <div v-else-if="isCameraMode && !selectedFile" class="camera-panel">
-      <div class="camera-header">
-        <h3 class="preview-title khmer-font">កាមេរ៉ា / Camera</h3>
-        <button class="btn-icon" @click="stopCamera" title="Close Camera">
-          <X size="24" />
-        </button>
+    <!-- State 1: Selection Modes (Upload File or Camera) -->
+    <div v-if="!selectedFile && !isCameraMode" class="selection-body">
+      <div class="selection-grid">
+        <!-- Upload Card -->
+        <div 
+          class="action-tile drop-zone" 
+          @click="$refs.fileInput.click()" 
+          @dragenter.prevent="handleDragEnter" 
+          @dragleave.prevent="handleDragLeave" 
+          @dragover.prevent 
+          @drop.prevent="handleDrop" 
+          :class="{ 'drag-active': isDragActive }"
+          tabindex="0"
+          role="button"
+          aria-label="ចុច ឬទម្លាក់ឯកសារនៅទីនេះដើម្បីផ្ទុក (Upload Document)"
+          @keydown.enter="$refs.fileInput.click()"
+          @keydown.space.prevent="$refs.fileInput.click()"
+        >
+          <input 
+            type="file" 
+            ref="fileInput" 
+            class="hidden-input" 
+            accept="image/*,application/pdf"
+            @change="handleFileSelect"
+          />
+          <div class="tile-icon-circle bg-accent">
+            <Upload :size="36" />
+          </div>
+          <h3 class="tile-title khmer-font">ផ្ទុកឯកសារ (Upload)</h3>
+          <p class="tile-desc khmer-font">ចុចទីនេះ ឬអូសទម្លាក់រូបភាព / PDF</p>
+          <span class="file-types-badge">PNG, JPG, WEBP, PDF</span>
+        </div>
+
+        <!-- Camera Card -->
+        <div 
+          class="action-tile camera-tile" 
+          @click="startCamera"
+          tabindex="0"
+          role="button"
+          aria-label="បើកកាមេរ៉ាដើម្បីថតឯកសារផ្ទាល់ (Open Camera)"
+          @keydown.enter="startCamera"
+          @keydown.space.prevent="startCamera"
+        >
+          <div class="tile-icon-circle bg-brand">
+            <Camera :size="36" />
+          </div>
+          <h3 class="tile-title khmer-font">ថតឯកសារ (Camera)</h3>
+          <p class="tile-desc khmer-font">ប្រើប្រាស់កាមេរ៉ាស្កេនផ្ទាល់</p>
+          <span class="file-types-badge">Live Capture</span>
+        </div>
       </div>
-      
-      <div class="video-container">
+    </div>
+
+    <!-- State 2: Camera Active Feed -->
+    <div v-else-if="isCameraMode && !selectedFile" class="camera-body">
+      <div class="camera-viewfinder">
         <video ref="videoRef" autoplay playsinline class="camera-video"></video>
         <canvas ref="canvasRef" style="display: none;"></canvas>
+
+        <!-- Scanning overlay guide brackets for low-vision positioning -->
+        <div class="viewfinder-overlay" aria-hidden="true">
+          <div class="guide-corner top-left"></div>
+          <div class="guide-corner top-right"></div>
+          <div class="guide-corner bottom-left"></div>
+          <div class="guide-corner bottom-right"></div>
+          <div class="guide-scan-line"></div>
+        </div>
       </div>
-      
-      <button class="btn-capture khmer-font" @click="captureImage">
-        <Camera size="24" />
-        ថតរូបភាព (Capture)
-      </button>
+
+      <div class="camera-controls">
+        <button 
+          type="button" 
+          class="btn btn-primary btn-capture khmer-font" 
+          @click="captureImage"
+          aria-label="ថតរូបភាពឯកសារ (Capture Image)"
+        >
+          <Camera :size="22" />
+          <span>ថតរូបភាព (Capture)</span>
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-secondary btn-cancel-camera khmer-font" 
+          @click="stopCamera"
+          aria-label="បិទកាមេរ៉ា (Close Camera)"
+        >
+          <X :size="20" />
+          <span>បិទកាមេរ៉ា</span>
+        </button>
+      </div>
     </div>
 
-    <!-- State 3: File selected -> Show preview -->
-    <div v-else class="preview-panel">
-      <div class="preview-header">
-        <h3 class="preview-title">Document Preview</h3>
-      </div>
+    <!-- State 3: File Selected -> Document Preview & Action -->
+    <div v-else class="preview-body">
       <div class="preview-container">
-        <!-- PDF Preview -->
+        <!-- PDF Document Preview -->
         <div v-if="previewUrl === 'pdf'" class="pdf-preview-box">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="pdf-icon"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
-          <span class="pdf-label">PDF Document</span>
+          <FileText :size="64" class="pdf-icon" />
+          <span class="pdf-label khmer-font">ឯកសារ PDF (Document Ready)</span>
         </div>
-        
-        <!-- Image Preview -->
-        <img v-else-if="previewUrl" :src="previewUrl" alt="Document Preview" class="preview-img" />
+
+        <!-- Image Document Preview -->
+        <div v-else-if="previewUrl" class="image-preview-wrapper">
+          <img :src="previewUrl" alt="ការមើលជាមុននៃឯកសារ" class="preview-img" />
+        </div>
       </div>
 
-      <div class="file-details">
+      <!-- File Details Card -->
+      <div class="file-details-card">
         <div class="details-left">
-          <div class="file-icon-box">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-slate"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+          <div class="details-icon bg-accent">
+            <FileText :size="22" />
           </div>
-          <div class="file-meta">
-            <span class="file-name">{{ selectedFile.name }}</span>
-            <span class="file-size">{{ getFileSize(selectedFile.size) }}</span>
+          <div class="details-meta">
+            <span class="file-name" :title="selectedFile?.name">{{ selectedFile?.name }}</span>
+            <span class="file-size">{{ getFileSize(selectedFile?.size || 0) }}</span>
           </div>
         </div>
-        <button class="btn-delete" @click="clearFile" :disabled="isProcessing" title="Remove file">
-          <Trash2 size="18" />
+        <button 
+          type="button" 
+          class="btn-icon-danger" 
+          @click="clearFile" 
+          :disabled="isProcessing" 
+          aria-label="លុបឯកសារនេះចេញ"
+          title="លុបឯកសារ"
+        >
+          <Trash2 :size="20" />
         </button>
       </div>
 
+      <!-- Start OCR Primary Action CTA -->
       <button 
-        class="btn-process" 
+        type="button" 
+        class="btn btn-primary btn-process khmer-font" 
         @click="triggerOcr" 
         :disabled="isProcessing"
+        aria-label="ចាប់ផ្តើមបម្លែងជាអត្ថបទ OCR"
       >
         <template v-if="isProcessing">
-          <div class="spinner-sm"></div>
-          <span class="khmer-font">កំពុងវិភាគអត្ថបទ...</span>
+          <div class="spinner-sm" aria-hidden="true"></div>
+          <span>កំពុងវិភាគ និងស្កេនអត្ថបទខ្មែរ...</span>
         </template>
         <template v-else>
-          <span class="khmer-font">បម្លែងជាអត្ថបទ (OCR)</span>
+          <Sparkles :size="22" />
+          <span>បម្លែងជាអត្ថបទ (Start OCR)</span>
         </template>
       </button>
     </div>

@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { Play, Pause, Square, Volume2, Sparkles } from 'lucide-vue-next'
+import { ref, onMounted, onUnmounted, watch, nextTick, inject } from 'vue'
+import { Play, Pause, Square, RotateCcw, Volume2, Sparkles, Sliders, Music2 } from 'lucide-vue-next'
 import { synthesizeTextAzureTTS } from '../services/tts'
+import { getTtsCache, setTtsCache } from '../services/cache'
 
 const props = defineProps({
   text: {
@@ -9,6 +10,8 @@ const props = defineProps({
     default: ''
   }
 })
+
+const speakAccessibility = inject('speakAccessibility', () => {})
 
 // Audio & Synthesis State
 const voices = ref([])
@@ -21,15 +24,25 @@ const isPaused = ref(false)
 // Highlighting State
 const words = ref([])
 const activeWordIndex = ref(-1)
+const wordsContainerRef = ref(null)
 let highlightInterval = null
+let currentAudio = null
 
-// Helper to convert English numbers to Khmer numerals
-const toKhmerNum = (num) => {
-  const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩']
-  return String(num).replace(/[0-9]/g, match => khmerDigits[match])
+// Canvas Visualizer
+const canvasRef = ref(null)
+let animationId = null
+const waveOffset = ref(0)
+
+// Quick speed presets
+const speedPresets = [0.8, 1.0, 1.2, 1.5]
+
+const setSpeedPreset = (val) => {
+  rate.value = val
+  if (currentAudio) currentAudio.playbackRate = val
+  speakAccessibility(`ប្តូរល្បឿនអានទៅ ${val} ដង`)
 }
 
-// Live Audio Controls
+// Live audio updates
 watch(rate, (newRate) => {
   if (currentAudio) currentAudio.playbackRate = newRate
 })
@@ -38,22 +51,14 @@ watch(volume, (newVol) => {
   if (currentAudio) currentAudio.volume = newVol
 })
 
-// Audio Object for Google TTS
-let currentAudio = null
-
-// Canvas Audio Visualizer
-const canvasRef = ref(null)
-let animationId = null
-const waveOffset = ref(0)
-
 // Load speech synthesis voices
 const loadVoices = () => {
   if (typeof window === 'undefined') return
   
   if (import.meta.env.VITE_AZURE_TTS_API_KEY) {
     voices.value = [
-      { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'Piseth (Male / ប្រុស)', gender: 'Male' },
-      { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'Sreymom (Female / ស្រី)', gender: 'Female' }
+      { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'Piseth (សំឡេងប្រុស)', gender: 'Male' },
+      { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'Sreymom (សំឡេងស្រី)', gender: 'Female' }
     ]
     if (!selectedVoiceName.value || !voices.value.find(v => v.name === selectedVoiceName.value)) {
       selectedVoiceName.value = 'km-KH-PisethNeural'
@@ -64,21 +69,26 @@ const loadVoices = () => {
   if (!window.speechSynthesis) return
   
   try {
-    let availableVoices = window.speechSynthesis.getVoices() || []
-    voices.value = availableVoices.map(v => ({ name: v.name, lang: v.lang, label: v.name, gender: 'Unknown' }))
+    const availableVoices = window.speechSynthesis.getVoices() || []
+    voices.value = availableVoices.map(v => ({ 
+      name: v.name, 
+      lang: v.lang, 
+      label: `${v.name} (${v.lang})`, 
+      gender: 'Default' 
+    }))
     
-    // Try to find a Khmer voice safely
-    const khmerVoice = availableVoices.find(voice => {
-      const lang = voice?.lang?.toLowerCase() || ''
-      const name = voice?.name?.toLowerCase() || ''
-      return lang.includes('km') || lang.includes('khmer') || name.includes('khmer')
+    // Find Khmer voice if available
+    const khmerVoice = availableVoices.find(v => {
+      const l = (v.lang || '').toLowerCase()
+      const n = (v.name || '').toLowerCase()
+      return l.includes('km') || l.includes('khmer') || n.includes('khmer')
     })
 
     if (khmerVoice) {
       selectedVoiceName.value = khmerVoice.name
     } else if (availableVoices.length > 0) {
-      const defaultVoice = availableVoices.find(voice => voice?.default) || availableVoices[0]
-      if (defaultVoice) {
+      const defaultVoice = availableVoices.find(v => v.default) || availableVoices[0]
+      if (defaultVoice && !selectedVoiceName.value) {
         selectedVoiceName.value = defaultVoice.name
       }
     }
@@ -92,27 +102,38 @@ const loadVoices = () => {
 const prepareWords = (textToSplit) => {
   if (!textToSplit) {
     words.value = []
+    activeWordIndex.value = -1
     return
   }
   
-  // Split strictly by any whitespace (newlines, spaces, tabs)
-  // This prevents randomly slicing Khmer words in the middle of a syllable
+  // Split cleanly by whitespace without breaking complex Khmer clusters
   const tokens = textToSplit.trim().split(/\s+/).filter(w => w.length > 0)
-  
-  words.value = tokens.map(w => ({ text: w, id: Math.random() }))
+  words.value = tokens.map((w, idx) => ({ text: w, id: `token-${idx}-${Date.now()}` }))
+}
+
+// Auto-scroll active word into view
+const scrollToActiveWord = async () => {
+  await nextTick()
+  if (!wordsContainerRef.value || activeWordIndex.value === -1) return
+  const activeEl = wordsContainerRef.value.querySelector('.word-active')
+  if (activeEl) {
+    activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+  }
 }
 
 // Word-by-word visual highlight simulation
 const startHighlighting = () => {
   activeWordIndex.value = 0
-  // Khmer text typically takes a bit longer per visual "word" segment to read
-  const durationPerWord = Math.max(400, 800 - (rate.value - 1) * 300)
+  scrollToActiveWord()
   
+  const durationPerWord = Math.max(350, Math.round(750 / rate.value))
+  
+  if (highlightInterval) clearInterval(highlightInterval)
   highlightInterval = setInterval(() => {
     if (activeWordIndex.value < words.value.length - 1) {
       activeWordIndex.value++
+      scrollToActiveWord()
     } else {
-      // Just stop highlighting, let the audio finish playing naturally
       if (highlightInterval) {
         clearInterval(highlightInterval)
         highlightInterval = null
@@ -122,10 +143,12 @@ const startHighlighting = () => {
 }
 
 const resumeHighlighting = () => {
-  const durationPerWord = Math.max(400, 800 - (rate.value - 1) * 300)
+  const durationPerWord = Math.max(350, Math.round(750 / rate.value))
+  if (highlightInterval) clearInterval(highlightInterval)
   highlightInterval = setInterval(() => {
     if (activeWordIndex.value < words.value.length - 1) {
       activeWordIndex.value++
+      scrollToActiveWord()
     } else {
       if (highlightInterval) {
         clearInterval(highlightInterval)
@@ -135,9 +158,12 @@ const resumeHighlighting = () => {
   }, durationPerWord)
 }
 
-// Web Speech API trigger
+// Playback Trigger
 const startSpeech = async () => {
-  if (!props.text) return
+  if (!props.text) {
+    speakAccessibility('មិនទាន់មានអត្ថបទសម្រាប់អាននៅឡើយទេ។')
+    return
+  }
   
   let provider = 'web-speech'
   let apiKey = ''
@@ -149,44 +175,56 @@ const startSpeech = async () => {
     endpoint = import.meta.env.VITE_AZURE_TTS_ENDPOINT
   }
 
+  // Azure Neural TTS
   if (provider === 'azure-tts' && apiKey) {
     if (isPaused.value && currentAudio) {
       currentAudio.play()
       isPaused.value = false
       isSpeaking.value = true
       resumeHighlighting()
+      speakAccessibility('បន្តការអាន')
       return
     }
 
     stopSpeech()
     isSpeaking.value = true
     isPaused.value = false
+    speakAccessibility('ចាប់ផ្តើមអានអត្ថបទ...')
     
     try {
       const selectedVoice = voices.value.find(v => v.name === selectedVoiceName.value)
       const voiceName = selectedVoice ? selectedVoice.name : 'km-KH-PisethNeural'
-      const gender = selectedVoice && selectedVoice.gender ? selectedVoice.gender : 'Male'
+      const gender = selectedVoice?.gender || 'Male'
 
-      // We request 1.0x speed from Azure and handle Speed/Volume dynamically via HTML5 Audio so sliders are instantly responsive!
-      const audioUrl = await synthesizeTextAzureTTS(props.text, apiKey, endpoint, 1.0, 1.0, voiceName, gender)
+      let audioUrl = getTtsCache(props.text, voiceName, 1.0)
+      if (!audioUrl) {
+        audioUrl = await synthesizeTextAzureTTS(props.text, apiKey, endpoint, 1.0, 1.0, voiceName, gender)
+        setTtsCache(props.text, voiceName, 1.0, audioUrl)
+      }
+
       currentAudio = new Audio(audioUrl)
       currentAudio.playbackRate = rate.value
       currentAudio.volume = volume.value
       
       currentAudio.onended = () => {
         stopSpeech()
+        speakAccessibility('ការអានអត្ថបទបានបញ្ចប់។')
       }
       currentAudio.play()
       startHighlighting()
     } catch (error) {
       console.error(error)
-      alert(`កំហុស TTS API: ${error.message || 'មិនអាចដំណើរការសេវាកម្ម Azure TTS បានទេ'}`)
       isSpeaking.value = false
+      fallbackWebSpeech()
     }
     return
   }
 
-  // Fallback to Web Speech API
+  // Fallback: Web Speech API
+  fallbackWebSpeech()
+}
+
+const fallbackWebSpeech = () => {
   if (isPaused.value && typeof window !== 'undefined' && window.speechSynthesis) {
     window.speechSynthesis.resume()
     isPaused.value = false
@@ -196,15 +234,13 @@ const startSpeech = async () => {
   }
 
   stopSpeech()
-  
   isSpeaking.value = true
   isPaused.value = false
-  
+
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
   if (synth) {
     try {
       const utterance = new SpeechSynthesisUtterance(props.text)
-      
       const voice = (voices.value || []).find(v => v?.name === selectedVoiceName.value)
       if (voice) utterance.voice = voice
       utterance.rate = rate.value
@@ -219,7 +255,7 @@ const startSpeech = async () => {
       
       synth.speak(utterance)
     } catch (error) {
-      console.warn('SpeechSynthesis start failed:', error)
+      console.warn('SpeechSynthesis execution warning:', error)
     }
   }
   
@@ -244,6 +280,7 @@ const pauseSpeech = () => {
     clearInterval(highlightInterval)
     highlightInterval = null
   }
+  speakAccessibility('បានផ្អាកការអាន')
 }
 
 const stopSpeech = () => {
@@ -269,38 +306,45 @@ const stopSpeech = () => {
   }
 }
 
-// Canvas wave drawing
+const restartSpeech = () => {
+  stopSpeech()
+  startSpeech()
+  speakAccessibility('អានឡើងវិញតាំងពីដើម')
+}
+
+// Canvas Wave Visualizer Animation
 const drawVisualizer = () => {
   const canvas = canvasRef.value
-  if (!canvas) return
+  if (!canvas || !canvas.parentElement) return
   
   const ctx = canvas.getContext('2d')
-  const width = canvas.width = canvas.parentElement.clientWidth
-  const height = canvas.height = 60
+  const width = canvas.width = canvas.parentElement.clientWidth || 400
+  const height = canvas.height = 48
   
   ctx.clearRect(0, 0, width, height)
   
-  const waveCount = 2
+  const waveCount = 3
   const colors = [
-    'rgba(59, 130, 246, 0.25)', // Blue
-    'rgba(16, 185, 129, 0.15)'  // Green
+    'rgba(245, 158, 11, 0.85)',  // Vibrant Warm Amber
+    'rgba(251, 191, 36, 0.60)',  // Honey Gold
+    'rgba(253, 230, 138, 0.35)'  // Soft Champagne Gold
   ]
   
   waveOffset.value += isSpeaking.value ? 0.08 : 0.01
   
   for (let i = 0; i < waveCount; i++) {
     ctx.beginPath()
-    ctx.lineWidth = 2
+    ctx.lineWidth = isSpeaking.value ? 2.5 : 1.5
     ctx.strokeStyle = colors[i]
     
     const amplitude = isSpeaking.value 
-      ? (10 + i * 6) * (0.8 + Math.sin(waveOffset.value * 2) * 0.2)
-      : 2 + i * 1
+      ? (8 + i * 5) * (0.8 + Math.sin(waveOffset.value * 2) * 0.25)
+      : 2 + i * 0.8
       
-    const frequency = 0.015 - i * 0.003
+    const frequency = 0.016 - i * 0.003
     
     for (let x = 0; x < width; x++) {
-      const y = height / 2 + Math.sin(x * frequency + waveOffset.value + i * 5) * amplitude
+      const y = height / 2 + Math.sin(x * frequency + waveOffset.value + i * 3) * amplitude
       if (x === 0) {
         ctx.moveTo(x, y)
       } else {
@@ -328,36 +372,64 @@ onUnmounted(() => {
   }
 })
 
-// Watchers at the bottom to prevent hoisting issues
 watch(() => props.text, (newText) => {
   prepareWords(newText)
   if (typeof stopSpeech === 'function') {
     stopSpeech()
   }
 }, { immediate: true })
+
+const togglePlayback = () => {
+  if (isSpeaking.value) {
+    pauseSpeech()
+  } else {
+    startSpeech()
+  }
+}
+
+defineExpose({
+  togglePlayback,
+  startSpeech,
+  pauseSpeech,
+  stopPlayback: stopSpeech
+})
 </script>
 
 <template>
-  <div class="tts-card">
-    <div class="card-header">
-      <div class="title-wrap">
-        <div class="icon-box-indigo">
+  <div class="tts-card glass-card">
+    <!-- Header Bar -->
+    <div class="tts-header-bar">
+      <div class="header-left">
+        <div class="header-icon-box bg-brand">
           <Volume2 :size="20" />
         </div>
-        <h2 class="khmer-font">អានអត្ថបទជាសំឡេង (TTS)</h2>
+        <div class="title-meta">
+          <h2 class="card-title khmer-font">អានអត្ថបទជាសំឡេង (TTS)</h2>
+          <span class="tts-subtitle khmer-font">Khmer Speech Synthesizer</span>
+        </div>
       </div>
-      <span v-if="isSpeaking" class="badge badge-green khmer-font">កំពុងអាន</span>
-      <span v-else-if="isPaused" class="badge badge-amber khmer-font">ផ្អាក</span>
-      <span v-else class="badge badge-slate khmer-font">រង់ចាំ</span>
+
+      <div class="header-right">
+        <span v-if="isSpeaking" class="badge badge-brand khmer-font">
+          <span class="live-dot"></span>
+          <span>កំពុងអាន</span>
+        </span>
+        <span v-else-if="isPaused" class="badge badge-brand khmer-font">
+          <span>បានផ្អាក</span>
+        </span>
+        <span v-else class="badge badge-slate khmer-font">
+          <span>រង់ចាំ</span>
+        </span>
+      </div>
     </div>
 
-    <!-- Speech highlighting workspace -->
-    <div class="words-container">
+    <!-- Speech Karaoke Highlighting Workspace with Auto-Scroll -->
+    <div class="karaoke-viewer" ref="wordsContainerRef" aria-live="polite" aria-label="ផ្ទាំងរំលេចពាក្យពេលអាន">
       <div v-if="words.length === 0" class="viewer-empty">
-        <Sparkles :size="24" class="icon-slate-light" />
-        <span class="khmer-font">អត្ថបទអក្សរខ្មែរនឹងបង្ហាញរំលេចពាក្យម្តងមួយៗនៅទីនេះពេលអាន។</span>
+        <Sparkles :size="28" class="icon-subtle" />
+        <p class="khmer-font">អត្ថបទនឹងបង្ហាញរំលេចពាក្យម្តងមួយៗ (Karaoke Highlight) នៅទីនេះពេលចាប់ផ្តើមអាន។</p>
       </div>
-      <div v-else class="words-grid khmer-font">
+      <div v-else class="words-flow khmer-font">
         <span 
           v-for="(word, index) in words" 
           :key="word.id"
@@ -369,71 +441,131 @@ watch(() => props.text, (newText) => {
       </div>
     </div>
 
-    <!-- Canvas Wave Visualizer -->
-    <div class="visualizer-wrapper">
+    <!-- Dynamic Wave Visualizer -->
+    <div class="visualizer-container" aria-hidden="true">
       <canvas ref="canvasRef" class="visualizer-canvas"></canvas>
     </div>
 
-    <!-- Parameters & Controls -->
-    <div class="controls-panel">
-      <!-- Voice Config -->
-      <div class="form-row">
-        <div class="col-field">
-          <span class="label-title khmer-font">ជ្រើសរើសសំឡេងអាន៖</span>
-          <select v-model="selectedVoiceName" class="voice-select">
-            <option v-for="voice in voices" :key="voice.name" :value="voice.name">
-              {{ voice.label || voice.name }} ({{ voice.lang }})
-            </option>
-          </select>
+    <!-- Tactile Media Player Deck -->
+    <div class="media-deck">
+      <!-- Voice Config Field -->
+      <div class="voice-picker-row">
+        <label for="voice-select" class="picker-label khmer-font">
+          <Music2 :size="16" class="text-accent" />
+          <span>ជ្រើសរើសសំឡេងអាន៖</span>
+        </label>
+        <select id="voice-select" v-model="selectedVoiceName" class="accessible-select khmer-font">
+          <option v-for="voice in voices" :key="voice.name" :value="voice.name">
+            {{ voice.label }}
+          </option>
+        </select>
+      </div>
+
+      <!-- Quick Speed Preset Pills -->
+      <div class="speed-presets-row">
+        <span class="speed-label khmer-font">ល្បឿនអានរហ័ស៖</span>
+        <div class="preset-buttons">
+          <button 
+            v-for="p in speedPresets" 
+            :key="p"
+            type="button"
+            class="preset-pill"
+            :class="{ 'preset-active': rate === p }"
+            @click="setSpeedPreset(p)"
+            :aria-label="`ល្បឿន ${p} ដង`"
+          >
+            {{ p }}x
+          </button>
         </div>
       </div>
 
-      <!-- Playback Speed Sliders -->
-      <div class="form-row flex-row">
-        <div class="slider-field">
+      <!-- Live Sliders for Speed and Volume -->
+      <div class="sliders-grid">
+        <div class="slider-block">
           <div class="slider-header">
-            <span class="khmer-font">ល្បឿនអាន៖</span>
-            <span class="val-text khmer-font">{{ toKhmerNum(rate) }}x</span>
+            <span class="khmer-font slider-title">ល្បឿនអាន (Speed):</span>
+            <span class="slider-val">{{ rate.toFixed(1) }}x</span>
           </div>
-          <input type="range" min="0.5" max="2.0" step="0.1" v-model.number="rate" class="custom-slider" />
+          <input 
+            type="range" 
+            min="0.5" 
+            max="2.0" 
+            step="0.1" 
+            v-model.number="rate" 
+            class="accessible-range" 
+            aria-label="កែសម្រួលល្បឿនអាន"
+          />
         </div>
-        
-        <div class="slider-field">
+
+        <div class="slider-block">
           <div class="slider-header">
-            <span class="khmer-font">កម្រិតសំឡេង៖</span>
-            <span class="val-text khmer-font">{{ toKhmerNum(Math.round(volume * 100)) }}%</span>
+            <span class="khmer-font slider-title">កម្រិតសំឡេង (Volume):</span>
+            <span class="slider-val">{{ Math.round(volume * 100) }}%</span>
           </div>
-          <input type="range" min="0.0" max="1.0" step="0.1" v-model.number="volume" class="custom-slider" />
+          <input 
+            type="range" 
+            min="0.0" 
+            max="1.0" 
+            step="0.05" 
+            v-model.number="volume" 
+            class="accessible-range" 
+            aria-label="កែសម្រួលកម្រិតសំឡេង"
+          />
         </div>
       </div>
 
-      <!-- Playback Actions -->
-      <div class="btn-actions-row">
+      <!-- Main Playback Actions (Accessible Min 48px Target) -->
+      <div class="playback-controls-row">
+        <!-- Play / Pause Main CTA -->
         <button 
           v-if="!isSpeaking" 
-          class="btn btn-primary flex-grow" 
+          type="button"
+          class="btn btn-primary btn-playback-main khmer-font" 
           @click="startSpeech" 
           :disabled="!text"
+          aria-label="ចាប់ផ្តើមអានអត្ថបទជាសំឡេង (Space)"
+          title="ចាប់ផ្តើមអាន (Space)"
         >
-          <Play :size="18" fill="currentColor" />
-          <span class="khmer-font">អានអត្ថបទ</span>
+          <Play :size="22" fill="currentColor" />
+          <span>អានអត្ថបទ (Play)</span>
+          <kbd class="kbd-hint">Space</kbd>
         </button>
+
         <button 
           v-else 
-          class="btn btn-warning flex-grow" 
+          type="button"
+          class="btn btn-warning btn-playback-main khmer-font" 
           @click="pauseSpeech"
+          aria-label="ផ្អាកការអានជាសំឡេង (Space)"
+          title="ផ្អាក (Space)"
         >
-          <Pause :size="18" fill="currentColor" />
-          <span class="khmer-font">ផ្អាក</span>
+          <Pause :size="22" fill="currentColor" />
+          <span>ផ្អាក (Pause)</span>
+          <kbd class="kbd-hint">Space</kbd>
         </button>
-        
+
+        <!-- Replay from Start -->
         <button 
-          class="btn btn-outline btn-stop" 
+          type="button"
+          class="btn btn-secondary btn-deck-tool" 
+          @click="restartSpeech" 
+          :disabled="!text"
+          aria-label="អានឡើងវិញពីដើម"
+          title="អានឡើងវិញ"
+        >
+          <RotateCcw :size="18" />
+        </button>
+
+        <!-- Stop Playback -->
+        <button 
+          type="button"
+          class="btn btn-outline btn-deck-tool btn-stop" 
           @click="stopSpeech" 
           :disabled="!isSpeaking && !isPaused && activeWordIndex === -1"
+          aria-label="បញ្ឈប់ការអាន (Esc)"
+          title="បញ្ឈប់ (Esc)"
         >
-          <Square :size="16" fill="currentColor" />
-          <span class="khmer-font">បញ្ឈប់</span>
+          <Square :size="18" fill="currentColor" />
         </button>
       </div>
     </div>
