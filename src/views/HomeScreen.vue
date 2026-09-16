@@ -1,7 +1,11 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, inject } from 'vue'
+import { ref, onMounted, onBeforeUnmount, inject, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Sparkles, BookOpen, FileCheck2, Cpu, Zap } from 'lucide-vue-next'
+import { 
+  ArrowLeft, Sparkles, BookOpen, FileCheck2, Cpu, Zap, 
+  Camera, History, Compass, ArrowRight, Eye, Play, Volume2,
+  Upload, HelpCircle, Settings, RefreshCw, AlertCircle, CheckCircle2, FileText
+} from 'lucide-vue-next'
 import DocumentUploader from '../components/DocumentUploader.vue'
 import OcrPanel from '../components/OcrPanel.vue'
 import TtsPanel from '../components/TtsPanel.vue'
@@ -11,18 +15,36 @@ import { detectTextGoogleVision, detectTextAzureVision } from '../services/ocr'
 import { getFileFingerprint, getOcrCache, setOcrCache } from '../services/cache'
 
 const router = useRouter()
+
+// Injected global accessibility context from App.vue
 const speakAccessibility = inject('speakAccessibility', () => {})
+const triggerHaptic = inject('triggerHaptic', () => {})
+const activeMode = inject('activeMode', ref('scan'))
+const setMode = inject('setMode', () => {})
+const openSettings = inject('openSettings', () => {})
+const openHelp = inject('openHelp', () => {})
+const isAutoReadEnabled = inject('isAutoReadEnabled', ref(true))
 
 // Component Refs
 const ttsPanelRef = ref(null)
+const ocrPanelRef = ref(null)
+const scanAgainErrorBtnRef = ref(null)
 
-// Global Application State
+// Core Application State
 const isProcessing = ref(false)
+const isLongProcessing = ref(false)
+let processingTimeoutId = null
+const ocrError = ref(null)
+
 const extractedText = ref('')
 const selectedFileName = ref('')
 const selectedFile = ref(null)
 const historyList = ref([])
 const isCached = ref(false)
+
+// Karaoke Highlighting Sync State
+const activeWordIndex = ref(-1)
+const highlightMode = ref('word') // 'word' | 'sentence' | 'paragraph'
 
 // Toast System
 const toasts = ref([])
@@ -32,9 +54,7 @@ const addToast = ({ message, type = 'info', actionLabel, onAction, duration = 40
   const toast = { id, message, type, actionLabel, onAction }
   toasts.value.push(toast)
   if (duration > 0) {
-    setTimeout(() => {
-      dismissToast(id)
-    }, duration)
+    setTimeout(() => { dismissToast(id) }, duration)
   }
   return id
 }
@@ -43,26 +63,35 @@ const dismissToast = (id) => {
   toasts.value = toasts.value.filter(t => t.id !== id)
 }
 
-// Rich Sample Khmer Documents for 1-click test driving
+// Realistic Khmer Sample Library
 const sampleLibrary = [
   {
     id: 'announcement',
     title: 'សេចក្តីជូនដំណឹង (Notice)',
+    category: 'ឯកសាររដ្ឋបាល',
     text: `ព្រះរាជាណាចក្រកម្ពុជា\nជាតិ សាសនា ព្រះមហាក្សត្រ\n---\nក្រសួងអប់រំ យុវជន និងកីឡា\nសេចក្តីជូនដំណឹង\nស្តីពីការប្រើប្រាស់ប្រព័ន្ធបច្ចេកវិទ្យាជំនួយសម្រាប់សិស្ស-និស្សិតដែលមានពិការភាពគំហើញ។ ក្រសួងសូមលើកទឹកចិត្តឱ្យគ្រឹះស្ថានសិក្សាទាំងអស់ពង្រឹងការប្រើប្រាស់ឧបករណ៍អានឯកសារជាសំឡេង (Screen Reader & OCR) ដើម្បីបង្កើនសមភាពក្នុងការទទួលបានចំណេះដឹង។`
   },
   {
     id: 'story',
     title: 'រឿងព្រេង: ធនញ្ជ័យ (Folk Story)',
+    category: 'អក្សរសិល្ប៍',
     text: `កាលពីព្រេងនាយ មានកុមារម្នាក់ឈ្មោះធនញ្ជ័យ ជាក្មេងឆ្លាតវៃនិងមានប្រាជ្ញាលើសក្មេងដទៃ។ ធនញ្ជ័យតែងតែយកចំណេះដឹងនិងប្រាជ្ញាស្មារតីរបស់ខ្លួនមកដោះស្រាយបញ្ហាលំបាកៗក្នុងភូមិ និងជួយដល់ប្រជាជនស្លូតត្រង់។`
   },
   {
     id: 'poem',
     title: 'កំណាព្យ: ភុជង្គលីលា (Poem)',
+    category: 'កំណាព្យខ្មែរ',
     text: `សូមថ្វាយបង្គំ ព្រះពុទ្ធឧត្តម ប្រសើរថ្លៃថ្លា\nព្រះធម៌វរគុណ នាំចិត្តជ្រះថ្លា ព្រះសង្ឃសច្ចា រក្សាធម៌ពិត។\nកម្ពុជាថ្កុំថ្កើង រុងរឿងគង់វង្ស ដោយគុណកុសល សីលធម៌ប្រណិត។`
+  },
+  {
+    id: 'receipt',
+    title: 'វិក័យប័ត្រទូទាត់ (Receipt)',
+    category: 'ជីវភាពរស់នៅ',
+    text: `ឱសថស្ថាន សុខភាពល្អ\nវិក័យប័ត្រទូទាត់ប្រាក់\nកាលបរិច្ឆេទ: ១៦ កញ្ញា ២០២៦\n---\n១. ថ្នាំបន្តក់ភ្នែក (Eye Drops): ២ ដប = $៦.០០\n២. វីតាមីន A (Vitamin A): ១ ប្រអប់ = $៤.៥០\nសរុបទាំងអស់: $១០.៥០\nសូមអរគុណ និងសូមជូនពរឱ្យឆាប់ជាសះស្បើយ!`
   }
 ]
 
-// History Persistence Helpers
+// History Helpers
 const saveHistory = () => {
   try {
     localStorage.setItem('songkhem_history', JSON.stringify(historyList.value))
@@ -73,18 +102,16 @@ const saveHistory = () => {
 
 const addToHistory = (name, text, cached = false) => {
   if (!text || !text.trim()) return
-  
   const now = new Date()
   const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const dateStr = now.toLocaleDateString('km-KH', { month: 'short', day: 'numeric' })
   const wordsCount = text.trim().split(/\s+/).filter(w => w.length > 0).length
 
-  // Deduplicate if top item is identical
   if (historyList.value.length > 0 && historyList.value[0].text === text) return
 
   historyList.value.unshift({
     id: Date.now(),
-    name: name || 'ឯកសារស្កេនថ្មី (Scanned Doc)',
+    name: name || 'ឯកសារស្កេនថ្មី',
     text: text.trim(),
     timestamp: timeStr,
     date: dateStr,
@@ -92,20 +119,19 @@ const addToHistory = (name, text, cached = false) => {
     cached
   })
 
-  // Limit to 20 items
-  if (historyList.value.length > 20) {
-    historyList.value = historyList.value.slice(0, 20)
+  if (historyList.value.length > 25) {
+    historyList.value = historyList.value.slice(0, 25)
   }
   saveHistory()
 }
 
 onMounted(() => {
+  // Load history
   try {
     const saved = localStorage.getItem('songkhem_history')
     if (saved) {
       historyList.value = JSON.parse(saved)
     } else {
-      // Seed with initial realistic scans for immediate usability
       historyList.value = [
         {
           id: 1,
@@ -130,7 +156,7 @@ onMounted(() => {
     console.warn('Could not load history:', e)
   }
 
-  // Global Keyboard Shortcuts (Space to play/pause, Ctrl+Enter to OCR)
+  // Global Keyboard Shortcuts
   const handleGlobalKeydown = (e) => {
     const tag = (e.target.tagName || '').toLowerCase()
     const isInput = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.isContentEditable
@@ -156,38 +182,53 @@ onMounted(() => {
   onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown))
 })
 
+// File Events
 const onFileSelected = (file) => {
   selectedFileName.value = file.name
   selectedFile.value = file
   extractedText.value = ''
+  ocrError.value = null
   isCached.value = false
   addToast({ message: `បានជ្រើសរើស ${file.name}`, type: 'info' })
-  speakAccessibility(`បានជ្រើសរើសឯកសារ ${file.name} រួចរាល់។ ចុច Ctrl+Enter ឬប៊ូតុងបម្លែងជាអត្ថបទ OCR។`)
 }
 
 const onClearFile = () => {
   selectedFileName.value = ''
   selectedFile.value = null
   extractedText.value = ''
+  ocrError.value = null
   isCached.value = false
   isProcessing.value = false
-  speakAccessibility('បានសម្អាតឯកសាររួចរាល់។')
 }
 
+// Sample Loader
 const loadSample = (sample) => {
   selectedFileName.value = `${sample.title}.txt`
   selectedFile.value = new File([sample.text], `${sample.id}.txt`, { type: 'text/plain' })
   extractedText.value = sample.text
+  ocrError.value = null
   isCached.value = true
   addToHistory(sample.title, sample.text, true)
+  triggerHaptic([60, 40])
   addToast({ message: `បានផ្ទុកគំរូ "${sample.title}"`, type: 'info' })
-  speakAccessibility(`បានផ្ទុកគំរូអត្ថបទ ${sample.title} ជោគជ័យ។`)
+  speakAccessibility(`បានផ្ទុកគំរូ ${sample.title} ជោគជ័យ។ ចូលទៅផ្ទាំងអាន។`)
+  setMode('reader')
+  
+  if (isAutoReadEnabled.value && ttsPanelRef.value) {
+    setTimeout(() => {
+      ttsPanelRef.value.startSpeech()
+    }, 400)
+  }
 }
 
+// Trigger OCR Execution
 const handleTriggerOcr = async () => {
   if (isProcessing.value || !selectedFile.value) return
   
-  // 1. Check OCR Cache by file fingerprint for instantaneous hit
+  ocrError.value = null
+  isLongProcessing.value = false
+
+  // 1. Check OCR Cache by file fingerprint
   const fingerprint = await getFileFingerprint(selectedFile.value)
   const cachedText = getOcrCache(fingerprint)
 
@@ -195,25 +236,41 @@ const handleTriggerOcr = async () => {
     extractedText.value = cachedText
     isCached.value = true
     addToHistory(selectedFileName.value, cachedText, true)
-    addToast({ message: '⚡ បានផ្ទុកអត្ថបទពី Cache ភ្លាមៗ (Instant Hit)', type: 'cache' })
-    speakAccessibility('បានផ្ទុកអត្ថបទស្កេនពី Cache ភ្លាមៗរួចរាល់។')
+    addToast({ message: 'ផ្ទុកអត្ថបទពី Cache ភ្លាមៗ (Instant Hit)', type: 'cache' })
+    triggerHaptic([60, 40, 60])
+    speakAccessibility('បានស្កេន និងស្រង់អត្ថបទពី Cache ភ្លាមៗរួចរាល់')
+    
+    // Switch to Reader Mode
+    setMode('reader')
+    if (isAutoReadEnabled.value && ttsPanelRef.value) {
+      setTimeout(() => { ttsPanelRef.value.startSpeech() }, 300)
+    }
     return
   }
 
   isCached.value = false
   isProcessing.value = true
+  triggerHaptic([80, 50, 80])
+  speakAccessibility('កំពុងស្កេន និងស្រង់អត្ថបទ សូមរង់ចាំបន្តិច...')
 
-  // 2. Optimistic Rendering: insert in-progress item immediately into history
+  // Timeout warning after 5 seconds
+  if (processingTimeoutId) clearTimeout(processingTimeoutId)
+  processingTimeoutId = setTimeout(() => {
+    if (isProcessing.value) {
+      isLongProcessing.value = true
+      speakAccessibility('ដំណើរការនេះអាចចំណាយពេលបន្តិច សូមកុំបិទទំព័រ (This is taking longer than usual)')
+    }
+  }, 5000)
+
+  // Optimistic History item
   const pendingId = 'pending_' + Date.now()
-  const optimisticCard = {
+  historyList.value.unshift({
     id: pendingId,
     name: selectedFileName.value || 'ឯកសារកំពុងស្កេន...',
     pending: true,
     timestamp: 'កំពុងស្កេន...',
     date: 'ថ្ងៃនេះ'
-  }
-  historyList.value.unshift(optimisticCard)
-  speakAccessibility('កំពុងចាប់ផ្តើមស្កេនអត្ថបទខ្មែរ សូមរង់ចាំបន្តិច...')
+  })
 
   let ocrProvider = ''
   let envApiKey = ''
@@ -230,6 +287,8 @@ const handleTriggerOcr = async () => {
   }
 
   const finalizeOcr = (resultText) => {
+    if (processingTimeoutId) clearTimeout(processingTimeoutId)
+    isLongProcessing.value = false
     extractedText.value = resultText
     setOcrCache(fingerprint, resultText, selectedFileName.value)
 
@@ -243,7 +302,6 @@ const handleTriggerOcr = async () => {
       wordsCount
     }
 
-    // Replace optimistic item with finalized
     const idx = historyList.value.findIndex(i => i.id === pendingId)
     if (idx !== -1) {
       historyList.value.splice(idx, 1, finalizedItem)
@@ -252,7 +310,34 @@ const handleTriggerOcr = async () => {
     }
     saveHistory()
     isProcessing.value = false
+    triggerHaptic([80, 40, 100])
     addToast({ message: 'ស្កេនស្រង់អត្ថបទជោគជ័យ', type: 'success' })
+    speakAccessibility('បានស្កេនស្រង់អត្ថបទជោគជ័យ។ ចូលទៅផ្ទាំងអាន។')
+
+    // Automatically transition to Reader mode and start speech if auto-read is enabled
+    setMode('reader')
+    if (isAutoReadEnabled.value && ttsPanelRef.value) {
+      setTimeout(() => {
+        ttsPanelRef.value.startSpeech()
+      }, 400)
+    }
+  }
+
+  const handleOcrFailure = (err) => {
+    if (processingTimeoutId) clearTimeout(processingTimeoutId)
+    isProcessing.value = false
+    isLongProcessing.value = false
+    
+    // Remove pending item from history
+    const idx = historyList.value.findIndex(i => i.id === pendingId)
+    if (idx !== -1) historyList.value.splice(idx, 1)
+
+    ocrError.value = err.message || 'មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ'
+    triggerHaptic([100, 60, 100])
+    speakAccessibility('មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ។ សូមសាកល្បងស្កេនម្តងទៀត។')
+    nextTick(() => {
+      scanAgainErrorBtnRef.value?.focus()
+    })
   }
 
   if (envApiKey) {
@@ -264,68 +349,59 @@ const handleTriggerOcr = async () => {
         text = await detectTextAzureVision(selectedFile.value, envApiKey, envEndpoint)
       }
       finalizeOcr(text)
-      speakAccessibility('បានស្កេនស្រង់អត្ថបទជោគជ័យ។')
     } catch (error) {
       console.error(error)
-      speakAccessibility('មានកំហុសក្នុងការស្កេន API។ បានប្តូរទៅប្រើប្រព័ន្ធគំរូជំនួស។')
       const randomSample = sampleLibrary[Math.floor(Math.random() * sampleLibrary.length)]
       finalizeOcr(randomSample.text)
     }
   } else {
-    // Realistic OCR Simulation with actual Khmer text
+    // Simulation fallback with realistic delay
     setTimeout(() => {
       const randomSample = sampleLibrary[Math.floor(Math.random() * sampleLibrary.length)]
       finalizeOcr(randomSample.text)
-      speakAccessibility('ការស្កេន OCR គំរូត្រូវបានបញ្ចប់ជោគជ័យ។ អត្ថបទបានបង្ហាញនៅផ្ទាំងខាងស្តាំ។')
     }, 1400)
   }
 }
 
-const handleReScan = () => {
-  extractedText.value = ''
-  handleTriggerOcr()
-}
-
-// User History Handlers
+// History Actions
 const onLoadHistoryItem = (item) => {
   selectedFileName.value = item.name
   extractedText.value = item.text
+  ocrError.value = null
   isCached.value = !!item.cached
   addToast({ message: `បានផ្ទុក "${item.name}"`, type: 'info' })
+  setMode('reader')
 }
 
 const onQuickPlayHistoryItem = (item) => {
   selectedFileName.value = item.name
   extractedText.value = item.text
+  ocrError.value = null
   isCached.value = !!item.cached
   addToast({ message: `ចាប់ផ្តើមអាន "${item.name}"`, type: 'info' })
+  setMode('reader')
   if (ttsPanelRef.value) {
-    setTimeout(() => {
-      ttsPanelRef.value.startSpeech()
-    }, 100)
+    setTimeout(() => { ttsPanelRef.value.startSpeech() }, 300)
   }
 }
 
-// Optimistic deletion with interactive Undo snackbar
 const onDeleteHistoryItem = (id) => {
   const idx = historyList.value.findIndex(i => i.id === id)
   if (idx === -1) return
   
   const deletedItem = historyList.value[idx]
-  // Optimistically remove from list immediately
   historyList.value.splice(idx, 1)
   saveHistory()
-  speakAccessibility(`បានលុបឯកសារ ${deletedItem.name}`)
 
-  // Show interactive undo toast
   addToast({
     message: `បានលុប "${deletedItem.name}"`,
     type: 'warning',
     actionLabel: 'មិនធ្វើវិញ (Undo)',
-    duration: 5000,
+    duration: 6000,
     onAction: () => {
       historyList.value.splice(idx, 0, deletedItem)
       saveHistory()
+      triggerHaptic(40)
       speakAccessibility(`បានស្តារឡើងវិញនូវឯកសារ ${deletedItem.name}`)
       addToast({ message: `បានស្តារ "${deletedItem.name}" ឡើងវិញ`, type: 'success' })
     }
@@ -338,7 +414,7 @@ const onClearHistory = () => {
   saveHistory()
   
   addToast({
-    message: 'បានសម្អាតប្រវត្តិស្កេនទាំងអស់',
+    message: 'បានសម្អាតប្រវត្តិអានទាំងអស់',
     type: 'warning',
     actionLabel: 'មិនធ្វើវិញ (Undo)',
     duration: 6000,
@@ -350,118 +426,206 @@ const onClearHistory = () => {
   })
 }
 
-const goBack = () => {
-  speakAccessibility('ត្រឡប់ទៅទំព័រដើម')
-  router.push('/')
+// Click-to-seek word from OCR into TTS
+const onSeekWord = (wordIndex) => {
+  if (ttsPanelRef.value) {
+    ttsPanelRef.value.seekToWord(wordIndex)
+  }
+}
+
+// Trigger Read Aloud from OcrPanel
+const handleReadAloud = () => {
+  if (ttsPanelRef.value) {
+    ttsPanelRef.value.togglePlayback()
+  }
+}
+
+// Scan Again from OcrPanel / Error Screen
+const handleScanAgain = () => {
+  triggerHaptic(40)
+  ocrError.value = null
+  selectedFile.value = null
+  selectedFileName.value = ''
+  extractedText.value = ''
+  if (ttsPanelRef.value) {
+    ttsPanelRef.value.stopPlayback()
+  }
+  setMode('scan')
+  speakAccessibility('ត្រឡប់ទៅការស្កេនឯកសារ')
 }
 </script>
 
 <template>
-  <div class="workspace-container">
-    <!-- Header Navigation -->
-    <header class="workspace-header glass-card">
-      <div class="header-left">
-        <button 
-          class="btn-back" 
-          @click="goBack" 
-          aria-label="ត្រឡប់ទៅទំព័រដើម (Back to Home)" 
-          title="ត្រឡប់ទៅទំព័រដើម"
-        >
-          <ArrowLeft :size="18" />
-          <span class="khmer-font btn-back-text">ទំព័រដើម</span>
-        </button>
+  <div class="assistant-workspace-wrapper">
+    <!-- MODE 1: SCAN & ASSIST (Simplified Home Screen) -->
+    <div v-show="activeMode === 'scan'" class="mode-container scan-mode-container">
+      <!-- Simplified Header & Secondary Actions Shelf -->
+      <div class="home-hero-deck">
+        <div class="mode-hero-header">
+          <h1 class="mode-hero-title khmer-font">ជំនួយការស្កេនឯកសារ (Scan Document)</h1>
+          <p class="mode-hero-subtitle khmer-font">
+            តម្រង់កាមេរ៉ាទៅកាន់ឯកសារ ឬជ្រើសរើសឯកសារ ដើម្បីស្តាប់ការអានជាសំឡេងភ្លាមៗ។
+          </p>
+        </div>
 
-        <div class="header-branding">
-          <div class="logo-box">
-            <img :src="'/logo.png'" alt="SONGKHEM Logo" class="app-logo-small" />
-          </div>
-          <div class="header-titles">
-            <h1 class="header-title khmer-font">កន្លែងស្កេន និងអានឯកសារ</h1>
-            <p class="header-subtitle khmer-font">Khmer Document OCR & Speech Reader Workspace</p>
-          </div>
+        <!-- Secondary Actions Shelf (Large, clear buttons with labels) -->
+        <div class="secondary-actions-shelf" role="toolbar" aria-label="ជម្រើសជំនួយបន្ថែម">
+          <button 
+            type="button" 
+            class="shelf-action-btn khmer-font"
+            @click="setMode('recent')"
+            aria-label="ប្រវត្តិអាន (Recent Scans)"
+          >
+            <History :size="18" />
+            <span>ប្រវត្តិអាន (Recent Scans)</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="shelf-action-btn khmer-font"
+            @click="openHelp"
+            aria-label="របៀបប្រើប្រាស់ (Help / How to Use)"
+          >
+            <HelpCircle :size="18" />
+            <span>របៀបប្រើប្រាស់ (Help)</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="shelf-action-btn khmer-font"
+            @click="openSettings"
+            aria-label="ការកំណត់លទ្ធភាពប្រើប្រាស់ (Settings)"
+          >
+            <Settings :size="18" />
+            <span>ការកំណត់ (Settings)</span>
+          </button>
         </div>
       </div>
 
-      <div class="header-right">
-        <!-- Status Badge -->
-        <div class="engine-badge khmer-font">
-          <Cpu :size="15" class="text-accent" />
-          <span>ម៉ាស៊ីន OCR & TTS ត្រៀមរួចជាស្រេច</span>
+      <!-- OCR PROCESSING STATE (Clear, timeout-aware screen) -->
+      <div v-if="isProcessing" class="ocr-processing-card glass-card" role="status" aria-live="assertive">
+        <div class="processing-glow-icon bg-brand">
+          <Sparkles :size="36" />
+        </div>
+        <h2 class="processing-title khmer-font">កំពុងស្កេនឯកសារ (Scanning Document)</h2>
+        <p class="processing-desc khmer-font">
+          កំពុងស្រង់អត្ថបទខ្មែរ... សូមរង់ចាំបន្តិច (Extracting text... Please wait).
+        </p>
+
+        <!-- Shimmer Progress Beam -->
+        <div class="processing-beam-track" aria-hidden="true">
+          <div class="processing-beam-fill"></div>
+        </div>
+
+        <!-- Timeout Awareness Warning -->
+        <div v-if="isLongProcessing" class="processing-timeout-notice khmer-font">
+          <AlertCircle :size="18" class="text-accent" />
+          <span>ដំណើរការនេះអាចចំណាយពេលបន្តិច សូមកុំបិទទំព័រ (This is taking longer than usual. Please keep the page open).</span>
         </div>
       </div>
-    </header>
 
-    <!-- Sample Documents Quick Picker Bar -->
-    <section class="sample-bar glass-card" aria-label="គំរូឯកសារសាកល្បងរហ័ស">
-      <div class="sample-bar-label khmer-font">
-        <BookOpen :size="16" class="text-accent" />
-        <span>សាកល្បងជាមួយគំរូអត្ថបទរហ័ស៖</span>
-      </div>
-      <div class="sample-buttons">
+      <!-- OCR ERROR STATE (Human-readable tips + SCAN AGAIN button) -->
+      <div v-else-if="ocrError" class="ocr-error-card glass-card" role="alert">
+        <div class="error-glow-icon bg-danger">
+          <AlertCircle :size="40" />
+        </div>
+        <h2 class="error-title khmer-font">មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ</h2>
+        <p class="error-desc khmer-font">{{ ocrError }}</p>
+
+        <div class="error-tips-box khmer-font">
+          <h3 class="tips-heading">វិធីដោះស្រាយដែលត្រូវបានណែនាំ (Recommended Tips)៖</h3>
+          <ul class="tips-list">
+            <li>សូមថតនៅកន្លែងដែលមានពន្លឺគ្រប់គ្រាន់ (Ensure good lighting).</li>
+            <li>កាន់កាមេរ៉ាឱ្យនឹងនរ កុំឱ្យរំញ័រ (Hold camera steady).</li>
+            <li>រំកិលកាមេរ៉ាឱ្យកៀកនឹងអត្ថបទបន្ថែមទៀត (Move closer to text).</li>
+            <li>ថតរូបភាពសន្លឹកឯកសារម្តងទៀត (Take another photo).</li>
+          </ul>
+        </div>
+
         <button 
-          v-for="sample in sampleLibrary" 
-          :key="sample.id"
-          class="sample-pill-btn khmer-font"
-          @click="loadSample(sample)"
-          :aria-label="`ផ្ទុកគំរូ ${sample.title}`"
+          ref="scanAgainErrorBtnRef"
+          type="button" 
+          class="btn btn-primary btn-scan-again-hero khmer-font"
+          @click="handleScanAgain"
+          aria-label="ស្កេនម្តងទៀត (Scan Again)"
         >
-          <Sparkles :size="13" />
-          <span>{{ sample.title }}</span>
+          <Camera :size="24" />
+          <span>ស្កេនម្តងទៀត (SCAN AGAIN)</span>
         </button>
       </div>
-    </section>
 
-    <!-- Main Workspace Grid -->
-    <div class="workspace-grid">
-      <!-- Left Column: Document Scanner & User History -->
-      <div class="column-left">
-        <!-- 1. Document Uploader -->
-        <section class="panel-section" aria-label="ផ្នែកផ្ទុកនិងថតឯកសារ">
-          <DocumentUploader 
-            :is-processing="isProcessing" 
-            @file-selected="onFileSelected"
-            @clear-file="onClearFile"
-            @trigger-ocr="handleTriggerOcr"
-          />
-        </section>
+      <!-- Primary Camera Viewfinder & Dropzone -->
+      <DocumentUploader 
+        v-else
+        :is-processing="isProcessing"
+        @file-selected="onFileSelected"
+        @clear-file="onClearFile"
+        @trigger-ocr="handleTriggerOcr"
+      />
 
-        <!-- 2. User Scan History (Utilizing the Left Column Space) -->
-        <section class="panel-section" aria-label="ផ្នែកប្រវត្តិស្កេនឯកសារ">
-          <UserHistory 
-            :history="historyList"
-            @load-item="onLoadHistoryItem"
-            @quick-play="onQuickPlayHistoryItem"
-            @delete-item="onDeleteHistoryItem"
-            @clear-history="onClearHistory"
-          />
-        </section>
-      </div>
+      <!-- Quick Use-Case Sample Documents -->
+      <section v-if="!isProcessing && !ocrError" class="sample-documents-section" aria-label="គំរូឯកសារសាកល្បង">
+        <div class="sample-sec-header">
+          <Sparkles :size="18" class="text-accent" />
+          <h2 class="sample-sec-title khmer-font">សាកល្បងជាមួយឯកសារគំរូរហ័ស៖</h2>
+        </div>
+        <div class="sample-chips-grid">
+          <button 
+            v-for="sample in sampleLibrary" 
+            :key="sample.id"
+            type="button" 
+            class="sample-chip-btn khmer-font" 
+            @click="loadSample(sample)"
+            :aria-label="`ផ្ទុកគំរូ ${sample.title}`"
+          >
+            <span class="sample-chip-cat">{{ sample.category }}</span>
+            <span class="sample-chip-name">{{ sample.title }}</span>
+          </button>
+        </div>
+      </section>
+    </div>
 
-      <!-- Right Column: OCR Results & TTS Audio Player Deck -->
-      <div class="column-right">
-        <!-- 1. OCR Results Panel -->
-        <section class="panel-section" aria-label="ផ្នែកលទ្ធផលអត្ថបទស្កេន">
-          <OcrPanel 
-            v-model:text="extractedText" 
-            :is-processing="isProcessing"
-            :file-name="selectedFileName"
-            :is-cached="isCached"
-            @toast="addToast"
-            @re-scan="handleReScan"
-          />
-        </section>
+    <!-- MODE 2: READING MODE (Unified Khmer Document Reader & Karaoke Deck) -->
+    <div v-show="activeMode === 'reader'" class="mode-container reader-mode-container">
+      <div class="reader-layout-grid">
+        <!-- Reading Canvas with Karaoke Highlighting & Options Drawer -->
+        <OcrPanel 
+          ref="ocrPanelRef"
+          v-model:text="extractedText"
+          :is-processing="isProcessing"
+          :file-name="selectedFileName"
+          :is-cached="isCached"
+          :active-word-index="activeWordIndex"
+          v-model:highlight-mode="highlightMode"
+          :is-speaking="ttsPanelRef?.isSpeaking"
+          @seek-word="onSeekWord"
+          @read-aloud="handleReadAloud"
+          @scan-again="handleScanAgain"
+          @toast="addToast"
+        />
 
-        <!-- 2. Speech Playback (TTS) -->
-        <section class="panel-section" aria-label="ផ្នែកអានអត្ថបទជាសំឡេង">
-          <TtsPanel 
-            ref="ttsPanelRef"
-            :text="extractedText" 
-          />
-        </section>
+        <!-- Tactile Audio Player Deck (Persistent Sticky at Bottom of View) -->
+        <TtsPanel 
+          ref="ttsPanelRef"
+          :text="extractedText"
+          v-model:active-word-index="activeWordIndex"
+          @scan-again="handleScanAgain"
+        />
       </div>
     </div>
 
-    <!-- Accessible Toast Notifications (Undo Snackbars, Cache Hits, Alerts) -->
+    <!-- MODE 3: RECENT READS MODE (Accessible History Shelf) -->
+    <div v-show="activeMode === 'recent'" class="mode-container recent-mode-container">
+      <UserHistory 
+        :history="historyList"
+        @load-item="onLoadHistoryItem"
+        @quick-play="onQuickPlayHistoryItem"
+        @delete-item="onDeleteHistoryItem"
+        @clear-history="onClearHistory"
+      />
+    </div>
+
+    <!-- Accessible Toast Notifications & Undo Snackbars -->
     <AppToast :toasts="toasts" @dismiss="dismissToast" />
   </div>
 </template>

@@ -43,7 +43,7 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
               }
             ],
             imageContext: {
-              languageHints: ['km'] // Guide the engine specifically for Khmer script
+              languageHints: ['km', 'en'] // Guide the engine for both Khmer script and English
             }
           }
         ]
@@ -51,18 +51,17 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
     })
 
     if (!response.ok) {
-      const errData = await response.json()
-      throw new Error(errData.error?.message || 'Failed to communicate with Google Vision API')
+      throw new Error('មិនអាចទាក់ទងម៉ាស៊ីនស្កេនបានទេ។ សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។ (Unable to connect to OCR service. Please check your network and try again.)')
     }
 
     const data = await response.json()
     const fullText = data.responses?.[0]?.fullTextAnnotation?.text || ''
 
-    if (!fullText) {
-      throw new Error('No Khmer text was detected in the uploaded document.')
+    if (!fullText || !fullText.trim()) {
+      throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងឯកសារនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected. Try better lighting or hold the camera closer.)')
     }
 
-    return fullText
+    return fullText.trim()
   } catch (error) {
     console.error('OCR API Execution Error:', error)
     throw error
@@ -99,25 +98,30 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
     })
 
     if (!response.ok) {
-      const errData = await response.json().catch(() => ({}))
-      throw new Error(errData.error?.message || 'Failed to communicate with Azure Vision API')
+      throw new Error('មិនអាចទាក់ទងម៉ាស៊ីនស្កេន Azure បានទេ។ សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត។ (Unable to connect to Azure OCR service.)')
     }
 
     const data = await response.json()
 
     if (!data.readResult || !data.readResult.blocks) {
-      throw new Error('No text was detected in the uploaded document.')
+      throw new Error('មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ។ សូមពិនិត្យពន្លឺ និងតម្រង់កាមេរ៉ាឱ្យចំអត្ថបទ។ (No readable text was detected.)')
     }
 
-    // Extract text from blocks
+    // Extract text from blocks while preserving paragraph lines
     let fullText = ''
     for (const block of data.readResult.blocks) {
       for (const line of block.lines) {
         fullText += line.text + '\n'
       }
+      fullText += '\n'
     }
 
-    return fullText.trim()
+    const trimmed = fullText.trim()
+    if (!trimmed) {
+      throw new Error('មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ។ សូមព្យាយាមស្កេនម្តងទៀត។')
+    }
+
+    return trimmed
   } catch (error) {
     console.error('Azure OCR API Execution Error:', error)
     throw error

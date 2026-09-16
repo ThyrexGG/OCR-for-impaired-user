@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick, inject } from 'vue'
-import { Play, Pause, Square, RotateCcw, Volume2, Sparkles, Sliders, Music2 } from 'lucide-vue-next'
+import { 
+  Play, Pause, Square, RotateCcw, Volume2, Sparkles, 
+  Sliders, Music2, SkipBack, SkipForward, Repeat, Camera
+} from 'lucide-vue-next'
 import { synthesizeTextAzureTTS } from '../services/tts'
 import { getTtsCache, setTtsCache } from '../services/cache'
 
@@ -8,12 +11,19 @@ const props = defineProps({
   text: {
     type: String,
     default: ''
+  },
+  activeWordIndex: {
+    type: Number,
+    default: -1
   }
 })
 
-const speakAccessibility = inject('speakAccessibility', () => {})
+const emit = defineEmits(['update:activeWordIndex', 'scan-again'])
 
-// Audio & Synthesis State
+const speakAccessibility = inject('speakAccessibility', () => {})
+const triggerHaptic = inject('triggerHaptic', () => {})
+
+// Synthesis & Audio State
 const voices = ref([])
 const selectedVoiceName = ref('')
 const rate = ref(1.0)
@@ -21,10 +31,8 @@ const volume = ref(1.0)
 const isSpeaking = ref(false)
 const isPaused = ref(false)
 
-// Highlighting State
-const words = ref([])
-const activeWordIndex = ref(-1)
-const wordsContainerRef = ref(null)
+// Highlighting Tokens
+const tokens = ref([])
 let highlightInterval = null
 let currentAudio = null
 
@@ -33,16 +41,17 @@ const canvasRef = ref(null)
 let animationId = null
 const waveOffset = ref(0)
 
-// Quick speed presets
-const speedPresets = [0.8, 1.0, 1.2, 1.5]
+// Speed presets: 0.75x, 1.0x, 1.25x, 1.5x, 2.0x
+const speedPresets = [0.75, 1.0, 1.25, 1.5, 2.0]
 
 const setSpeedPreset = (val) => {
   rate.value = val
   if (currentAudio) currentAudio.playbackRate = val
+  triggerHaptic(30)
   speakAccessibility(`ប្តូរល្បឿនអានទៅ ${val} ដង`)
 }
 
-// Live audio updates
+// Adjust rate & volume dynamically
 watch(rate, (newRate) => {
   if (currentAudio) currentAudio.playbackRate = newRate
 })
@@ -51,7 +60,7 @@ watch(volume, (newVol) => {
   if (currentAudio) currentAudio.volume = newVol
 })
 
-// Load speech synthesis voices
+// Load speech voices
 const loadVoices = () => {
   if (typeof window === 'undefined') return
   
@@ -69,16 +78,15 @@ const loadVoices = () => {
   if (!window.speechSynthesis) return
   
   try {
-    const availableVoices = window.speechSynthesis.getVoices() || []
-    voices.value = availableVoices.map(v => ({ 
+    const available = window.speechSynthesis.getVoices() || []
+    voices.value = available.map(v => ({ 
       name: v.name, 
       lang: v.lang, 
       label: `${v.name} (${v.lang})`, 
       gender: 'Default' 
     }))
     
-    // Find Khmer voice if available
-    const khmerVoice = availableVoices.find(v => {
+    const khmerVoice = available.find(v => {
       const l = (v.lang || '').toLowerCase()
       const n = (v.name || '').toLowerCase()
       return l.includes('km') || l.includes('khmer') || n.includes('khmer')
@@ -86,53 +94,35 @@ const loadVoices = () => {
 
     if (khmerVoice) {
       selectedVoiceName.value = khmerVoice.name
-    } else if (availableVoices.length > 0) {
-      const defaultVoice = availableVoices.find(v => v.default) || availableVoices[0]
-      if (defaultVoice && !selectedVoiceName.value) {
-        selectedVoiceName.value = defaultVoice.name
-      }
+    } else if (available.length > 0 && !selectedVoiceName.value) {
+      selectedVoiceName.value = available[0].name
     }
   } catch (error) {
     console.warn('Speech synthesis getVoices error:', error)
-    voices.value = []
   }
 }
 
-// Split Khmer text into visual segments for highlighting
-const prepareWords = (textToSplit) => {
-  if (!textToSplit) {
-    words.value = []
-    activeWordIndex.value = -1
+// Tokenize text into words
+const prepareTokens = (rawText) => {
+  if (!rawText) {
+    tokens.value = []
+    emit('update:activeWordIndex', -1)
     return
   }
-  
-  // Split cleanly by whitespace without breaking complex Khmer clusters
-  const tokens = textToSplit.trim().split(/\s+/).filter(w => w.length > 0)
-  words.value = tokens.map((w, idx) => ({ text: w, id: `token-${idx}-${Date.now()}` }))
+  const words = rawText.trim().split(/\s+/).filter(w => w.length > 0)
+  tokens.value = words
 }
 
-// Auto-scroll active word into view
-const scrollToActiveWord = async () => {
-  await nextTick()
-  if (!wordsContainerRef.value || activeWordIndex.value === -1) return
-  const activeEl = wordsContainerRef.value.querySelector('.word-active')
-  if (activeEl) {
-    activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
-  }
-}
-
-// Word-by-word visual highlight simulation
-const startHighlighting = () => {
-  activeWordIndex.value = 0
-  scrollToActiveWord()
+// Word-by-word timing synchronization
+const startHighlighting = (startIndex = 0) => {
+  emit('update:activeWordIndex', startIndex)
   
-  const durationPerWord = Math.max(350, Math.round(750 / rate.value))
+  const durationPerWord = Math.max(280, Math.round(700 / rate.value))
   
   if (highlightInterval) clearInterval(highlightInterval)
   highlightInterval = setInterval(() => {
-    if (activeWordIndex.value < words.value.length - 1) {
-      activeWordIndex.value++
-      scrollToActiveWord()
+    if (props.activeWordIndex < tokens.value.length - 1) {
+      emit('update:activeWordIndex', props.activeWordIndex + 1)
     } else {
       if (highlightInterval) {
         clearInterval(highlightInterval)
@@ -143,12 +133,11 @@ const startHighlighting = () => {
 }
 
 const resumeHighlighting = () => {
-  const durationPerWord = Math.max(350, Math.round(750 / rate.value))
+  const durationPerWord = Math.max(280, Math.round(700 / rate.value))
   if (highlightInterval) clearInterval(highlightInterval)
   highlightInterval = setInterval(() => {
-    if (activeWordIndex.value < words.value.length - 1) {
-      activeWordIndex.value++
-      scrollToActiveWord()
+    if (props.activeWordIndex < tokens.value.length - 1) {
+      emit('update:activeWordIndex', props.activeWordIndex + 1)
     } else {
       if (highlightInterval) {
         clearInterval(highlightInterval)
@@ -158,10 +147,10 @@ const resumeHighlighting = () => {
   }, durationPerWord)
 }
 
-// Playback Trigger
+// Start Reading Playback
 const startSpeech = async () => {
   if (!props.text) {
-    speakAccessibility('មិនទាន់មានអត្ថបទសម្រាប់អាននៅឡើយទេ។')
+    speakAccessibility('មិនទាន់មានអត្ថបទសម្រាប់អាននៅឡើយទេ')
     return
   }
   
@@ -175,22 +164,29 @@ const startSpeech = async () => {
     endpoint = import.meta.env.VITE_AZURE_TTS_ENDPOINT
   }
 
+  // Resume if paused
+  if (isPaused.value) {
+    if (currentAudio) {
+      currentAudio.play()
+    } else if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.resume()
+    }
+    isPaused.value = false
+    isSpeaking.value = true
+    resumeHighlighting()
+    triggerHaptic(40)
+    speakAccessibility('បន្តការអាន')
+    return
+  }
+
+  stopSpeech()
+  isSpeaking.value = true
+  isPaused.value = false
+  triggerHaptic([60, 40])
+  speakAccessibility('ចាប់ផ្តើមអាន...')
+
   // Azure Neural TTS
   if (provider === 'azure-tts' && apiKey) {
-    if (isPaused.value && currentAudio) {
-      currentAudio.play()
-      isPaused.value = false
-      isSpeaking.value = true
-      resumeHighlighting()
-      speakAccessibility('បន្តការអាន')
-      return
-    }
-
-    stopSpeech()
-    isSpeaking.value = true
-    isPaused.value = false
-    speakAccessibility('ចាប់ផ្តើមអានអត្ថបទ...')
-    
     try {
       const selectedVoice = voices.value.find(v => v.name === selectedVoiceName.value)
       const voiceName = selectedVoice ? selectedVoice.name : 'km-KH-PisethNeural'
@@ -208,16 +204,17 @@ const startSpeech = async () => {
       
       currentAudio.onended = () => {
         stopSpeech()
-        speakAccessibility('ការអានអត្ថបទបានបញ្ចប់។')
+        speakAccessibility('ការអានអត្ថបទបានបញ្ចប់')
       }
       currentAudio.play()
-      startHighlighting()
+      startHighlighting(0)
+      return
     } catch (error) {
       console.error(error)
       isSpeaking.value = false
       fallbackWebSpeech()
+      return
     }
-    return
   }
 
   // Fallback: Web Speech API
@@ -225,14 +222,6 @@ const startSpeech = async () => {
 }
 
 const fallbackWebSpeech = () => {
-  if (isPaused.value && typeof window !== 'undefined' && window.speechSynthesis) {
-    window.speechSynthesis.resume()
-    isPaused.value = false
-    isSpeaking.value = true
-    resumeHighlighting()
-    return
-  }
-
   stopSpeech()
   isSpeaking.value = true
   isPaused.value = false
@@ -241,25 +230,24 @@ const fallbackWebSpeech = () => {
   if (synth) {
     try {
       const utterance = new SpeechSynthesisUtterance(props.text)
-      const voice = (voices.value || []).find(v => v?.name === selectedVoiceName.value)
-      if (voice) utterance.voice = voice
+      const synthVoices = synth.getVoices ? synth.getVoices() : []
+      const realVoice = (synthVoices || []).find(v => v.name === selectedVoiceName.value) || 
+                        (synthVoices || []).find(v => (v.lang || '').toLowerCase().includes('km'))
+      if (realVoice) {
+        utterance.voice = realVoice
+      }
       utterance.rate = rate.value
       utterance.volume = volume.value
+      utterance.lang = 'km-KH'
       
-      utterance.onend = () => {
-        stopSpeech()
-      }
-      utterance.onerror = () => {
-        stopSpeech()
-      }
-      
+      utterance.onend = () => { stopSpeech() }
+      utterance.onerror = () => { stopSpeech() }
       synth.speak(utterance)
-    } catch (error) {
-      console.warn('SpeechSynthesis execution warning:', error)
+    } catch (e) {
+      console.warn('SpeechSynthesis error:', e)
     }
   }
-  
-  startHighlighting()
+  startHighlighting(0)
 }
 
 const pauseSpeech = () => {
@@ -268,18 +256,16 @@ const pauseSpeech = () => {
   if (currentAudio) {
     currentAudio.pause()
   } else if (typeof window !== 'undefined' && window.speechSynthesis) {
-    try {
-      window.speechSynthesis.pause()
-    } catch (e) {}
+    try { window.speechSynthesis.pause() } catch (e) {}
   }
   
   isPaused.value = true
   isSpeaking.value = false
-  
   if (highlightInterval) {
     clearInterval(highlightInterval)
     highlightInterval = null
   }
+  triggerHaptic(40)
   speakAccessibility('បានផ្អាកការអាន')
 }
 
@@ -291,14 +277,12 @@ const stopSpeech = () => {
   }
 
   if (typeof window !== 'undefined' && window.speechSynthesis) {
-    try {
-      window.speechSynthesis.cancel()
-    } catch (e) {}
+    try { window.speechSynthesis.cancel() } catch (e) {}
   }
   
   isSpeaking.value = false
   isPaused.value = false
-  activeWordIndex.value = -1
+  emit('update:activeWordIndex', -1)
   
   if (highlightInterval) {
     clearInterval(highlightInterval)
@@ -309,28 +293,46 @@ const stopSpeech = () => {
 const restartSpeech = () => {
   stopSpeech()
   startSpeech()
+  triggerHaptic(50)
   speakAccessibility('អានឡើងវិញតាំងពីដើម')
 }
 
-// Canvas Wave Visualizer Animation
+// Seek to specific word
+const seekToWord = (wordIndex) => {
+  if (wordIndex < 0 || wordIndex >= tokens.value.length) return
+  emit('update:activeWordIndex', wordIndex)
+  if (isSpeaking.value) {
+    startHighlighting(wordIndex)
+  }
+}
+
+// Jump relative words
+const jumpWords = (delta) => {
+  let next = Math.max(0, Math.min(tokens.value.length - 1, props.activeWordIndex + delta))
+  seekToWord(next)
+  triggerHaptic(30)
+  speakAccessibility(delta > 0 ? 'រំលងទៅមុខ' : 'ថយក្រោយ')
+}
+
+// Canvas Visualizer
 const drawVisualizer = () => {
   const canvas = canvasRef.value
   if (!canvas || !canvas.parentElement) return
   
   const ctx = canvas.getContext('2d')
-  const width = canvas.width = canvas.parentElement.clientWidth || 400
-  const height = canvas.height = 48
+  const width = canvas.width = canvas.parentElement.clientWidth || 360
+  const height = canvas.height = 42
   
   ctx.clearRect(0, 0, width, height)
   
   const waveCount = 3
   const colors = [
-    'rgba(245, 158, 11, 0.85)',  // Vibrant Warm Amber
-    'rgba(251, 191, 36, 0.60)',  // Honey Gold
-    'rgba(253, 230, 138, 0.35)'  // Soft Champagne Gold
+    'rgba(245, 158, 11, 0.9)',
+    'rgba(251, 191, 36, 0.65)',
+    'rgba(253, 230, 138, 0.35)'
   ]
   
-  waveOffset.value += isSpeaking.value ? 0.08 : 0.01
+  waveOffset.value += isSpeaking.value ? 0.09 : 0.015
   
   for (let i = 0; i < waveCount; i++) {
     ctx.beginPath()
@@ -338,18 +340,15 @@ const drawVisualizer = () => {
     ctx.strokeStyle = colors[i]
     
     const amplitude = isSpeaking.value 
-      ? (8 + i * 5) * (0.8 + Math.sin(waveOffset.value * 2) * 0.25)
+      ? (7 + i * 4) * (0.8 + Math.sin(waveOffset.value * 2) * 0.25)
       : 2 + i * 0.8
       
-    const frequency = 0.016 - i * 0.003
+    const frequency = 0.018 - i * 0.003
     
     for (let x = 0; x < width; x++) {
       const y = height / 2 + Math.sin(x * frequency + waveOffset.value + i * 3) * amplitude
-      if (x === 0) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
-      }
+      if (x === 0) ctx.moveTo(x, y)
+      else ctx.lineTo(x, y)
     }
     ctx.stroke()
   }
@@ -367,207 +366,166 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopSpeech()
-  if (animationId) {
-    cancelAnimationFrame(animationId)
-  }
+  if (animationId) cancelAnimationFrame(animationId)
 })
 
 watch(() => props.text, (newText) => {
-  prepareWords(newText)
-  if (typeof stopSpeech === 'function') {
-    stopSpeech()
-  }
+  prepareTokens(newText)
+  stopSpeech()
 }, { immediate: true })
 
 const togglePlayback = () => {
-  if (isSpeaking.value) {
-    pauseSpeech()
-  } else {
-    startSpeech()
-  }
+  if (isSpeaking.value) pauseSpeech()
+  else startSpeech()
 }
 
 defineExpose({
   togglePlayback,
   startSpeech,
   pauseSpeech,
-  stopPlayback: stopSpeech
+  stopPlayback: stopSpeech,
+  seekToWord,
+  isSpeaking,
+  isPaused
 })
 </script>
 
 <template>
-  <div class="tts-card glass-card">
-    <!-- Header Bar -->
-    <div class="tts-header-bar">
-      <div class="header-left">
-        <div class="header-icon-box bg-brand">
-          <Volume2 :size="20" />
-        </div>
-        <div class="title-meta">
-          <h2 class="card-title khmer-font">អានអត្ថបទជាសំឡេង (TTS)</h2>
-          <span class="tts-subtitle khmer-font">Khmer Speech Synthesizer</span>
-        </div>
+  <div class="audio-deck glass-card" role="region" aria-label="ផ្ទាំងបញ្ជាការអានជាសំឡេង">
+    <!-- Visualizer Line & Audio Status Indicator -->
+    <div class="visualizer-header-bar">
+      <div class="visualizer-slot">
+        <canvas ref="canvasRef" class="visualizer-canvas"></canvas>
       </div>
 
-      <div class="header-right">
-        <span v-if="isSpeaking" class="badge badge-brand khmer-font">
-          <span class="live-dot"></span>
-          <span>កំពុងអាន</span>
+      <div class="audio-status-pill khmer-font">
+        <span v-if="isSpeaking" class="audio-state-tag tag-playing">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span>កំពុងអាន...</span>
         </span>
-        <span v-else-if="isPaused" class="badge badge-brand khmer-font">
+        <span v-else-if="isPaused" class="audio-state-tag tag-paused">
           <span>បានផ្អាក</span>
         </span>
-        <span v-else class="badge badge-slate khmer-font">
-          <span>រង់ចាំ</span>
+        <span v-else class="audio-state-tag tag-idle">
+          <span>ត្រៀមអាន</span>
         </span>
       </div>
     </div>
 
-    <!-- Speech Karaoke Highlighting Workspace with Auto-Scroll -->
-    <div class="karaoke-viewer" ref="wordsContainerRef" aria-live="polite" aria-label="ផ្ទាំងរំលេចពាក្យពេលអាន">
-      <div v-if="words.length === 0" class="viewer-empty">
-        <Sparkles :size="28" class="icon-subtle" />
-        <p class="khmer-font">អត្ថបទនឹងបង្ហាញរំលេចពាក្យម្តងមួយៗ (Karaoke Highlight) នៅទីនេះពេលចាប់ផ្តើមអាន។</p>
-      </div>
-      <div v-else class="words-flow khmer-font">
-        <span 
-          v-for="(word, index) in words" 
-          :key="word.id"
-          class="word-token"
-          :class="{ 'word-active': index === activeWordIndex }"
-        >
-          {{ word.text }}
-        </span>
-      </div>
+    <!-- Main Tactile Player Controls -->
+    <div class="deck-primary-controls">
+      <!-- Jump Back 10 words -->
+      <button 
+        type="button" 
+        class="deck-btn btn-jump" 
+        @click="jumpWords(-10)" 
+        :disabled="!text"
+        aria-label="ថយក្រោយ ១០ ពាក្យ"
+        title="ថយក្រោយ"
+      >
+        <SkipBack :size="20" />
+        <span class="jump-tag">-10</span>
+      </button>
+
+      <!-- Primary Play / Pause Hero Button -->
+      <button 
+        type="button" 
+        class="deck-btn-hero khmer-font" 
+        :class="{ 'btn-hero-playing': isSpeaking }"
+        @click="togglePlayback" 
+        :disabled="!text"
+        :aria-label="isSpeaking ? 'ផ្អាកការអាន (Space)' : 'ចាប់ផ្តើមអានជាសំឡេង (Space)'"
+        :title="isSpeaking ? 'ផ្អាកការអាន (Space)' : 'ចាប់ផ្តើមអាន (Space)'"
+      >
+        <Pause v-if="isSpeaking" :size="32" fill="currentColor" />
+        <Play v-else :size="32" fill="currentColor" />
+        <span class="hero-play-label">{{ isSpeaking ? 'ផ្អាក (Pause)' : 'អានជាសំឡេង (PLAY)' }}</span>
+        <kbd class="deck-kbd">Space</kbd>
+      </button>
+
+      <!-- Jump Forward 10 words -->
+      <button 
+        type="button" 
+        class="deck-btn btn-jump" 
+        @click="jumpWords(10)" 
+        :disabled="!text"
+        aria-label="ទៅមុខ ១០ ពាក្យ"
+        title="ទៅមុខ"
+      >
+        <SkipForward :size="20" />
+        <span class="jump-tag">+10</span>
+      </button>
+
+      <!-- Replay from Start -->
+      <button 
+        type="button" 
+        class="deck-btn btn-secondary-tool" 
+        @click="restartSpeech" 
+        :disabled="!text"
+        aria-label="អានឡើងវិញពីដើម"
+        title="អានឡើងវិញពីដើម"
+      >
+        <RotateCcw :size="20" />
+      </button>
+
+      <!-- Stop Playback -->
+      <button 
+        type="button" 
+        class="deck-btn btn-danger-tool" 
+        @click="stopSpeech" 
+        :disabled="!isSpeaking && !isPaused && activeWordIndex === -1"
+        aria-label="បញ្ឈប់ការអាន (Esc)"
+        title="បញ្ឈប់ការអាន (Esc)"
+      >
+        <Square :size="18" fill="currentColor" />
+      </button>
     </div>
 
-    <!-- Dynamic Wave Visualizer -->
-    <div class="visualizer-container" aria-hidden="true">
-      <canvas ref="canvasRef" class="visualizer-canvas"></canvas>
-    </div>
+    <!-- Secondary Audio Controls (Speed Stepper & Voice Selector) -->
+    <div class="deck-secondary-controls">
+      <!-- Speed Presets Stepper -->
+      <div class="speed-stepper-row" role="group" aria-label="ល្បឿនអាន">
+        <span class="stepper-label khmer-font">ល្បឿនអាន៖</span>
+        <div class="speed-pills">
+          <button 
+            v-for="s in speedPresets" 
+            :key="s"
+            type="button" 
+            class="speed-pill-btn" 
+            :class="{ 'speed-active': rate === s }"
+            @click="setSpeedPreset(s)"
+            :aria-label="`ល្បឿន ${s} ដង`"
+          >
+            {{ s }}x
+          </button>
+        </div>
+      </div>
 
-    <!-- Tactile Media Player Deck -->
-    <div class="media-deck">
-      <!-- Voice Config Field -->
-      <div class="voice-picker-row">
-        <label for="voice-select" class="picker-label khmer-font">
+      <!-- Voice Selector -->
+      <div class="voice-picker-slot">
+        <label for="tts-voice-select" class="voice-label khmer-font">
           <Music2 :size="16" class="text-accent" />
-          <span>ជ្រើសរើសសំឡេងអាន៖</span>
+          <span>សំឡេងអាន៖</span>
         </label>
-        <select id="voice-select" v-model="selectedVoiceName" class="accessible-select khmer-font">
+        <select id="tts-voice-select" v-model="selectedVoiceName" class="accessible-voice-select khmer-font">
           <option v-for="voice in voices" :key="voice.name" :value="voice.name">
             {{ voice.label }}
           </option>
         </select>
       </div>
+    </div>
 
-      <!-- Quick Speed Preset Pills -->
-      <div class="speed-presets-row">
-        <span class="speed-label khmer-font">ល្បឿនអានរហ័ស៖</span>
-        <div class="preset-buttons">
-          <button 
-            v-for="p in speedPresets" 
-            :key="p"
-            type="button"
-            class="preset-pill"
-            :class="{ 'preset-active': rate === p }"
-            @click="setSpeedPreset(p)"
-            :aria-label="`ល្បឿន ${p} ដង`"
-          >
-            {{ p }}x
-          </button>
-        </div>
-      </div>
-
-      <!-- Live Sliders for Speed and Volume -->
-      <div class="sliders-grid">
-        <div class="slider-block">
-          <div class="slider-header">
-            <span class="khmer-font slider-title">ល្បឿនអាន (Speed):</span>
-            <span class="slider-val">{{ rate.toFixed(1) }}x</span>
-          </div>
-          <input 
-            type="range" 
-            min="0.5" 
-            max="2.0" 
-            step="0.1" 
-            v-model.number="rate" 
-            class="accessible-range" 
-            aria-label="កែសម្រួលល្បឿនអាន"
-          />
-        </div>
-
-        <div class="slider-block">
-          <div class="slider-header">
-            <span class="khmer-font slider-title">កម្រិតសំឡេង (Volume):</span>
-            <span class="slider-val">{{ Math.round(volume * 100) }}%</span>
-          </div>
-          <input 
-            type="range" 
-            min="0.0" 
-            max="1.0" 
-            step="0.05" 
-            v-model.number="volume" 
-            class="accessible-range" 
-            aria-label="កែសម្រួលកម្រិតសំឡេង"
-          />
-        </div>
-      </div>
-
-      <!-- Main Playback Actions (Accessible Min 48px Target) -->
-      <div class="playback-controls-row">
-        <!-- Play / Pause Main CTA -->
-        <button 
-          v-if="!isSpeaking" 
-          type="button"
-          class="btn btn-primary btn-playback-main khmer-font" 
-          @click="startSpeech" 
-          :disabled="!text"
-          aria-label="ចាប់ផ្តើមអានអត្ថបទជាសំឡេង (Space)"
-          title="ចាប់ផ្តើមអាន (Space)"
-        >
-          <Play :size="22" fill="currentColor" />
-          <span>អានអត្ថបទ (Play)</span>
-          <kbd class="kbd-hint">Space</kbd>
-        </button>
-
-        <button 
-          v-else 
-          type="button"
-          class="btn btn-warning btn-playback-main khmer-font" 
-          @click="pauseSpeech"
-          aria-label="ផ្អាកការអានជាសំឡេង (Space)"
-          title="ផ្អាក (Space)"
-        >
-          <Pause :size="22" fill="currentColor" />
-          <span>ផ្អាក (Pause)</span>
-          <kbd class="kbd-hint">Space</kbd>
-        </button>
-
-        <!-- Replay from Start -->
-        <button 
-          type="button"
-          class="btn btn-secondary btn-deck-tool" 
-          @click="restartSpeech" 
-          :disabled="!text"
-          aria-label="អានឡើងវិញពីដើម"
-          title="អានឡើងវិញ"
-        >
-          <RotateCcw :size="18" />
-        </button>
-
-        <!-- Stop Playback -->
-        <button 
-          type="button"
-          class="btn btn-outline btn-deck-tool btn-stop" 
-          @click="stopSpeech" 
-          :disabled="!isSpeaking && !isPaused && activeWordIndex === -1"
-          aria-label="បញ្ឈប់ការអាន (Esc)"
-          title="បញ្ឈប់ (Esc)"
-        >
-          <Square :size="18" fill="currentColor" />
-        </button>
-      </div>
+    <!-- Bottom Action: Scan Another Document -->
+    <div class="deck-bottom-actions">
+      <button 
+        type="button" 
+        class="btn-deck-scan-again khmer-font" 
+        @click="$emit('scan-again')"
+        aria-label="ស្កេនឯកសារថ្មីមួយទៀត (Scan Another Document)"
+      >
+        <Camera :size="18" />
+        <span>ស្កេនឯកសារថ្មី (Scan Another Document)</span>
+      </button>
     </div>
   </div>
 </template>

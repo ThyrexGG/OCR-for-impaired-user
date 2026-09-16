@@ -5,51 +5,55 @@
    ========================================================================== */
 
 :root {
-  /* Dynamic font scale (adjustable via toolbar) */
+  /* Dynamic font scale & reading adjustments */
   --font-scale: 1;
+  --font-reading-scale: 1;
+  --leading-reading: 1.85;
+  --tracking-reading: 0.015em;
+  --font-weight-reading: 400;
 
   /* Font Families */
   --font-sans: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
   --font-khmer: 'Kantumruy Pro', 'Battambang', system-ui, sans-serif;
 
-  /* Default Theme: Warm Obsidian & Honey Amber (High-Readability Assistive Palette) */
-  --bg-page: #0D0E12;
-  --bg-page-gradient: radial-gradient(circle at 50% 0%, #1E202A 0%, #0D0E12 85%);
-  --bg-surface: #15171F;
-  --bg-surface-elevated: #1C1F2B;
-  --bg-surface-hover: #262A38;
-  --bg-glass: rgba(21, 23, 31, 0.88);
-  --bg-glass-elevated: rgba(28, 31, 43, 0.92);
+  /* Default Theme: Clean Obsidian Slate & Amber (High-Readability Assistive Palette) */
+  --bg-page: #0C1017;
+  --bg-page-gradient: none;
+  --bg-surface: #151B26;
+  --bg-surface-elevated: #1E2636;
+  --bg-surface-hover: #263044;
+  --bg-glass: #151B26;
+  --bg-glass-elevated: #1E2636;
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-medium: rgba(245, 158, 11, 0.28);
+  --border-subtle: #2A364B;
+  --border-medium: #F59E0B;
   --border-prominent: #F59E0B;
   --border-focus: #FBBF24;
 
-  --text-primary: #F9FAFB;
-  --text-secondary: #D1D5DB;
-  --text-muted: #9CA3AF;
-  --text-inverse: #0D0E12;
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --text-inverse: #0C1017;
 
-  /* Unified Warm Golden Honey & Amber Accents */
-  --color-accent: #F59E0B; /* Warm Amber */
+  /* Single Restrained Accent: Warm Amber */
+  --color-accent: #F59E0B;
   --color-accent-hover: #D97706;
-  --color-accent-text: #0D0E12; /* High-contrast obsidian on amber */
-  --color-accent-subtle: rgba(245, 158, 11, 0.14);
-  --color-accent-glow: rgba(245, 158, 11, 0.45);
+  --color-accent-text: #0C1017;
+  --color-accent-subtle: rgba(245, 158, 11, 0.12);
+  --color-accent-glow: none;
 
   --color-brand: #F59E0B;
   --color-brand-light: #FBBF24;
-  --color-brand-subtle: rgba(245, 158, 11, 0.14);
+  --color-brand-subtle: rgba(245, 158, 11, 0.12);
 
   --color-success: #10B981;
   --color-success-hover: #059669;
-  --color-success-subtle: rgba(16, 185, 129, 0.18);
+  --color-success-subtle: rgba(16, 185, 129, 0.15);
 
   --color-danger: #EF4444;
-  --color-danger-subtle: rgba(239, 68, 68, 0.18);
+  --color-danger-subtle: rgba(239, 68, 68, 0.15);
 
-  /* Radius & Shadows */
+  /* Radius & Controlled Shadows */
   --radius-xs: 6px;
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -57,13 +61,13 @@
   --radius-xl: 20px;
   --radius-full: 9999px;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 6px 20px -4px rgba(0, 0, 0, 0.55);
-  --shadow-lg: 0 12px 36px -6px rgba(0, 0, 0, 0.7);
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-glow: none;
 
-  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-smooth: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-fast: 0.15s ease;
+  --transition-smooth: 0.2s ease;
 }
 
 /* ==========================================================================
@@ -114,15 +118,15 @@
    Theme: Warm Editorial Light (Alabaster & Amber)
    ========================================================================== */
 [data-theme="light"] {
-  --bg-page: #FAF9F6;
-  --bg-page-gradient: radial-gradient(circle at 50% 0%, #FFFBEB 0%, #FAF9F6 100%);
+  --bg-page: #F8FAFC;
+  --bg-page-gradient: none;
   --bg-surface: #FFFFFF;
-  --bg-surface-elevated: #F4F2EC;
-  --bg-surface-hover: #EBE8E0;
-  --bg-glass: rgba(255, 255, 255, 0.94);
-  --bg-glass-elevated: rgba(244, 242, 236, 0.96);
+  --bg-surface-elevated: #F1F5F9;
+  --bg-surface-hover: #E2E8F0;
+  --bg-glass: #FFFFFF;
+  --bg-glass-elevated: #F1F5F9;
 
-  --border-subtle: #E2DFD8;
+  --border-subtle: #CBD5E1;
   --border-medium: #FCD34D;
   --border-prominent: #D97706;
   --border-focus: #B45309;
@@ -380,12 +384,34 @@ textarea::placeholder {
   border-color: var(--border-subtle);
 }
 
-/* Accessible Animations */
-@keyframes spin {
-  to { transform: rotate(360deg); }
+/* Bold Typography Preference for Low-Vision */
+body.bold-text,
+.bold-text {
+  font-weight: 600 !important;
+}
+.bold-text .khmer-font {
+  font-weight: 700 !important;
 }
 
-@keyframes pulseGlow {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
+/* Reduced Motion Override */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Accessible Screen-Reader-Only Utility */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }

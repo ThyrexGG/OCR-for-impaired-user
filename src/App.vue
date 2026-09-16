@@ -1,33 +1,72 @@
 <script setup>
 import { ref, onMounted, provide } from 'vue'
-import { Volume2, VolumeX, Moon, Sun, Contrast, ZoomIn, ZoomOut, RotateCcw } from 'lucide-vue-next'
+import { 
+  Settings, Volume2, VolumeX, Moon, Sun, Contrast, 
+  ZoomIn, ZoomOut, RotateCcw, X, Sliders, Eye, Headphones, 
+  Keyboard, Sparkles, Camera, BookOpen, History, Compass, Check, HelpCircle
+} from 'lucide-vue-next'
+import HelpModal from './components/HelpModal.vue'
 
-// Theme Management: 'dark' (Sleek Midnight) | 'contrast' (Ultra High Contrast) | 'light' (Clean Light)
+// --- Accessibility & UI Preferences State ---
 const currentTheme = ref('dark')
 const fontScale = ref(1.0)
-const isUiVoiceEnabled = ref(false)
+const lineSpacing = ref(1.85)
+const isBoldText = ref(false)
+const isReducedMotion = ref(false)
 
+const isUiVoiceEnabled = ref(false)
+const isAutoReadEnabled = ref(true)
+const isHapticsEnabled = ref(true)
+
+// Active Assistant Mode: 'scan' | 'reader' | 'recent' | 'explore'
+const activeMode = ref('scan')
+const isSettingsOpen = ref(false)
+const activeSettingsTab = ref('visual') // 'visual' | 'audio' | 'interaction'
+
+// Spoken status for screen reader and live status banner
+const spokenStatusText = ref('ជំនួយការត្រៀមរួចជាស្រេច')
+
+// --- Haptic Feedback Helper ---
+const triggerHaptic = (pattern = [40]) => {
+  if (!isHapticsEnabled.value || typeof window === 'undefined' || !navigator.vibrate) return
+  try {
+    navigator.vibrate(pattern)
+  } catch (e) {}
+}
+
+// --- Spoken UI Guidance Engine ---
+const speakAccessibility = (text, interrupt = true) => {
+  if (!text || typeof window === 'undefined' || !window.speechSynthesis) return
+  spokenStatusText.value = text
+  
+  if (!isUiVoiceEnabled.value) return
+  if (interrupt) {
+    window.speechSynthesis.cancel()
+  }
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.rate = 1.0
+  utterance.lang = 'km-KH'
+  window.speechSynthesis.speak(utterance)
+}
+
+// --- Theme Management ---
 const setTheme = (theme) => {
   currentTheme.value = theme
   document.documentElement.setAttribute('data-theme', theme)
   localStorage.setItem('songkhem_theme', theme)
+  triggerHaptic(40)
   speakAccessibility(`ប្តូរទម្រង់ពណ៌ជា ${theme === 'dark' ? 'ងងឹតរលោង (Sleek Dark)' : theme === 'contrast' ? 'កម្រិតពណ៌ខ្ពស់ពិសេស (Ultra Contrast)' : 'ភ្លឺច្បាស់ (Clean Light)'}`)
 }
 
-const cycleTheme = () => {
-  if (currentTheme.value === 'dark') setTheme('contrast')
-  else if (currentTheme.value === 'contrast') setTheme('light')
-  else setTheme('dark')
-}
-
-// Font Scaling Management
+// --- Font & Typography Scaling ---
 const changeFontScale = (delta) => {
   let next = Math.round((fontScale.value + delta) * 100) / 100
   if (next < 0.9) next = 0.9
-  if (next > 1.5) next = 1.5
+  if (next > 1.6) next = 1.6
   fontScale.value = next
   document.documentElement.style.setProperty('--font-scale', next)
   localStorage.setItem('songkhem_font_scale', next)
+  triggerHaptic(30)
   speakAccessibility(`ទំហំអក្សរ ${Math.round(next * 100)} ភាគរយ`)
 }
 
@@ -35,30 +74,102 @@ const resetFontScale = () => {
   fontScale.value = 1.0
   document.documentElement.style.setProperty('--font-scale', 1.0)
   localStorage.setItem('songkhem_font_scale', 1.0)
+  triggerHaptic(50)
   speakAccessibility('កំណត់ទំហំអក្សរទៅធម្មតា ១០០ ភាគរយ')
 }
 
-// Voice Guidance & Announcements
-const speakAccessibility = (text) => {
-  if (!isUiVoiceEnabled.value || typeof window === 'undefined' || !window.speechSynthesis) return
-  window.speechSynthesis.cancel()
-  const u = new SpeechSynthesisUtterance(text)
-  u.rate = 1.0
-  window.speechSynthesis.speak(u)
+const toggleBoldText = () => {
+  isBoldText.value = !isBoldText.value
+  if (isBoldText.value) {
+    document.body.classList.add('bold-text')
+  } else {
+    document.body.classList.remove('bold-text')
+  }
+  localStorage.setItem('songkhem_bold', isBoldText.value ? 'true' : 'false')
+  triggerHaptic(30)
+  speakAccessibility(isBoldText.value ? 'បានបើកអក្សរដិតច្បាស់' : 'បានបិទអក្សរដិត')
 }
 
-provide('speakAccessibility', speakAccessibility)
-provide('isUiVoiceEnabled', isUiVoiceEnabled)
+const setLineSpacing = (val) => {
+  lineSpacing.value = val
+  document.documentElement.style.setProperty('--leading-reading', val)
+  localStorage.setItem('songkhem_line_spacing', val)
+  triggerHaptic(30)
+  speakAccessibility(`កម្ពស់ជួរដេកអក្សរ ${val}`)
+}
 
+// --- Audio & Guidance Toggles ---
 const toggleUiVoice = () => {
   isUiVoiceEnabled.value = !isUiVoiceEnabled.value
   localStorage.setItem('songkhem_voice', isUiVoiceEnabled.value ? 'true' : 'false')
-  if (isUiVoiceEnabled.value && window.speechSynthesis) {
-    window.speechSynthesis.cancel()
-    const u = new SpeechSynthesisUtterance('បានបើកសំឡេងជំនួយបញ្ជា (UI Voice Guidance Enabled)')
-    window.speechSynthesis.speak(u)
+  triggerHaptic([60, 40, 60])
+  if (isUiVoiceEnabled.value) {
+    speakAccessibility('បានបើកសំឡេងជំនួយបញ្ជា (Spoken Guidance Enabled)')
   }
 }
+
+const toggleAutoRead = () => {
+  isAutoReadEnabled.value = !isAutoReadEnabled.value
+  localStorage.setItem('songkhem_auto_read', isAutoReadEnabled.value ? 'true' : 'false')
+  triggerHaptic(30)
+  speakAccessibility(isAutoReadEnabled.value ? 'បានបើកការអានដោយស្វ័យប្រវត្តិពេលស្កេនរួច' : 'បានបិទការអានស្វ័យប្រវត្តិ')
+}
+
+const toggleHaptics = () => {
+  isHapticsEnabled.value = !isHapticsEnabled.value
+  localStorage.setItem('songkhem_haptics', isHapticsEnabled.value ? 'true' : 'false')
+  triggerHaptic([80, 50])
+  speakAccessibility(isHapticsEnabled.value ? 'បានបើកការញ័រផ្តល់ដំណឹង (Haptics ON)' : 'បានបិទការញ័រ')
+}
+
+// --- Mode Switching ---
+const setMode = (mode) => {
+  activeMode.value = mode
+  triggerHaptic(50)
+  const modeNames = {
+    scan: 'ម៉ូដស្កេន និងជំនួយ (Scan & Assist Mode)',
+    reader: 'ម៉ូដអានឯកសារ (Document Reading Mode)',
+    recent: 'ម៉ូដប្រវត្តិអាន (Recent Reads)',
+    explore: 'ម៉ូដជំនួយការមើលទេសភាព (Visual Scene Assistant)'
+  }
+  speakAccessibility(modeNames[mode] || mode)
+}
+
+// --- Settings Modal ---
+const openSettings = () => {
+  isSettingsOpen.value = true
+  triggerHaptic(40)
+  speakAccessibility('បានបើកផ្ទាំងការកំណត់លទ្ធភាពប្រើប្រាស់ (Accessibility Settings)')
+}
+
+const closeSettings = () => {
+  isSettingsOpen.value = false
+  triggerHaptic(30)
+  speakAccessibility('បានបិទផ្ទាំងការកំណត់')
+}
+
+// --- Help / How to Use Modal ---
+const isHelpOpen = ref(false)
+const openHelp = () => {
+  isHelpOpen.value = true
+  triggerHaptic(30)
+}
+const closeHelp = () => {
+  isHelpOpen.value = false
+  triggerHaptic(20)
+}
+
+// --- Provide Global Context to Child Components ---
+provide('speakAccessibility', speakAccessibility)
+provide('isUiVoiceEnabled', isUiVoiceEnabled)
+provide('isAutoReadEnabled', isAutoReadEnabled)
+provide('isHapticsEnabled', isHapticsEnabled)
+provide('triggerHaptic', triggerHaptic)
+provide('activeMode', activeMode)
+provide('setMode', setMode)
+provide('openSettings', openSettings)
+provide('openHelp', openHelp)
+provide('currentTheme', currentTheme)
 
 onMounted(() => {
   // Load saved preferences
@@ -71,15 +182,45 @@ onMounted(() => {
     document.documentElement.style.setProperty('--font-scale', savedScale)
   }
 
-  const savedVoice = localStorage.getItem('songkhem_voice') === 'true'
-  isUiVoiceEnabled.value = savedVoice
+  const savedSpacing = parseFloat(localStorage.getItem('songkhem_line_spacing') || '1.85')
+  if (!isNaN(savedSpacing)) {
+    lineSpacing.value = savedSpacing
+    document.documentElement.style.setProperty('--leading-reading', savedSpacing)
+  }
 
-  // Click-to-speak for visually impaired guidance
+  if (localStorage.getItem('songkhem_bold') === 'true') {
+    isBoldText.value = true
+    document.body.classList.add('bold-text')
+  }
+
+  isUiVoiceEnabled.value = localStorage.getItem('songkhem_voice') === 'true'
+  isAutoReadEnabled.value = localStorage.getItem('songkhem_auto_read') !== 'false'
+  isHapticsEnabled.value = localStorage.getItem('songkhem_haptics') !== 'false'
+
+  // Global Keyboard Shortcuts
+  window.addEventListener('keydown', (e) => {
+    // Alt + A: Toggle Accessibility Settings
+    if (e.altKey && (e.key === 'a' || e.key === 'A')) {
+      e.preventDefault()
+      if (isSettingsOpen.value) closeSettings()
+      else openSettings()
+    }
+    // Alt + 1, 2, 3: Quick Mode Switch
+    if (e.altKey && e.key === '1') { e.preventDefault(); setMode('scan') }
+    if (e.altKey && e.key === '2') { e.preventDefault(); setMode('reader') }
+    if (e.altKey && e.key === '3') { e.preventDefault(); setMode('recent') }
+    // Escape closes modal
+    if (e.key === 'Escape' && isSettingsOpen.value) {
+      closeSettings()
+    }
+  })
+
+  // Click-to-speak delegation for screen reader and blind guidance
   document.addEventListener('click', (e) => {
     if (!isUiVoiceEnabled.value) return
-    if (e.target.closest('.access-toolbar, .ui-voice-toggle')) return
-    
-    const clickable = e.target.closest('button, .action-card, select, a, input, textarea')
+    if (e.target.closest('.access-toolbar, .settings-modal-backdrop, .bottom-nav-bar')) return
+
+    const clickable = e.target.closest('button, .action-card, select, a, input, textarea, .mode-tab')
     if (clickable) {
       let textToSpeak = clickable.getAttribute('aria-label') || 
                         clickable.getAttribute('title') || 
@@ -96,107 +237,433 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="web-app-wrapper" :class="`theme-${currentTheme}`">
+  <div class="web-app-wrapper" :class="[`theme-${currentTheme}`, { 'mode-contrast': currentTheme === 'contrast' }]">
     <!-- Skip to Content for Screen Readers & Keyboard Navigation -->
     <a href="#main-content" class="skip-to-content khmer-font">រំលងទៅមាតិកាសំខាន់ (Skip to Content)</a>
 
-    <!-- Top Accessible Toolbar (Always Accessible) -->
-    <nav class="access-toolbar" aria-label="ការកំណត់លទ្ធភាពប្រើប្រាស់ (Accessibility Controls)">
-      <div class="toolbar-inner">
-        <!-- Brand identity mark -->
-        <div class="toolbar-brand">
-          <span class="brand-pill khmer-font">
-            <span class="pulse-indicator"></span>
-            songKHEM ជំនួយការអាន
-          </span>
+    <!-- Top Accessible Header (Clean, Uncluttered, Spoken Status) -->
+    <header class="assistive-header" role="banner" aria-label="របារក្បាលទំព័រ songKHEM">
+      <div class="header-inner">
+        <!-- Brand & Vision Companion Identity -->
+        <div class="header-brand">
+          <router-link to="/home" class="brand-link" aria-label="songKHEM ត្រឡប់ទៅទំព័រដើម">
+            <div class="brand-logo-gem">
+              <span class="pulse-dot" aria-hidden="true"></span>
+              <img src="/logo.png" alt="songKHEM Logo" class="brand-img" />
+            </div>
+            <div class="brand-titles">
+              <span class="brand-name">songKHEM</span>
+              <span class="brand-caption khmer-font">ជំនួយការមើលឃើញ</span>
+            </div>
+          </router-link>
         </div>
 
-        <div class="toolbar-actions">
-          <!-- Font Size Scaler -->
-          <div class="tool-group font-scaler" role="group" aria-label="ប្តូរទំហំអក្សរ">
-            <button 
-              class="tool-btn" 
-              @click="changeFontScale(-0.1)" 
-              aria-label="បន្ថយទំហំអក្សរ (Decrease Font Size)" 
-              title="បន្ថយទំហំអក្សរ"
-              :disabled="fontScale <= 0.9"
-            >
-              <ZoomOut :size="18" />
-              <span class="btn-text">A-</span>
-            </button>
-            <button 
-              class="tool-btn scale-indicator" 
-              @click="resetFontScale" 
-              aria-label="កំណត់ទំហំអក្សរធម្មតា (Reset Font Size)"
-              title="កំណត់ទំហំអក្សរឡើងវិញ"
-            >
-              <RotateCcw :size="14" />
-              <span class="scale-val">{{ Math.round(fontScale * 100) }}%</span>
-            </button>
-            <button 
-              class="tool-btn" 
-              @click="changeFontScale(0.1)" 
-              aria-label="បង្កើនទំហំអក្សរ (Increase Font Size)" 
-              title="បង្កើនទំហំអក្សរ"
-              :disabled="fontScale >= 1.5"
-            >
-              <ZoomIn :size="18" />
-              <span class="btn-text">A+</span>
-            </button>
-          </div>
+        <!-- Live Spoken Status Pill (Audible & Visual) -->
+        <div class="status-pill-box" aria-live="polite">
+          <span class="status-indicator-dot" aria-hidden="true"></span>
+          <span class="status-text khmer-font" :title="spokenStatusText">{{ spokenStatusText }}</span>
+        </div>
 
-          <!-- Theme Mode Switcher -->
-          <div class="tool-group theme-switcher" role="group" aria-label="ប្តូរពណ៌ផ្ទៃក្រោយ">
-            <button 
-              class="tool-btn theme-cycle-btn" 
-              @click="cycleTheme"
-              :aria-label="`ប្តូរទម្រង់ពណ៌ បច្ចុប្បន្នគឺ ${currentTheme}`"
-              :title="`ប្តូរទម្រង់ពណ៌ (បច្ចុប្បន្ន: ${currentTheme})`"
-            >
-              <Moon v-if="currentTheme === 'dark'" :size="18" class="icon-theme" />
-              <Contrast v-else-if="currentTheme === 'contrast'" :size="18" class="icon-theme text-contrast" />
-              <Sun v-else :size="18" class="icon-theme text-sun" />
-              <span class="theme-label khmer-font">
-                {{ currentTheme === 'dark' ? 'ងងឹតរលោង' : currentTheme === 'contrast' ? 'កម្រិតពណ៌ខ្ពស់' : 'ផ្ទៃភ្លឺ' }}
-              </span>
-            </button>
-          </div>
-
-          <!-- Spoken Audio Guidance Toggle -->
+        <!-- Header Actions -->
+        <div class="header-actions">
+          <!-- Voice Toggle Quick Button -->
           <button 
-            class="tool-btn voice-toggle-btn"
-            :class="{ 'voice-active': isUiVoiceEnabled }"
+            type="button" 
+            class="header-btn voice-btn"
+            :class="{ 'active-voice': isUiVoiceEnabled }"
             @click="toggleUiVoice"
-            :aria-label="isUiVoiceEnabled ? 'បិទសំឡេងជំនួយ (UI Voice ON)' : 'បើកសំឡេងជំនួយ (UI Voice OFF)'"
+            :aria-label="isUiVoiceEnabled ? 'បិទសំឡេងជំនួយ UI' : 'បើកសំឡេងជំនួយ UI'"
             :title="isUiVoiceEnabled ? 'បិទសំឡេងជំនួយ' : 'បើកសំឡេងជំនួយ'"
           >
-            <Volume2 v-if="isUiVoiceEnabled" :size="18" />
-            <VolumeX v-else :size="18" />
-            <span class="voice-text khmer-font">
-              {{ isUiVoiceEnabled ? 'សំឡេងជំនួយ: បើក' : 'សំឡេងជំនួយ: បិទ' }}
-            </span>
+            <Volume2 v-if="isUiVoiceEnabled" :size="20" />
+            <VolumeX v-else :size="20" />
+            <span class="btn-caption khmer-font">{{ isUiVoiceEnabled ? 'សំឡេង: បើក' : 'សំឡេង: បិទ' }}</span>
+          </button>
+
+          <!-- Help / How to Use Trigger -->
+          <button 
+            type="button" 
+            class="header-btn help-trigger-btn"
+            @click="openHelp"
+            aria-label="របៀបប្រើប្រាស់ (Help / How to Use)"
+            title="របៀបប្រើប្រាស់ (Help)"
+          >
+            <HelpCircle :size="20" />
+            <span class="btn-caption khmer-font">ជំនួយ</span>
+          </button>
+
+          <!-- Settings Trigger -->
+          <button 
+            type="button" 
+            class="header-btn settings-trigger-btn"
+            @click="openSettings"
+            aria-label="បើកការកំណត់លទ្ធភាពប្រើប្រាស់ (Alt + A)"
+            title="ការកំណត់លទ្ធភាពប្រើប្រាស់ (Alt + A)"
+          >
+            <Settings :size="22" />
+            <span class="btn-caption khmer-font">កំណត់</span>
           </button>
         </div>
       </div>
-    </nav>
+    </header>
 
-    <!-- Main App Content (Router Views) -->
-    <main id="main-content" class="app-main-content">
+    <!-- Main Workspace Content -->
+    <main id="main-content" class="app-main-content" role="main">
       <router-view />
     </main>
 
-    <!-- Floating Quick Audio Guide Button (Accessible for Touch & Mobile) -->
-    <button 
-      class="ui-voice-toggle" 
-      :class="{ 'voice-active': isUiVoiceEnabled }"
-      @click="toggleUiVoice" 
-      :aria-label="isUiVoiceEnabled ? 'បិទសំឡេងបញ្ជា (Disable UI Voice)' : 'បើកសំឡេងបញ្ជា (Enable UI Voice)'" 
-      :title="isUiVoiceEnabled ? 'បិទសំឡេងបញ្ជា (Voice ON)' : 'បើកសំឡេងបញ្ជា (Voice OFF)'"
+    <!-- Tactile Accessible Bottom Navigation Bar (Mobile-First & One-Handed Friendly) -->
+    <nav class="bottom-nav-bar" aria-label="ការផ្លាស់ប្តូរម៉ូដប្រើប្រាស់">
+      <div class="nav-bar-inner">
+        <!-- Mode 1: Scan & Read (Primary Hero) -->
+        <button 
+          type="button" 
+          class="nav-tab-btn" 
+          :class="{ 'tab-active': activeMode === 'scan' }"
+          @click="setMode('scan')"
+          aria-label="ម៉ូដស្កេន និងអាន (Scan & Read) Alt+1"
+        >
+          <div class="tab-icon-wrap">
+            <Camera :size="24" />
+          </div>
+          <span class="tab-label khmer-font">ស្កេន & អាន</span>
+        </button>
+
+        <!-- Mode 2: Document Reader -->
+        <button 
+          type="button" 
+          class="nav-tab-btn" 
+          :class="{ 'tab-active': activeMode === 'reader' }"
+          @click="setMode('reader')"
+          aria-label="ម៉ូដអានឯកសារ (Document Reader) Alt+2"
+        >
+          <div class="tab-icon-wrap">
+            <BookOpen :size="24" />
+          </div>
+          <span class="tab-label khmer-font">អានឯកសារ</span>
+        </button>
+
+        <!-- Mode 3: Recent Reads -->
+        <button 
+          type="button" 
+          class="nav-tab-btn" 
+          :class="{ 'tab-active': activeMode === 'recent' }"
+          @click="setMode('recent')"
+          aria-label="ម៉ូដប្រវត្តិអាន (Recent Reads) Alt+3"
+        >
+          <div class="tab-icon-wrap">
+            <History :size="24" />
+          </div>
+          <span class="tab-label khmer-font">ប្រវត្តិអាន</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Comprehensive Accessibility Settings Modal / Sheet -->
+    <div 
+      v-if="isSettingsOpen" 
+      class="settings-modal-backdrop" 
+      @click.self="closeSettings" 
+      role="dialog" 
+      aria-modal="true" 
+      aria-labelledby="settings-dialog-title"
     >
-      <Volume2 v-if="isUiVoiceEnabled" size="28" />
-      <VolumeX v-else size="28" />
-      <span class="voice-ping" v-if="isUiVoiceEnabled"></span>
-    </button>
+      <div class="settings-modal-sheet glass-card">
+        <!-- Modal Header -->
+        <div class="modal-header">
+          <div class="modal-title-row">
+            <Sliders :size="22" class="text-accent" />
+            <h2 id="settings-dialog-title" class="modal-title khmer-font">ការកំណត់លទ្ធភាពប្រើប្រាស់</h2>
+          </div>
+          <button 
+            type="button" 
+            class="modal-close-btn" 
+            @click="closeSettings" 
+            aria-label="បិទផ្ទាំងការកំណត់ (Esc)"
+            title="បិទផ្ទាំងការកំណត់"
+          >
+            <X :size="22" />
+          </button>
+        </div>
+
+        <!-- Modal Category Tabs -->
+        <div class="modal-nav-tabs" role="tablist" aria-label="ផ្នែកកំណត់">
+          <button 
+            type="button"
+            role="tab" 
+            class="tab-pill khmer-font" 
+            :class="{ 'pill-active': activeSettingsTab === 'visual' }"
+            :aria-selected="activeSettingsTab === 'visual'"
+            @click="activeSettingsTab = 'visual'"
+          >
+            <Eye :size="16" />
+            <span>ការមើលឃើញ</span>
+          </button>
+          <button 
+            type="button"
+            role="tab" 
+            class="tab-pill khmer-font" 
+            :class="{ 'pill-active': activeSettingsTab === 'audio' }"
+            :aria-selected="activeSettingsTab === 'audio'"
+            @click="activeSettingsTab = 'audio'"
+          >
+            <Headphones :size="16" />
+            <span>ការស្តាប់ & សំឡេង</span>
+          </button>
+          <button 
+            type="button"
+            role="tab" 
+            class="tab-pill khmer-font" 
+            :class="{ 'pill-active': activeSettingsTab === 'interaction' }"
+            :aria-selected="activeSettingsTab === 'interaction'"
+            @click="activeSettingsTab = 'interaction'"
+          >
+            <Keyboard :size="16" />
+            <span>ការបញ្ជា & ផ្លូវកាត់</span>
+          </button>
+        </div>
+
+        <!-- Tab 1: Visual Settings -->
+        <div v-if="activeSettingsTab === 'visual'" class="tab-pane visual-pane">
+          <!-- Text Size Scaling -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">ទំហំអក្សរទូទៅ (Text Scaling)</span>
+              <span class="setting-desc khmer-font">ពង្រីក ឬបង្រួមអក្សរទាំងអស់ក្នុងកម្មវិធី</span>
+            </div>
+            <div class="scaler-controls" role="group" aria-label="ប្តូរទំហំអក្សរ">
+              <button 
+                type="button"
+                class="scale-btn" 
+                @click="changeFontScale(-0.1)" 
+                :disabled="fontScale <= 0.9"
+                aria-label="បន្ថយទំហំអក្សរ"
+              >
+                <ZoomOut :size="18" />
+                <span class="btn-lbl">A-</span>
+              </button>
+              <button 
+                type="button"
+                class="scale-indicator-btn" 
+                @click="resetFontScale" 
+                title="កំណត់ឡើងវិញ ១០០%"
+                aria-label="កំណត់ទំហំអក្សរឡើងវិញ ១០០%"
+              >
+                <RotateCcw :size="14" />
+                <span>{{ Math.round(fontScale * 100) }}%</span>
+              </button>
+              <button 
+                type="button"
+                class="scale-btn" 
+                @click="changeFontScale(0.1)" 
+                :disabled="fontScale >= 1.6"
+                aria-label="បង្កើនទំហំអក្សរ"
+              >
+                <ZoomIn :size="18" />
+                <span class="btn-lbl">A+</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Contrast Themes -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">ទម្រង់ពណ៌កម្រិតខ្ពស់ (Contrast Themes)</span>
+              <span class="setting-desc khmer-font">ជ្រើសរើសកម្រិតពណ៌ដែលស័ក្តិសមនឹងភ្នែករបស់អ្នក</span>
+            </div>
+            <div class="theme-options-grid">
+              <button 
+                type="button"
+                class="theme-card-option" 
+                :class="{ 'theme-selected': currentTheme === 'dark' }"
+                @click="setTheme('dark')"
+                aria-label="ងងឹតរលោង (Sleek Midnight Dark)"
+              >
+                <Moon :size="20" class="text-accent" />
+                <span class="theme-name khmer-font">ងងឹតរលោង</span>
+                <span class="theme-sub">Midnight Dark</span>
+              </button>
+
+              <button 
+                type="button"
+                class="theme-card-option theme-contrast-card" 
+                :class="{ 'theme-selected': currentTheme === 'contrast' }"
+                @click="setTheme('contrast')"
+                aria-label="កម្រិតពណ៌ខ្ពស់ពិសេស (Ultra High Contrast Yellow on Black)"
+              >
+                <Contrast :size="20" class="text-contrast" />
+                <span class="theme-name khmer-font">កម្រិតពណ៌ខ្ពស់</span>
+                <span class="theme-sub">Ultra Contrast</span>
+              </button>
+
+              <button 
+                type="button"
+                class="theme-card-option" 
+                :class="{ 'theme-selected': currentTheme === 'light' }"
+                @click="setTheme('light')"
+                aria-label="ផ្ទៃភ្លឺច្បាស់ (Clean Editorial Light)"
+              >
+                <Sun :size="20" class="text-sun" />
+                <span class="theme-name khmer-font">ផ្ទៃភ្លឺច្បាស់</span>
+                <span class="theme-sub">Clean Light</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Bold Typography Toggle -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">អក្សរដិតច្បាស់ (Bold Typography)</span>
+              <span class="setting-desc khmer-font">បង្កើនកម្រាស់អក្សរខ្មែរឱ្យងាយអានជាងមុន</span>
+            </div>
+            <button 
+              type="button"
+              class="accessible-switch" 
+              :class="{ 'switch-on': isBoldText }"
+              @click="toggleBoldText"
+              :aria-checked="isBoldText"
+              role="switch"
+              aria-label="បើកបិទអក្សរដិត"
+            >
+              <span class="switch-thumb"></span>
+            </button>
+          </div>
+
+          <!-- Line Height / Spacing -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">គម្លាតជួរដេក (Line Spacing)</span>
+              <span class="setting-desc khmer-font">ផ្តល់គម្លាតធំទូលាយសម្រាប់ជើងអក្សរ និងស្រៈខ្មែរ</span>
+            </div>
+            <div class="segment-buttons" role="group" aria-label="គម្លាតជួរដេក">
+              <button 
+                type="button"
+                class="segment-btn" 
+                :class="{ 'segment-active': lineSpacing === 1.6 }"
+                @click="setLineSpacing(1.6)"
+              >1.6x</button>
+              <button 
+                type="button"
+                class="segment-btn" 
+                :class="{ 'segment-active': lineSpacing === 1.85 }"
+                @click="setLineSpacing(1.85)"
+              >1.85x</button>
+              <button 
+                type="button"
+                class="segment-btn" 
+                :class="{ 'segment-active': lineSpacing === 2.1 }"
+                @click="setLineSpacing(2.1)"
+              >2.1x</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Audio & Guidance Settings -->
+        <div v-if="activeSettingsTab === 'audio'" class="tab-pane audio-pane">
+          <!-- UI Spoken Guidance Toggle -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">សំឡេងជំនួយបញ្ជា (Spoken UI Guidance)</span>
+              <span class="setting-desc khmer-font">ប្រព័ន្ធនឹងអានឈ្មោះប៊ូតុង និងស្ថានភាពនៅពេលចុចបញ្ជា</span>
+            </div>
+            <button 
+              type="button"
+              class="accessible-switch" 
+              :class="{ 'switch-on': isUiVoiceEnabled }"
+              @click="toggleUiVoice"
+              :aria-checked="isUiVoiceEnabled"
+              role="switch"
+              aria-label="បើកបិទសំឡេងជំនួយបញ្ជា UI"
+            >
+              <span class="switch-thumb"></span>
+            </button>
+          </div>
+
+          <!-- Auto Read After Scan -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">អានស្វ័យប្រវត្តិ (Auto-Read After Scan)</span>
+              <span class="setting-desc khmer-font">ចាប់ផ្តើមអានជាសំឡេងភ្លាមៗបន្ទាប់ពីស្កេនឯកសាររួច</span>
+            </div>
+            <button 
+              type="button"
+              class="accessible-switch" 
+              :class="{ 'switch-on': isAutoReadEnabled }"
+              @click="toggleAutoRead"
+              :aria-checked="isAutoReadEnabled"
+              role="switch"
+              aria-label="បើកបិទការអានស្វ័យប្រវត្តិ"
+            >
+              <span class="switch-thumb"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 3: Interaction & Shortcuts -->
+        <div v-if="activeSettingsTab === 'interaction'" class="tab-pane shortcuts-pane">
+          <!-- Haptic Vibrations -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">ការញ័រផ្តល់ដំណឹង (Haptic Feedback)</span>
+              <span class="setting-desc khmer-font">ញ័រទូរស័ព្ទពេលចាប់បានឯកសារ និងពេលចុចប៊ូតុង</span>
+            </div>
+            <button 
+              type="button"
+              class="accessible-switch" 
+              :class="{ 'switch-on': isHapticsEnabled }"
+              @click="toggleHaptics"
+              :aria-checked="isHapticsEnabled"
+              role="switch"
+              aria-label="បើកបិទការញ័រផ្តល់ដំណឹង"
+            >
+              <span class="switch-thumb"></span>
+            </button>
+          </div>
+
+          <!-- Keyboard Shortcuts Table -->
+          <div class="shortcuts-card">
+            <h3 class="shortcuts-card-title khmer-font">ផ្លូវកាត់ក្តារចុច (Keyboard Shortcuts)</h3>
+            <ul class="shortcuts-list khmer-font">
+              <li>
+                <span class="key-combo"><kbd>Space</kbd></span>
+                <span class="key-desc">ចាប់ផ្តើម / ផ្អាកការអាន (Play / Pause)</span>
+              </li>
+              <li>
+                <span class="key-combo"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+                <span class="key-desc">ស្កេន និងអានឯកសារ (Scan & Read)</span>
+              </li>
+              <li>
+                <span class="key-combo"><kbd>Esc</kbd></span>
+                <span class="key-desc">បញ្ឈប់ការអាន / បិទផ្ទាំង (Stop / Close)</span>
+              </li>
+              <li>
+                <span class="key-combo"><kbd>Alt</kbd> + <kbd>A</kbd></span>
+                <span class="key-desc">បើកការកំណត់លទ្ធភាពប្រើប្រាស់ (Settings)</span>
+              </li>
+              <li>
+                <span class="key-combo"><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd></span>
+                <span class="key-desc">ប្តូរម៉ូដ: ស្កេន / អាន / ប្រវត្តិ</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer">
+          <button 
+            type="button" 
+            class="btn btn-primary btn-save-modal khmer-font" 
+            @click="closeSettings"
+          >
+            <Check :size="18" />
+            <span>រួចរាល់ (Done)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Help / How to Use Modal -->
+    <HelpModal v-if="isHelpOpen" @close="closeHelp" />
   </div>
 </template>
 
