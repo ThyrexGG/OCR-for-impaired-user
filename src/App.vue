@@ -1,14 +1,18 @@
 <script setup>
-import { ref, onMounted, provide } from 'vue'
+import { ref, computed, onMounted, provide } from 'vue'
+import { useRoute } from 'vue-router'
 import { 
   Settings, Volume2, VolumeX, Moon, Sun, Contrast, 
   ZoomIn, ZoomOut, RotateCcw, X, Sliders, Eye, Headphones, 
-  Keyboard, Sparkles, Camera, BookOpen, History, Compass, Check, HelpCircle
+  Keyboard, Sparkles, Camera, Upload, BookOpen, History, Check, HelpCircle
 } from 'lucide-vue-next'
 import HelpModal from './components/HelpModal.vue'
 
+const route = useRoute()
+const isLoginScreen = computed(() => !route?.name || route.name === 'login' || route.path === '/')
+
 // --- Accessibility & UI Preferences State ---
-const currentTheme = ref('dark')
+const currentTheme = ref('light')
 const fontScale = ref(1.0)
 const lineSpacing = ref(1.85)
 const isBoldText = ref(false)
@@ -18,7 +22,7 @@ const isUiVoiceEnabled = ref(false)
 const isAutoReadEnabled = ref(true)
 const isHapticsEnabled = ref(true)
 
-// Active Assistant Mode: 'scan' | 'reader' | 'recent' | 'explore'
+// Active Assistant Mode: 'scan' | 'upload' | 'reader' | 'recent'
 const activeMode = ref('scan')
 const isSettingsOpen = ref(false)
 const activeSettingsTab = ref('visual') // 'visual' | 'audio' | 'interaction'
@@ -55,7 +59,12 @@ const setTheme = (theme) => {
   document.documentElement.setAttribute('data-theme', theme)
   localStorage.setItem('songkhem_theme', theme)
   triggerHaptic(40)
-  speakAccessibility(`ប្តូរទម្រង់ពណ៌ជា ${theme === 'dark' ? 'ងងឹតរលោង (Sleek Dark)' : theme === 'contrast' ? 'កម្រិតពណ៌ខ្ពស់ពិសេស (Ultra Contrast)' : 'ភ្លឺច្បាស់ (Clean Light)'}`)
+  const themeDescriptions = {
+    light: 'ភ្លឺច្បាស់ ពណ៌ខៀវរាជវង្ស (Royal Sapphire Light)',
+    dark: 'ងងឹតរលោង (Midnight Sapphire Dark)',
+    contrast: 'កម្រិតពណ៌ខ្ពស់ពិសេស (Ultra Contrast)'
+  }
+  speakAccessibility(`ប្តូរទម្រង់ពណ៌ជា ${themeDescriptions[theme] || theme}`)
 }
 
 // --- Font & Typography Scaling ---
@@ -127,10 +136,10 @@ const setMode = (mode) => {
   activeMode.value = mode
   triggerHaptic(50)
   const modeNames = {
-    scan: 'ម៉ូដស្កេន និងជំនួយ (Scan & Assist Mode)',
+    scan: 'ម៉ូដកាមេរ៉ា (Camera Mode)',
+    upload: 'ម៉ូដផ្ទុកឯកសារ (Upload Mode)',
     reader: 'ម៉ូដអានឯកសារ (Document Reading Mode)',
-    recent: 'ម៉ូដប្រវត្តិអាន (Recent Reads)',
-    explore: 'ម៉ូដជំនួយការមើលទេសភាព (Visual Scene Assistant)'
+    recent: 'ម៉ូដប្រវត្តិអាន (Recent Reads)'
   }
   speakAccessibility(modeNames[mode] || mode)
 }
@@ -173,7 +182,11 @@ provide('currentTheme', currentTheme)
 
 onMounted(() => {
   // Load saved preferences
-  const savedTheme = localStorage.getItem('songkhem_theme') || 'dark'
+  let savedTheme = localStorage.getItem('songkhem_theme')
+  if (!savedTheme || savedTheme === 'dark') {
+    savedTheme = 'light'
+    localStorage.setItem('songkhem_theme', 'light')
+  }
   setTheme(savedTheme)
 
   const savedScale = parseFloat(localStorage.getItem('songkhem_font_scale') || '1.0')
@@ -205,17 +218,19 @@ onMounted(() => {
       if (isSettingsOpen.value) closeSettings()
       else openSettings()
     }
-    // Alt + 1, 2, 3: Quick Mode Switch
+    // Alt + 1, 2, 3, 4: Quick Mode Switch
     if (e.altKey && e.key === '1') { e.preventDefault(); setMode('scan') }
-    if (e.altKey && e.key === '2') { e.preventDefault(); setMode('reader') }
-    if (e.altKey && e.key === '3') { e.preventDefault(); setMode('recent') }
+    if (e.altKey && e.key === '2') { e.preventDefault(); setMode('upload') }
+    if (e.altKey && e.key === '3') { e.preventDefault(); setMode('reader') }
+    if (e.altKey && e.key === '4') { e.preventDefault(); setMode('recent') }
     // Escape closes modal
     if (e.key === 'Escape' && isSettingsOpen.value) {
       closeSettings()
     }
   })
 
-  // Click-to-speak delegation for screen reader and blind guidance
+  // Click-to-speak delegation: self-contained voice-guided model for users WITHOUT an OS screen reader.
+  // Strictly gated by isUiVoiceEnabled (default: false) to avoid talking over native screen readers (NVDA, VoiceOver, TalkBack).
   document.addEventListener('click', (e) => {
     if (!isUiVoiceEnabled.value) return
     if (e.target.closest('.access-toolbar, .settings-modal-backdrop, .bottom-nav-bar')) return
@@ -237,12 +252,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="web-app-wrapper" :class="[`theme-${currentTheme}`, { 'mode-contrast': currentTheme === 'contrast' }]">
+  <div class="web-app-wrapper" :class="[`theme-${currentTheme}`, { 'mode-contrast': currentTheme === 'contrast', 'no-bottom-nav': isLoginScreen }]">
     <!-- Skip to Content for Screen Readers & Keyboard Navigation -->
     <a href="#main-content" class="skip-to-content khmer-font">រំលងទៅមាតិកាសំខាន់ (Skip to Content)</a>
 
     <!-- Top Accessible Header (Clean, Uncluttered, Spoken Status) -->
-    <header class="assistive-header" role="banner" aria-label="របារក្បាលទំព័រ songKHEM">
+    <header v-if="!isLoginScreen" class="assistive-header" role="banner" aria-label="របារក្បាលទំព័រ songKHEM">
       <div class="header-inner">
         <!-- Brand & Vision Companion Identity -->
         <div class="header-brand">
@@ -313,29 +328,43 @@ onMounted(() => {
     </main>
 
     <!-- Tactile Accessible Bottom Navigation Bar (Mobile-First & One-Handed Friendly) -->
-    <nav class="bottom-nav-bar" aria-label="ការផ្លាស់ប្តូរម៉ូដប្រើប្រាស់">
+    <nav v-if="!isLoginScreen" class="bottom-nav-bar" aria-label="ការផ្លាស់ប្តូរម៉ូដប្រើប្រាស់">
       <div class="nav-bar-inner">
-        <!-- Mode 1: Scan & Read (Primary Hero) -->
-        <button 
-          type="button" 
-          class="nav-tab-btn" 
+        <!-- Mode 1: Camera (Primary Hero, full-screen viewfinder) -->
+        <button
+          type="button"
+          class="nav-tab-btn"
           :class="{ 'tab-active': activeMode === 'scan' }"
           @click="setMode('scan')"
-          aria-label="ម៉ូដស្កេន និងអាន (Scan & Read) Alt+1"
+          aria-label="ម៉ូដកាមេរ៉ា (Camera) Alt+1"
         >
           <div class="tab-icon-wrap">
             <Camera :size="24" />
           </div>
-          <span class="tab-label khmer-font">ស្កេន & អាន</span>
+          <span class="tab-label khmer-font">កាមេរ៉ា</span>
         </button>
 
-        <!-- Mode 2: Document Reader -->
-        <button 
-          type="button" 
-          class="nav-tab-btn" 
+        <!-- Mode 2: Upload File / Sample Documents -->
+        <button
+          type="button"
+          class="nav-tab-btn"
+          :class="{ 'tab-active': activeMode === 'upload' }"
+          @click="setMode('upload')"
+          aria-label="ម៉ូដផ្ទុកឯកសារ (Upload) Alt+2"
+        >
+          <div class="tab-icon-wrap">
+            <Upload :size="24" />
+          </div>
+          <span class="tab-label khmer-font">ផ្ទុកឯកសារ</span>
+        </button>
+
+        <!-- Mode 3: Document Reader -->
+        <button
+          type="button"
+          class="nav-tab-btn"
           :class="{ 'tab-active': activeMode === 'reader' }"
           @click="setMode('reader')"
-          aria-label="ម៉ូដអានឯកសារ (Document Reader) Alt+2"
+          aria-label="ម៉ូដអានឯកសារ (Document Reader) Alt+3"
         >
           <div class="tab-icon-wrap">
             <BookOpen :size="24" />
@@ -343,13 +372,13 @@ onMounted(() => {
           <span class="tab-label khmer-font">អានឯកសារ</span>
         </button>
 
-        <!-- Mode 3: Recent Reads -->
-        <button 
-          type="button" 
-          class="nav-tab-btn" 
+        <!-- Mode 4: Recent Reads -->
+        <button
+          type="button"
+          class="nav-tab-btn"
           :class="{ 'tab-active': activeMode === 'recent' }"
           @click="setMode('recent')"
-          aria-label="ម៉ូដប្រវត្តិអាន (Recent Reads) Alt+3"
+          aria-label="ម៉ូដប្រវត្តិអាន (Recent Reads) Alt+4"
         >
           <div class="tab-icon-wrap">
             <History :size="24" />
@@ -475,17 +504,17 @@ onMounted(() => {
               <button 
                 type="button"
                 class="theme-card-option" 
-                :class="{ 'theme-selected': currentTheme === 'dark' }"
-                @click="setTheme('dark')"
-                aria-label="ងងឹតរលោង (Sleek Midnight Dark)"
+                :class="{ 'theme-selected': currentTheme === 'light' }"
+                @click="setTheme('light')"
+                aria-label="ផ្ទៃភ្លឺច្បាស់ (Clean Royal Sapphire Light)"
               >
-                <Moon :size="20" class="text-accent" />
-                <span class="theme-name khmer-font">ងងឹតរលោង</span>
-                <span class="theme-sub">Midnight Dark</span>
+                <Sun :size="20" class="text-sun" />
+                <span class="theme-name khmer-font">ផ្ទៃភ្លឺច្បាស់</span>
+                <span class="theme-sub">Royal Light</span>
               </button>
 
               <button 
-                type="button"
+                type="button" 
                 class="theme-card-option theme-contrast-card" 
                 :class="{ 'theme-selected': currentTheme === 'contrast' }"
                 @click="setTheme('contrast')"
@@ -499,13 +528,13 @@ onMounted(() => {
               <button 
                 type="button"
                 class="theme-card-option" 
-                :class="{ 'theme-selected': currentTheme === 'light' }"
-                @click="setTheme('light')"
-                aria-label="ផ្ទៃភ្លឺច្បាស់ (Clean Editorial Light)"
+                :class="{ 'theme-selected': currentTheme === 'dark' }"
+                @click="setTheme('dark')"
+                aria-label="ងងឹតរលោង (Midnight Sapphire Dark)"
               >
-                <Sun :size="20" class="text-sun" />
-                <span class="theme-name khmer-font">ផ្ទៃភ្លឺច្បាស់</span>
-                <span class="theme-sub">Clean Light</span>
+                <Moon :size="20" class="text-accent" />
+                <span class="theme-name khmer-font">ងងឹតរលោង</span>
+                <span class="theme-sub">Midnight Dark</span>
               </button>
             </div>
           </div>
@@ -564,7 +593,7 @@ onMounted(() => {
           <div class="setting-item">
             <div class="setting-label-col">
               <span class="setting-title khmer-font">សំឡេងជំនួយបញ្ជា (Spoken UI Guidance)</span>
-              <span class="setting-desc khmer-font">ប្រព័ន្ធនឹងអានឈ្មោះប៊ូតុង និងស្ថានភាពនៅពេលចុចបញ្ជា</span>
+              <span class="setting-desc khmer-font">ប្រព័ន្ធនឹងអានឈ្មោះប៊ូតុងនៅពេលចុច (សម្រាប់អ្នកមិនប្រើ Screen Reader របស់ប្រព័ន្ធ)</span>
             </div>
             <button 
               type="button"
@@ -641,8 +670,8 @@ onMounted(() => {
                 <span class="key-desc">បើកការកំណត់លទ្ធភាពប្រើប្រាស់ (Settings)</span>
               </li>
               <li>
-                <span class="key-combo"><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd></span>
-                <span class="key-desc">ប្តូរម៉ូដ: ស្កេន / អាន / ប្រវត្តិ</span>
+                <span class="key-combo"><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd></span>
+                <span class="key-desc">ប្តូរម៉ូដ: កាមេរ៉ា / ផ្ទុកឯកសារ / អាន / ប្រវត្តិ</span>
               </li>
             </ul>
           </div>

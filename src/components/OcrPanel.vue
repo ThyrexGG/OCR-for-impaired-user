@@ -210,14 +210,14 @@ const onWordClick = (token) => {
 
 <template>
   <div class="reading-canvas glass-card" role="region" aria-label="ផ្ទាំងអានឯកសារខ្មែរ">
-    <!-- Reading Header Bar: Clean Back Button, Title, and Options Toggle -->
+    <!-- Reading Header Bar: Clean Back Button, Document Title, and Action Status -->
     <header class="canvas-header">
       <div class="header-left">
         <button 
           type="button" 
           class="btn-back-to-scan khmer-font" 
           @click="triggerScanAgain"
-          aria-label="ត្រឡប់ទៅការស្កេនឯកសារថ្មី"
+          aria-label="ត្រឡប់ទៅការស្កេនឯកសារថ្មី (Scan Again)"
           title="ត្រឡប់ទៅស្កេន"
         >
           <ArrowLeft :size="18" />
@@ -234,117 +234,111 @@ const onWordClick = (token) => {
         </div>
       </div>
 
-      <div class="header-right">
-        <!-- Collapsible Reading Options Button -->
-        <button 
-          type="button" 
-          class="btn-toggle-options khmer-font"
-          :class="{ 'options-active': isOptionsOpen }"
-          @click="isOptionsOpen = !isOptionsOpen"
-          :aria-expanded="isOptionsOpen"
-          aria-label="ជម្រើសអាន និងទំហំអក្សរ"
-          title="ជម្រើសអាន"
-        >
-          <SlidersHorizontal :size="18" />
-          <span>ជម្រើស</span>
-        </button>
+      <div class="header-right" v-if="localText">
+        <!-- Quick Document Utilities: Copy, Download, Edit -->
+        <div class="header-doc-actions" role="toolbar" aria-label="ឧបករណ៍ឯកសារ">
+          <button 
+            type="button" 
+            class="btn-canvas-action khmer-font" 
+            @click="copyToClipboard" 
+            :disabled="!localText"
+            aria-label="ចម្លងអត្ថបទ (Copy Text)"
+            title="ចម្លង"
+          >
+            <Check v-if="isCopied" :size="16" class="text-success" />
+            <Copy v-else :size="16" />
+            <span>{{ isCopied ? 'បានចម្លង' : 'ចម្លង' }}</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="btn-canvas-action khmer-font" 
+            @click="downloadTxt" 
+            :disabled="!localText"
+            aria-label="ទាញយកជាឯកសារ TXT (Download)"
+            title="ទាញយក"
+          >
+            <Download :size="16" />
+            <span>ទាញយក</span>
+          </button>
+
+          <button 
+            type="button" 
+            class="btn-canvas-action khmer-font" 
+            :class="{ 'btn-action-active': isEditing }"
+            @click="toggleEditing"
+            :aria-label="isEditing ? 'ត្រឡប់ទៅផ្ទាំងអាន' : 'កែសម្រួលអត្ថបទ (Edit Text)'"
+            title="កែសម្រួល"
+          >
+            <Check v-if="isEditing" :size="16" />
+            <Edit3 v-else :size="16" />
+            <span>{{ isEditing ? 'រួចរាល់' : 'កែសម្រួល' }}</span>
+          </button>
+        </div>
       </div>
     </header>
 
-    <!-- Collapsible Secondary Reading Options Drawer -->
-    <div v-if="isOptionsOpen && localText" class="reading-options-drawer" role="region" aria-label="ជម្រើសអានបន្ថែម">
-      <!-- In-Panel Zoom Controls for Low-Vision Readers -->
-      <div class="drawer-tool-group" role="group" aria-label="ទំហំអក្សរ">
-        <span class="drawer-group-label khmer-font">ទំហំអក្សរ៖</span>
+    <!-- Permanent Elevated Reading Controls Toolbar -->
+    <div v-if="localText && !isEditing" class="reading-controls-toolbar" role="toolbar" aria-label="ការកំណត់ការអាន និងទំហំអក្សរ">
+      <!-- In-Panel Font Zoom Controls -->
+      <div class="toolbar-tool-group" role="group" aria-label="ទំហំអក្សរ">
+        <span class="toolbar-group-label khmer-font">ទំហំអក្សរ៖</span>
         <button 
           type="button" 
-          class="btn-drawer-tool khmer-font" 
+          class="btn-zoom-action khmer-font" 
           @click="adjustZoom(-0.15)" 
           :disabled="readingFontSize <= 1.0"
           aria-label="បន្ថយទំហំអក្សរ A-"
+          title="បន្ថយទំហំអក្សរ A-"
         >
           <ZoomOut :size="16" />
           <span>A-</span>
         </button>
+        <span class="zoom-level-indicator" aria-live="polite">{{ Math.round(readingFontSize * 100 / 1.25) }}%</span>
         <button 
           type="button" 
-          class="btn-drawer-tool khmer-font" 
+          class="btn-zoom-action khmer-font" 
           @click="adjustZoom(0.15)" 
           :disabled="readingFontSize >= 2.4"
           aria-label="បង្កើនទំហំអក្សរ A+"
+          title="បង្កើនទំហំអក្សរ A+"
         >
           <ZoomIn :size="16" />
           <span>A+</span>
         </button>
       </div>
 
-      <!-- Utilities: Copy, TXT, Edit -->
-      <div class="drawer-tool-group" role="group" aria-label="ឧបករណ៍ឯកសារ">
-        <button 
-          type="button" 
-          class="btn-drawer-tool khmer-font" 
-          @click="copyToClipboard" 
-          :disabled="!localText"
-          aria-label="ចម្លងអត្ថបទ"
-        >
-          <Check v-if="isCopied" :size="16" class="text-success" />
-          <Copy v-else :size="16" />
-          <span>{{ isCopied ? 'បានចម្លង' : 'ចម្លង' }}</span>
-        </button>
+      <div class="toolbar-divider" aria-hidden="true"></div>
 
+      <!-- Highlighting Mode Selector Pills -->
+      <div class="toolbar-tool-group" role="group" aria-label="របៀបរំលេចពេលអាន">
+        <span class="toolbar-group-label khmer-font">រំលេច៖</span>
         <button 
           type="button" 
-          class="btn-drawer-tool khmer-font" 
-          @click="downloadTxt" 
-          :disabled="!localText"
-          aria-label="ទាញយកជា TXT"
-        >
-          <Download :size="16" />
-          <span>ទាញយក</span>
-        </button>
-
-        <button 
-          type="button" 
-          class="btn-drawer-tool khmer-font" 
-          :class="{ 'btn-editing-active': isEditing }"
-          @click="toggleEditing"
-          :aria-label="isEditing ? 'ត្រឡប់ទៅផ្ទាំងអាន' : 'កែសម្រួលអត្ថបទ'"
-        >
-          <Check v-if="isEditing" :size="16" />
-          <Edit3 v-else :size="16" />
-          <span>{{ isEditing ? 'រួចរាល់' : 'កែសម្រួល' }}</span>
-        </button>
-      </div>
-
-      <!-- Highlight Mode Selector Pills -->
-      <div v-if="!isEditing" class="drawer-tool-group" role="group" aria-label="របៀបរំលេចពាក្យពេលអាន">
-        <span class="drawer-group-label khmer-font">រំលេច៖</span>
-        <button 
-          type="button" 
-          class="btn-drawer-pill khmer-font" 
+          class="btn-highlight-pill khmer-font" 
           :class="{ 'pill-active': highlightMode === 'word' }"
           @click="setHighlightMode('word')"
-          aria-label="រំលេចម្តងមួយពាក្យ"
+          aria-label="រំលេចម្តងមួយពាក្យ (Word Mode)"
         >
-          ពាក្យ
+          ពាក្យ (Word)
         </button>
         <button 
           type="button" 
-          class="btn-drawer-pill khmer-font" 
+          class="btn-highlight-pill khmer-font" 
           :class="{ 'pill-active': highlightMode === 'sentence' }"
           @click="setHighlightMode('sentence')"
-          aria-label="រំលេចម្តងមួយប្រយោគ"
+          aria-label="រំលេចម្តងមួយប្រយោគ (Sentence Mode)"
         >
-          ប្រយោគ
+          ប្រយោគ (Sentence)
         </button>
         <button 
           type="button" 
-          class="btn-drawer-pill khmer-font" 
+          class="btn-highlight-pill khmer-font" 
           :class="{ 'pill-active': highlightMode === 'paragraph' }"
           @click="setHighlightMode('paragraph')"
-          aria-label="រំលេចម្តងមួយកថាខណ្ឌ"
+          aria-label="រំលេចម្តងមួយកថាខណ្ឌ (Paragraph Mode)"
         >
-          កថាខណ្ឌ
+          កថាខណ្ឌ (Para)
         </button>
       </div>
     </div>
@@ -420,7 +414,7 @@ const onWordClick = (token) => {
             :key="sentence.index"
             class="reading-sentence"
             :class="{ 
-              'sentence-active': highlightMode === 'sentence' && 
+              'sentence-active': (highlightMode === 'sentence' || highlightMode === 'word') && 
                 sentence.words.some(w => w.globalIndex === activeWordIndex)
             }"
           >

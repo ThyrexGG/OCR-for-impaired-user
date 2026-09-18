@@ -3,8 +3,8 @@ import { ref, onMounted, onBeforeUnmount, inject, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
   ArrowLeft, Sparkles, BookOpen, FileCheck2, Cpu, Zap, 
-  Camera, History, Compass, ArrowRight, Eye, Play, Volume2,
-  Upload, HelpCircle, Settings, RefreshCw, AlertCircle, CheckCircle2, FileText
+  Camera, ArrowRight, Eye, Play, Volume2,
+  Upload, RefreshCw, AlertCircle, CheckCircle2, FileText
 } from 'lucide-vue-next'
 import DocumentUploader from '../components/DocumentUploader.vue'
 import OcrPanel from '../components/OcrPanel.vue'
@@ -457,48 +457,15 @@ const handleScanAgain = () => {
 
 <template>
   <div class="assistant-workspace-wrapper">
-    <!-- MODE 1: SCAN & ASSIST (Simplified Home Screen) -->
-    <div v-show="activeMode === 'scan'" class="mode-container scan-mode-container">
-      <!-- Simplified Header & Secondary Actions Shelf -->
-      <div class="home-hero-deck">
+    <!-- MODE 1 & 2: CAMERA (full-screen) + UPLOAD (dropzone & samples) share one flow -->
+    <div v-show="activeMode === 'scan' || activeMode === 'upload'" class="mode-container scan-mode-container" :class="{ 'camera-fullscreen': activeMode === 'scan' }">
+      <!-- Hero header only on the Upload page - the Camera page stays chrome-free for max viewfinder space -->
+      <div v-if="activeMode === 'upload'" class="home-hero-deck">
         <div class="mode-hero-header">
-          <h1 class="mode-hero-title khmer-font">ជំនួយការស្កេនឯកសារ (Scan Document)</h1>
+          <h1 class="mode-hero-title khmer-font">ផ្ទុកឯកសារ ឬសាកល្បងគំរូ (Upload Document)</h1>
           <p class="mode-hero-subtitle khmer-font">
-            តម្រង់កាមេរ៉ាទៅកាន់ឯកសារ ឬជ្រើសរើសឯកសារ ដើម្បីស្តាប់ការអានជាសំឡេងភ្លាមៗ។
+            ជ្រើសរើសរូបភាព ឬ PDF ពីទូរស័ព្ទ ឬសាកល្បងជាមួយឯកសារគំរូខាងក្រោម។
           </p>
-        </div>
-
-        <!-- Secondary Actions Shelf (Large, clear buttons with labels) -->
-        <div class="secondary-actions-shelf" role="toolbar" aria-label="ជម្រើសជំនួយបន្ថែម">
-          <button 
-            type="button" 
-            class="shelf-action-btn khmer-font"
-            @click="setMode('recent')"
-            aria-label="ប្រវត្តិអាន (Recent Scans)"
-          >
-            <History :size="18" />
-            <span>ប្រវត្តិអាន (Recent Scans)</span>
-          </button>
-
-          <button 
-            type="button" 
-            class="shelf-action-btn khmer-font"
-            @click="openHelp"
-            aria-label="របៀបប្រើប្រាស់ (Help / How to Use)"
-          >
-            <HelpCircle :size="18" />
-            <span>របៀបប្រើប្រាស់ (Help)</span>
-          </button>
-
-          <button 
-            type="button" 
-            class="shelf-action-btn khmer-font"
-            @click="openSettings"
-            aria-label="ការកំណត់លទ្ធភាពប្រើប្រាស់ (Settings)"
-          >
-            <Settings :size="18" />
-            <span>ការកំណត់ (Settings)</span>
-          </button>
         </div>
       </div>
 
@@ -554,38 +521,21 @@ const handleScanAgain = () => {
         </button>
       </div>
 
-      <!-- Primary Camera Viewfinder & Dropzone -->
-      <DocumentUploader 
+      <!-- Camera Viewfinder (scan tab) or Upload Dropzone + Samples (upload tab) -->
+      <DocumentUploader
         v-else
+        :mode="activeMode === 'upload' ? 'upload' : 'camera'"
         :is-processing="isProcessing"
+        :samples="sampleLibrary"
         @file-selected="onFileSelected"
         @clear-file="onClearFile"
         @trigger-ocr="handleTriggerOcr"
+        @load-sample="loadSample"
+        @switch-mode="setMode"
       />
-
-      <!-- Quick Use-Case Sample Documents -->
-      <section v-if="!isProcessing && !ocrError" class="sample-documents-section" aria-label="គំរូឯកសារសាកល្បង">
-        <div class="sample-sec-header">
-          <Sparkles :size="18" class="text-accent" />
-          <h2 class="sample-sec-title khmer-font">សាកល្បងជាមួយឯកសារគំរូរហ័ស៖</h2>
-        </div>
-        <div class="sample-chips-grid">
-          <button 
-            v-for="sample in sampleLibrary" 
-            :key="sample.id"
-            type="button" 
-            class="sample-chip-btn khmer-font" 
-            @click="loadSample(sample)"
-            :aria-label="`ផ្ទុកគំរូ ${sample.title}`"
-          >
-            <span class="sample-chip-cat">{{ sample.category }}</span>
-            <span class="sample-chip-name">{{ sample.title }}</span>
-          </button>
-        </div>
-      </section>
     </div>
 
-    <!-- MODE 2: READING MODE (Unified Khmer Document Reader & Karaoke Deck) -->
+    <!-- MODE 3: READING MODE (Unified Khmer Document Reader & Karaoke Deck) -->
     <div v-show="activeMode === 'reader'" class="mode-container reader-mode-container">
       <div class="reader-layout-grid">
         <!-- Reading Canvas with Karaoke Highlighting & Options Drawer -->
@@ -614,7 +564,7 @@ const handleScanAgain = () => {
       </div>
     </div>
 
-    <!-- MODE 3: RECENT READS MODE (Accessible History Shelf) -->
+    <!-- MODE 4: RECENT READS MODE (Accessible History Shelf) -->
     <div v-show="activeMode === 'recent'" class="mode-container recent-mode-container">
       <UserHistory 
         :history="historyList"

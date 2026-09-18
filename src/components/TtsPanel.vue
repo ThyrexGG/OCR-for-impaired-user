@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, watch, nextTick, inject } from 'vue'
 import { 
   Play, Pause, Square, RotateCcw, Volume2, Sparkles, 
-  Sliders, Music2, SkipBack, SkipForward, Repeat, Camera
+  Sliders, Music2, SkipBack, SkipForward, Repeat
 } from 'lucide-vue-next'
 import { synthesizeTextAzureTTS } from '../services/tts'
 import { getTtsCache, setTtsCache } from '../services/cache'
@@ -326,10 +326,20 @@ const drawVisualizer = () => {
   ctx.clearRect(0, 0, width, height)
   
   const waveCount = 3
+  let baseRgba = '0, 82, 204'
+  if (typeof window !== 'undefined') {
+    const theme = document.documentElement.getAttribute('data-theme')
+    if (theme === 'contrast') {
+      baseRgba = '251, 191, 36'
+    } else if (theme === 'dark') {
+      baseRgba = '59, 130, 246'
+    }
+  }
+
   const colors = [
-    'rgba(245, 158, 11, 0.9)',
-    'rgba(251, 191, 36, 0.65)',
-    'rgba(253, 230, 138, 0.35)'
+    `rgba(${baseRgba}, 0.9)`,
+    `rgba(${baseRgba}, 0.65)`,
+    `rgba(${baseRgba}, 0.35)`
   ]
   
   waveOffset.value += isSpeaking.value ? 0.09 : 0.015
@@ -513,19 +523,6 @@ defineExpose({
           </option>
         </select>
       </div>
-    </div>
-
-    <!-- Bottom Action: Scan Another Document -->
-    <div class="deck-bottom-actions">
-      <button 
-        type="button" 
-        class="btn-deck-scan-again khmer-font" 
-        @click="$emit('scan-again')"
-        aria-label="ស្កេនឯកសារថ្មីមួយទៀត (Scan Another Document)"
-      >
-        <Camera :size="18" />
-        <span>ស្កេនឯកសារថ្មី (Scan Another Document)</span>
-      </button>
     </div>
   </div>
 </template>

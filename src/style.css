@@ -12,46 +12,47 @@
   --tracking-reading: 0.015em;
   --font-weight-reading: 400;
 
-  /* Font Families */
+  /* Font Families: Siemreap for general content, Koulen for titles and bold display */
   --font-sans: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
-  --font-khmer: 'Kantumruy Pro', 'Battambang', system-ui, sans-serif;
+  --font-khmer: 'Siemreap', 'Kantumruy Pro', 'Battambang', system-ui, sans-serif;
+  --font-title: 'Koulen', 'Outfit', 'Siemreap', cursive, sans-serif;
 
-  /* Default Theme: Clean Obsidian Slate & Amber (High-Readability Assistive Palette) */
-  --bg-page: #0C1017;
+  /* Primary Default Theme: Clean Royal Sapphire Light (Matches songKHEM Logo) */
+  --bg-page: #F4F7FC;
   --bg-page-gradient: none;
-  --bg-surface: #151B26;
-  --bg-surface-elevated: #1E2636;
-  --bg-surface-hover: #263044;
-  --bg-glass: #151B26;
-  --bg-glass-elevated: #1E2636;
+  --bg-surface: #FFFFFF;
+  --bg-surface-elevated: #EBF2FA;
+  --bg-surface-hover: #E1ECF8;
+  --bg-glass: #FFFFFF;
+  --bg-glass-elevated: #EBF2FA;
 
-  --border-subtle: #2A364B;
-  --border-medium: #F59E0B;
-  --border-prominent: #F59E0B;
-  --border-focus: #FBBF24;
+  --border-subtle: #94A3B8;
+  --border-medium: #0052CC;
+  --border-prominent: #003D99;
+  --border-focus: #0052CC;
 
-  --text-primary: #F8FAFC;
-  --text-secondary: #CBD5E1;
-  --text-muted: #94A3B8;
-  --text-inverse: #0C1017;
+  --text-primary: #0A1628;
+  --text-secondary: #1E293B;
+  --text-muted: #475569;
+  --text-inverse: #FFFFFF;
 
-  /* Single Restrained Accent: Warm Amber */
-  --color-accent: #F59E0B;
-  --color-accent-hover: #D97706;
-  --color-accent-text: #0C1017;
-  --color-accent-subtle: rgba(245, 158, 11, 0.12);
-  --color-accent-glow: none;
+  /* Royal Sapphire Accent (Exact match to songKHEM Logo) */
+  --color-accent: #0052CC;
+  --color-accent-hover: #0040A1;
+  --color-accent-text: #FFFFFF;
+  --color-accent-subtle: rgba(0, 82, 204, 0.10);
+  --color-accent-glow: rgba(0, 82, 204, 0.22);
 
-  --color-brand: #F59E0B;
-  --color-brand-light: #FBBF24;
-  --color-brand-subtle: rgba(245, 158, 11, 0.12);
+  --color-brand: #0052CC;
+  --color-brand-light: #0065FF;
+  --color-brand-subtle: rgba(0, 82, 204, 0.10);
 
-  --color-success: #10B981;
-  --color-success-hover: #059669;
-  --color-success-subtle: rgba(16, 185, 129, 0.15);
+  --color-success: #059669;
+  --color-success-hover: #047857;
+  --color-success-subtle: rgba(5, 150, 105, 0.12);
 
-  --color-danger: #EF4444;
-  --color-danger-subtle: rgba(239, 68, 68, 0.15);
+  --color-danger: #DC2626;
+  --color-danger-subtle: rgba(220, 38, 38, 0.12);
 
   /* Radius & Controlled Shadows */
   --radius-xs: 6px;
@@ -61,13 +62,101 @@
   --radius-xl: 20px;
   --radius-full: 9999px;
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-glow: none;
+  --shadow-sm: 0 2px 6px rgba(12, 26, 48, 0.06);
+  --shadow-md: 0 6px 20px -4px rgba(12, 26, 48, 0.10);
+  --shadow-lg: 0 12px 36px -6px rgba(12, 26, 48, 0.14);
+  --shadow-glow: 0 0 24px rgba(0, 82, 204, 0.25);
 
   --transition-fast: 0.15s ease;
   --transition-smooth: 0.2s ease;
+}
+
+/* ==========================================================================
+   Theme: Clean Royal Sapphire Light (Matches songKHEM Logo)
+   ========================================================================== */
+[data-theme="light"] {
+  --bg-page: #F4F7FC;
+  --bg-page-gradient: none;
+  --bg-surface: #FFFFFF;
+  --bg-surface-elevated: #EBF2FA;
+  --bg-surface-hover: #E1ECF8;
+  --bg-glass: #FFFFFF;
+  --bg-glass-elevated: #EBF2FA;
+
+  --border-subtle: #94A3B8;
+  --border-medium: #0052CC;
+  --border-prominent: #003D99;
+  --border-focus: #0052CC;
+
+  --text-primary: #0A1628;
+  --text-secondary: #1E293B;
+  --text-muted: #475569;
+  --text-inverse: #FFFFFF;
+
+  --color-accent: #0052CC;
+  --color-accent-hover: #0040A1;
+  --color-accent-text: #FFFFFF;
+  --color-accent-subtle: rgba(0, 82, 204, 0.10);
+  --color-accent-glow: rgba(0, 82, 204, 0.22);
+
+  --color-brand: #0052CC;
+  --color-brand-light: #0065FF;
+  --color-brand-subtle: rgba(0, 82, 204, 0.10);
+
+  --color-success: #059669;
+  --color-success-hover: #047857;
+  --color-success-subtle: rgba(5, 150, 105, 0.12);
+
+  --color-danger: #DC2626;
+  --color-danger-subtle: rgba(220, 38, 38, 0.12);
+
+  --shadow-sm: 0 2px 6px rgba(12, 26, 48, 0.06);
+  --shadow-md: 0 6px 20px -4px rgba(12, 26, 48, 0.10);
+  --shadow-lg: 0 12px 36px -6px rgba(12, 26, 48, 0.14);
+}
+
+/* ==========================================================================
+   Theme: Midnight Sapphire Dark (Low-Light & Battery Saver)
+   ========================================================================== */
+[data-theme="dark"] {
+  --bg-page: #0B111E;
+  --bg-page-gradient: none;
+  --bg-surface: #131B2E;
+  --bg-surface-elevated: #1B2640;
+  --bg-surface-hover: #243254;
+  --bg-glass: #131B2E;
+  --bg-glass-elevated: #1B2640;
+
+  --border-subtle: #475569;
+  --border-medium: #3B82F6;
+  --border-prominent: #60A5FA;
+  --border-focus: #93C5FD;
+
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+  --text-inverse: #0B111E;
+
+  --color-accent: #3B82F6;
+  --color-accent-hover: #2563EB;
+  --color-accent-text: #FFFFFF;
+  --color-accent-subtle: rgba(59, 130, 246, 0.16);
+  --color-accent-glow: rgba(59, 130, 246, 0.35);
+
+  --color-brand: #3B82F6;
+  --color-brand-light: #60A5FA;
+  --color-brand-subtle: rgba(59, 130, 246, 0.16);
+
+  --color-success: #10B981;
+  --color-success-hover: #059669;
+  --color-success-subtle: rgba(16, 185, 129, 0.15);
+
+  --color-danger: #EF4444;
+  --color-danger-subtle: rgba(239, 68, 68, 0.15);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.6);
 }
 
 /* ==========================================================================
@@ -114,50 +203,6 @@
   --shadow-glow: none;
 }
 
-/* ==========================================================================
-   Theme: Warm Editorial Light (Alabaster & Amber)
-   ========================================================================== */
-[data-theme="light"] {
-  --bg-page: #F8FAFC;
-  --bg-page-gradient: none;
-  --bg-surface: #FFFFFF;
-  --bg-surface-elevated: #F1F5F9;
-  --bg-surface-hover: #E2E8F0;
-  --bg-glass: #FFFFFF;
-  --bg-glass-elevated: #F1F5F9;
-
-  --border-subtle: #CBD5E1;
-  --border-medium: #FCD34D;
-  --border-prominent: #D97706;
-  --border-focus: #B45309;
-
-  --text-primary: #18181B;
-  --text-secondary: #3F3F46;
-  --text-muted: #71717A;
-  --text-inverse: #FFFFFF;
-
-  --color-accent: #D97706;
-  --color-accent-hover: #B45309;
-  --color-accent-text: #FFFFFF;
-  --color-accent-subtle: rgba(217, 119, 6, 0.12);
-  --color-accent-glow: rgba(217, 119, 6, 0.25);
-
-  --color-brand: #D97706;
-  --color-brand-light: #F59E0B;
-  --color-brand-subtle: rgba(217, 119, 6, 0.12);
-
-  --color-success: #059669;
-  --color-success-hover: #047857;
-  --color-success-subtle: rgba(5, 150, 105, 0.12);
-
-  --color-danger: #DC2626;
-  --color-danger-subtle: rgba(220, 38, 38, 0.12);
-
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 6px 20px -4px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 12px 36px -6px rgba(0, 0, 0, 0.12);
-}
-
 
 /* ==========================================================================
    Base & Resets
@@ -169,7 +214,7 @@
 }
 
 html {
-  font-size: calc(15px * var(--font-scale, 1));
+  font-size: calc(16px * var(--font-scale, 1));
   scroll-behavior: smooth;
 }
 
@@ -211,19 +256,45 @@ body {
   background: var(--color-accent);
 }
 
-/* Khmer Font utility */
+/* Khmer Font utility (General text: Siemreap) */
 .khmer-font {
   font-family: var(--font-khmer) !important;
-  line-height: 1.7 !important;
-  letter-spacing: 0.01em;
+  line-height: 1.75 !important;
+  letter-spacing: 0.015em;
 }
 
-/* Typography Hierarchy */
+/* Typography Hierarchy & Headings (Titles and Bold Display: Koulen) */
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-sans);
+  font-family: var(--font-title);
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1.25;
+  line-height: 1.35;
+  letter-spacing: 0.03em;
+}
+
+/* Explicit title and bold heading overrides for Koulen */
+h1.khmer-font, h2.khmer-font, h3.khmer-font, h4.khmer-font, h5.khmer-font, h6.khmer-font,
+.khmer-title,
+.mode-hero-title,
+.action-card-title,
+.doc-name,
+.hero-label,
+.label-top,
+.hero-play-label,
+.processing-title,
+.error-title,
+.help-title,
+.tips-heading,
+.step-heading,
+.brand-name {
+  font-family: var(--font-title) !important;
+  letter-spacing: 0.03em;
+}
+
+b, strong, .font-bold {
+  font-family: var(--font-title);
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 
 p {
@@ -306,9 +377,7 @@ p {
 /* Card Foundation */
 .glass-card {
   background: var(--bg-surface);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1.5px solid var(--border-subtle);
+  border: 2px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
   transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);

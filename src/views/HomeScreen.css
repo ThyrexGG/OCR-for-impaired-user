@@ -6,7 +6,19 @@
   width: 100%;
   max-width: 1120px;
   margin: 0 auto;
-  padding: 20px 16px 40px;
+  padding: 32px 24px 64px;
+}
+
+/* Camera page (Alt+1): shed the page's usual padding and become a flex parent
+   so the viewfinder below can flex:1 and fill literally all remaining space
+   between the header and the bottom nav */
+.assistant-workspace-wrapper:has(.camera-fullscreen) {
+  padding: 12px 12px 20px;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 /* Mode Container Base */
@@ -15,6 +27,16 @@
   flex-direction: column;
   gap: 20px;
   animation: fadeIn 0.25s ease;
+}
+
+.mode-container.camera-fullscreen {
+  gap: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.mode-container.camera-fullscreen {
+  gap: 0;
 }
 
 @keyframes fadeIn {
@@ -50,39 +72,7 @@
   max-width: 600px;
 }
 
-/* Secondary Actions Shelf */
-.secondary-actions-shelf {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  width: 100%;
-  margin-bottom: 6px;
-}
 
-.shelf-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 46px;
-  padding: 8px 18px;
-  background: var(--bg-surface-elevated);
-  border: 1.5px solid var(--border-medium);
-  border-radius: var(--radius-full);
-  color: var(--text-primary);
-  font-weight: 700;
-  font-size: 0.92rem;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.shelf-action-btn:hover {
-  border-color: var(--color-accent);
-  background: var(--bg-surface-hover);
-  color: var(--color-accent);
-  transform: translateY(-2px);
-}
 
 /* ==========================================================================
    OCR Processing State Card (Timeout-Aware)
@@ -312,88 +302,122 @@
   gap: 18px;
 }
 
-/* ==========================================================================
-   Mode 4: Visual Scene Assistant (Explore Mode)
-   ========================================================================== */
-.explore-hero-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 48px 24px;
-  border: 2px solid var(--border-medium);
-  border-radius: var(--radius-xl);
-  gap: 18px;
-  max-width: 680px;
-  margin: 20px auto;
-}
 
-.explore-icon-ring {
-  width: 88px;
-  height: 88px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-accent-text);
-  box-shadow: 0 8px 30px var(--color-accent-glow);
-}
-
-.explore-title {
-  font-size: 1.45rem;
-  font-weight: 800;
-  color: var(--text-primary);
-}
-
-.explore-desc {
-  font-size: 1.02rem;
-  color: var(--text-secondary);
-  line-height: 1.7;
-}
-
-.explore-status-box {
-  width: 100%;
-  background: var(--bg-surface-elevated);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  text-align: left;
-}
-
-.explore-status-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  color: var(--color-brand-light);
-  font-size: 0.95rem;
-}
-
-.explore-status-note {
-  font-size: 0.88rem;
-  color: var(--text-muted);
-  line-height: 1.6;
-}
-
-.btn-explore-return {
-  min-height: 52px;
-  padding: 0 28px;
-}
 
 /* ==========================================================================
-   Responsive Adaptations
+   Responsive Adaptations & Phone View Spacing
    ========================================================================== */
 @media (max-width: 768px) {
   .assistant-workspace-wrapper {
-    padding: 12px 10px 40px;
+    padding: 24px 20px 48px;
+    max-width: 680px;
+    margin: 0 auto;
   }
   .mode-hero-title {
-    font-size: 1.35rem;
+    font-size: 1.5rem;
   }
   .sample-chips-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .assistant-workspace-wrapper {
+    padding: 20px 20px 44px;
+    max-width: 100%;
+  }
+
+  .mode-container {
+    gap: 20px;
+  }
+
+  .home-hero-deck {
+    gap: 8px;
+  }
+
+  .mode-hero-header {
+    margin-bottom: 4px;
+  }
+
+  .mode-hero-title {
+    font-size: 1.35rem;
+    font-weight: 800;
+    margin-bottom: 2px;
+    line-height: 1.25;
+  }
+
+  .mode-hero-subtitle {
+    display: none;
+  }
+
+  /* Processing & Error Cards */
+  .ocr-processing-card,
+  .ocr-error-card {
+    padding: 32px 20px;
+    gap: 18px;
+    border-radius: var(--radius-xl);
+    margin: 10px 0;
+  }
+
+  .processing-glow-icon {
+    width: 72px;
+    height: 72px;
+  }
+
+  .processing-title {
+    font-size: 1.35rem;
+  }
+
+  .processing-desc {
+    font-size: 1.02rem;
+    line-height: 1.6;
+  }
+
+  .processing-timeout-notice {
+    font-size: 0.92rem;
+    padding: 12px 16px;
+  }
+
+  .error-recovery-row {
+    flex-direction: column;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .btn-scan-again-primary {
+    width: 100%;
+    min-height: 56px;
+    font-size: 1.05rem;
+  }
+
+  /* Sample Document Chips */
+  .sample-chips-deck {
+    margin-top: 14px;
+    gap: 12px;
+  }
+
+  .sample-chips-title {
+    font-size: 1.1rem;
+    margin-bottom: 4px;
+  }
+
+  .sample-chips-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .sample-chip-btn {
+    min-height: 52px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+  }
+
+  .sample-chip-cat {
+    font-size: 0.78rem;
+  }
+
+  .sample-chip-name {
+    font-size: 0.98rem;
+    font-weight: 700;
   }
 }

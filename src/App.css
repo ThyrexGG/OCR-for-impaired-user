@@ -15,6 +15,10 @@
   padding-bottom: 84px; /* Space for bottom tactile nav */
 }
 
+.web-app-wrapper.no-bottom-nav {
+  padding-bottom: 0 !important;
+}
+
 /* Accessible Skip Link */
 .skip-to-content {
   position: absolute;
@@ -43,10 +47,8 @@
   position: sticky;
   top: 0;
   z-index: 900;
-  background: var(--bg-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1.5px solid var(--border-subtle);
+  background: var(--bg-surface);
+  border-bottom: 2px solid var(--border-subtle);
   padding: 8px 18px;
   transition: all var(--transition-smooth);
 }
@@ -198,6 +200,9 @@
 .app-main-content {
   flex: 1;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* ==========================================================================
@@ -209,20 +214,18 @@
   left: 0;
   right: 0;
   z-index: 850;
-  background: var(--bg-glass-elevated);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-top: 1.5px solid var(--border-medium);
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5);
+  background: var(--bg-surface);
+  border-top: 2px solid var(--border-medium);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
   padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
 }
 
 .nav-bar-inner {
-  max-width: 680px;
+  max-width: 720px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
 }
 
 .nav-tab-btn {
@@ -278,9 +281,7 @@
   right: 0;
   bottom: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -293,7 +294,7 @@
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface-elevated);
+  background: var(--bg-surface);
   border: 2px solid var(--border-medium);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
@@ -604,7 +605,7 @@
 }
 
 /* ==========================================================================
-   Responsive Adaptations
+   Responsive Adaptations & Phone View Spacing
    ========================================================================== */
 @media (max-width: 768px) {
   .status-pill-box {
@@ -630,5 +631,100 @@
   .settings-modal-sheet {
     max-height: 95vh;
     border-radius: var(--radius-lg);
+  }
+}
+
+@media (max-width: 640px) {
+  .web-app-wrapper {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 16px));
+  }
+
+  .assistive-header {
+    padding: 10px 18px;
+  }
+
+  .header-inner {
+    gap: 12px;
+  }
+
+  .brand-logo-gem {
+    width: 40px;
+    height: 40px;
+  }
+
+  .brand-img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .brand-name {
+    font-size: 1.15rem;
+  }
+
+  .brand-caption {
+    font-size: 0.76rem;
+  }
+
+  .header-actions {
+    gap: 8px;
+  }
+
+  .header-btn {
+    min-width: 46px;
+    min-height: 46px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Fixed Bottom Navigation Phone Precision (4 tabs: Camera / Upload / Reader / Recent) */
+  .bottom-nav-bar {
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .nav-bar-inner {
+    gap: 6px;
+    max-width: 100%;
+  }
+
+  .nav-tab-btn {
+    min-height: 58px;
+    padding: 6px 2px;
+    border-radius: var(--radius-md);
+    gap: 4px;
+  }
+
+  .tab-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  /* Settings Modal Phone Presentation */
+  .settings-modal-backdrop {
+    padding: 16px;
+    align-items: center;
+  }
+
+  .settings-modal-sheet {
+    max-height: 90vh;
+    border-radius: var(--radius-xl);
+  }
+
+  .modal-header {
+    padding: 18px 20px;
+  }
+
+  .modal-body {
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .modal-footer {
+    padding: 16px 20px;
+  }
+
+  .btn-save-modal {
+    width: 100%;
+    min-height: 50px;
+    font-size: 1rem;
   }
 }

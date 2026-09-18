@@ -5,7 +5,8 @@
 
 .toast-container {
   position: fixed;
-  bottom: 24px;
+  /* Bottom tactile nav is always on screen (mobile app shell) - clear it, not just under 640px */
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -23,12 +24,10 @@
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  background: var(--bg-surface-elevated);
-  border: 1.5px solid var(--border-medium);
+  background: var(--bg-surface);
+  border: 2px solid var(--border-medium);
   border-radius: var(--radius-full);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65), 0 0 16px var(--color-accent-glow);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-lg);
   color: var(--text-primary);
   font-size: 0.9rem;
   font-weight: 600;
@@ -125,7 +124,7 @@
 
 @media (max-width: 640px) {
   .toast-container {
-    bottom: 74px;
+    bottom: calc(88px + env(safe-area-inset-bottom, 16px));
     width: 92vw;
   }
   .toast-pill {

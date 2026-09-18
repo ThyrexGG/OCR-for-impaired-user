@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick, inject, watch } from 'vue'
 import { 
-  Camera, Upload, FileText, Trash2, X, RefreshCw, 
+  Upload, FileText, Trash2, X, RefreshCw,
   Sparkles, CheckCircle2, AlertCircle, Scan, Eye, ArrowRight, ShieldAlert
 } from 'lucide-vue-next'
 
@@ -9,16 +9,29 @@ const props = defineProps({
   isProcessing: {
     type: Boolean,
     default: false
+  },
+  samples: {
+    type: Array,
+    default: () => []
+  },
+  // Which nav tab is driving this view: 'camera' | 'upload' (switching is done via the bottom nav now)
+  mode: {
+    type: String,
+    default: 'camera'
   }
 })
 
-const emit = defineEmits(['file-selected', 'clear-file', 'trigger-ocr'])
+const emit = defineEmits(['file-selected', 'clear-file', 'trigger-ocr', 'load-sample', 'switch-mode'])
 
 const speakAccessibility = inject('speakAccessibility', () => {})
 const triggerHaptic = inject('triggerHaptic', () => {})
 
-// Input Modes: 'camera' | 'upload'
-const activeInputTab = ref('camera')
+// Input Modes: 'camera' | 'upload' - mirrors the `mode` prop so the camera lifecycle
+// (start/stop) reacts the same way whether the switch came from a prop change or internally.
+const activeInputTab = ref(props.mode)
+watch(() => props.mode, (newMode) => {
+  activeInputTab.value = newMode
+})
 
 // Camera & Video Elements
 const videoRef = ref(null)
@@ -83,25 +96,25 @@ const stopCamera = () => {
   }
 }
 
-// Smart Guidance State Progression
+// Simple Camera Framing & Readiness Cue (Honest framing guidance, not simulated AI detection)
 const startGuidanceSimulation = () => {
   if (guidanceTimer) clearInterval(guidanceTimer)
+  
+  guidanceState.value = 'position'
+  guidanceMessage.value = 'សូមតម្រង់កាមេរ៉ាទៅកាន់ឯកសារ (Align camera with document)...'
   
   let ticks = 0
   guidanceTimer = setInterval(() => {
     ticks++
     if (props.isProcessing || selectedFile.value) return
 
-    if (ticks === 1) {
-      guidanceState.value = 'position'
-      guidanceMessage.value = 'សូមដាក់ឯកសារក្នុងប្រអប់ (Position document in frame)...'
-    } else if (ticks === 3) {
-      guidanceState.value = 'detected'
-      guidanceMessage.value = 'បានរកឃើញឯកសារ! សូមកាន់ឱ្យនឹង (Document detected. Hold steady).'
-      speakAccessibility('បានរកឃើញឯកសារ សូមកាន់ទូរស័ព្ទឱ្យនឹង')
-      triggerHaptic([50, 40, 50])
+    if (ticks === 2) {
+      guidanceState.value = 'ready'
+      guidanceMessage.value = 'កាមេរ៉ាត្រៀមរួចរាល់ សូមចុចថត (Camera ready: Press capture button).'
+      speakAccessibility('កាមេរ៉ាត្រៀមរួចរាល់ សូមចុចប៊ូតុងថតរូបភាព')
+      triggerHaptic([40, 30])
     }
-  }, 1400)
+  }, 1200)
 }
 
 // Capture Snapshot & Initiate Scan
@@ -210,44 +223,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="uploader-deck glass-card" role="region" aria-label="ផ្ទាំងថត និងបញ្ចូលឯកសារ">
-    <!-- Top Input Mode Selector Tabs -->
-    <div class="input-mode-header">
-      <div class="input-tabs-segmented" role="tablist" aria-label="របៀបបញ្ចូលឯកសារ">
-        <button 
-          type="button" 
-          role="tab" 
-          class="mode-segment-btn khmer-font"
-          :class="{ 'segment-active': activeInputTab === 'camera' }"
-          :aria-selected="activeInputTab === 'camera'"
-          @click="activeInputTab = 'camera'"
-          aria-label="ប្រើកាមេរ៉ាស្កេនផ្ទាល់"
-        >
-          <Camera :size="18" />
-          <span>កាមេរ៉ា (Camera)</span>
-        </button>
-
-        <button 
-          type="button" 
-          role="tab" 
-          class="mode-segment-btn khmer-font"
-          :class="{ 'segment-active': activeInputTab === 'upload' }"
-          :aria-selected="activeInputTab === 'upload'"
-          @click="activeInputTab = 'upload'"
-          aria-label="ផ្ទុករូបភាព ឬ PDF"
-        >
-          <Upload :size="18" />
-          <span>ផ្ទុកឯកសារ (Upload)</span>
-        </button>
-      </div>
-
-      <!-- Quick status chip -->
-      <div class="status-indicator-badge khmer-font" :class="`state-${guidanceState}`">
-        <span class="live-dot" aria-hidden="true"></span>
-        <span>{{ props.isProcessing ? 'កំពុងស្កេន...' : selectedFile ? 'ឯកសាររួចរាល់' : isCameraActive ? 'កាមេរ៉ាត្រៀមរួច' : 'រង់ចាំកាមេរ៉ា' }}</span>
-      </div>
-    </div>
-
+  <div class="uploader-deck glass-card" :class="{ 'deck-camera-fullscreen': mode === 'camera' }" role="region" aria-label="ផ្ទាំងថត និងបញ្ចូលឯកសារ">
     <!-- VIEW A: LIVE GUIDED CAMERA SCANNER -->
     <div v-if="activeInputTab === 'camera' && !selectedFile" class="camera-assistant-view">
       <!-- Camera Permission Error Recovery Box -->
@@ -270,7 +246,7 @@ onBeforeUnmount(() => {
               <RefreshCw :size="18" />
               <span>ព្យាយាមបើកកាមេរ៉ាម្តងទៀត (Try Camera Again)</span>
             </button>
-            <button type="button" class="btn btn-secondary" @click="activeInputTab = 'upload'">
+            <button type="button" class="btn btn-secondary" @click="$emit('switch-mode', 'upload')">
               <Upload :size="18" />
               <span>ផ្ទុករូបភាព ឬ PDF ជំនួសវិញ (Upload File Instead)</span>
             </button>
@@ -278,7 +254,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Active Camera Viewfinder -->
+      <!-- Active Camera Viewfinder: video fills all available space, controls float on top -->
       <div v-else class="viewfinder-wrapper">
         <div class="viewfinder-frame">
           <video ref="videoRef" autoplay playsinline class="live-video-stream"></video>
@@ -286,38 +262,33 @@ onBeforeUnmount(() => {
 
           <!-- High-Contrast Visual Alignment Brackets -->
           <div class="viewfinder-hud" aria-hidden="true">
-            <div class="hud-corner corner-tl" :class="{ 'corner-locked': guidanceState === 'detected' }"></div>
-            <div class="hud-corner corner-tr" :class="{ 'corner-locked': guidanceState === 'detected' }"></div>
-            <div class="hud-corner corner-bl" :class="{ 'corner-locked': guidanceState === 'detected' }"></div>
-            <div class="hud-corner corner-br" :class="{ 'corner-locked': guidanceState === 'detected' }"></div>
-            <div class="hud-laser-beam" :class="{ 'laser-active': isCameraActive }"></div>
+            <div class="hud-corner corner-tl" :class="{ 'corner-locked': guidanceState === 'ready' }"></div>
+            <div class="hud-corner corner-tr" :class="{ 'corner-locked': guidanceState === 'ready' }"></div>
+            <div class="hud-corner corner-bl" :class="{ 'corner-locked': guidanceState === 'ready' }"></div>
+            <div class="hud-corner corner-br" :class="{ 'corner-locked': guidanceState === 'ready' }"></div>
           </div>
 
-          <!-- Conversational Spoken Guidance Overlay Banner -->
+          <!-- Conversational Spoken Guidance Overlay Banner (near the top, out of the shutter's way) -->
           <div class="guidance-banner khmer-font" role="status" aria-live="assertive">
             <div class="guidance-pulse-icon">
               <Scan :size="20" class="text-accent" />
             </div>
             <span class="guidance-text">{{ guidanceMessage }}</span>
           </div>
-        </div>
 
-        <!-- Hero Capture Button -->
-        <div class="camera-actions-deck">
-          <button 
-            type="button" 
-            class="btn-hero-scan khmer-font" 
-            @click="captureAndScan"
-            :disabled="props.isProcessing || !isCameraActive"
-            aria-label="ថតរូបភាពឯកសារ (Capture document) ចុច Enter"
-            title="ថតរូបភាពឯកសារ (Capture document)"
-          >
-            <div class="btn-hero-content">
-              <Camera :size="28" />
-              <span class="hero-label">ថតរូបភាពឯកសារ (Capture Document)</span>
-            </div>
-            <kbd class="hero-kbd-hint">Enter</kbd>
-          </button>
+          <!-- iPhone-style Circular Shutter Button, floating over the feed -->
+          <div class="camera-actions-deck">
+            <button
+              type="button"
+              class="btn-shutter"
+              @click="captureAndScan"
+              :disabled="props.isProcessing || !isCameraActive"
+              aria-label="ថតរូបភាពឯកសារ (Capture document) ចុច Enter"
+              title="ថតរូបភាពឯកសារ (Capture document) - Enter"
+            >
+              <span class="shutter-ring" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -355,7 +326,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- VIEW C: PREVIEW & ACTION (When a file/photo is captured) -->
-    <div v-else class="preview-assistant-view">
+    <div v-else-if="selectedFile" class="preview-assistant-view">
       <div class="preview-media-container">
         <!-- PDF Badge Preview -->
         <div v-if="previewUrl === 'pdf'" class="pdf-card-preview">
@@ -395,6 +366,28 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
+
+    <!-- Quick Use-Case Sample Documents: lives on the Upload tab only, out of the
+         camera's way, hidden once a file/photo is selected -->
+    <section v-if="activeInputTab === 'upload' && !selectedFile && props.samples && props.samples.length > 0" class="sample-documents-section" aria-label="គំរូឯកសារសាកល្បង">
+      <div class="sample-sec-header">
+        <Sparkles :size="18" class="text-accent" />
+        <h4 class="sample-sec-title khmer-font">សាកល្បងជាមួយឯកសារគំរូ (Sample Documents)៖</h4>
+      </div>
+      <div class="sample-chips-grid">
+        <button
+          v-for="sample in props.samples"
+          :key="sample.id"
+          type="button"
+          class="sample-chip-btn khmer-font"
+          @click="$emit('load-sample', sample)"
+          :aria-label="`ផ្ទុកគំរូ ${sample.title}`"
+        >
+          <span class="sample-chip-cat">{{ sample.category }}</span>
+          <span class="sample-chip-name">{{ sample.title }}</span>
+        </button>
+      </div>
+    </section>
   </div>
 </template>
 

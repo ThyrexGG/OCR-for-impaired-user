@@ -10,8 +10,8 @@
   border: 2px solid var(--border-medium);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
-  padding: 18px 20px;
-  gap: 16px;
+  padding: 20px 22px;
+  gap: 18px;
   transition: all var(--transition-smooth);
 }
 
@@ -271,40 +271,102 @@
   }
 }
 
-/* Bottom Action: Scan Again */
-.deck-bottom-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-subtle);
-}
+@media (max-width: 640px) {
+  .audio-deck {
+    padding: 18px 16px;
+    gap: 14px;
+    border-radius: var(--radius-xl);
+  }
 
-.btn-deck-scan-again {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 48px;
-  width: 100%;
-  padding: 10px 20px;
-  background: var(--bg-surface-elevated);
-  border: 1.5px solid var(--border-medium);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  font-weight: 700;
-  font-size: 0.95rem;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
+  .visualizer-header-bar {
+    padding: 8px 12px;
+    gap: 10px;
+  }
 
-.btn-deck-scan-again:hover {
-  border-color: var(--color-accent);
-  background: var(--bg-surface-hover);
-  color: var(--color-accent);
-}
+  .visualizer-slot {
+    height: 34px;
+  }
 
-.btn-deck-scan-again:focus-visible {
-  outline: 3px solid var(--border-focus);
-  outline-offset: 2px;
+  .visualizer-canvas {
+    height: 34px;
+  }
+
+  .audio-state-tag {
+    font-size: 0.84rem;
+    padding: 4px 10px;
+  }
+
+  /* Primary Controls: Hero Play + 3 Compact Secondary Buttons */
+  .deck-primary-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .deck-btn-hero {
+    width: 100%;
+    min-height: 62px;
+    padding: 12px 20px;
+    border-radius: var(--radius-lg);
+    order: 0;
+  }
+
+  .hero-play-label {
+    font-size: 1.15rem;
+    font-weight: 800;
+  }
+
+  .deck-btn {
+    flex: 1;
+    min-height: 52px;
+    padding: 8px 6px;
+    border-radius: var(--radius-md);
+    gap: 4px;
+  }
+
+  .deck-btn span {
+    font-size: 0.84rem;
+    font-weight: 700;
+  }
+
+  /* Secondary Settings: Structured Two-Row Layout */
+  .deck-secondary-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding-top: 12px;
+  }
+
+  .speed-stepper-row {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .stepper-label {
+    font-size: 0.92rem;
+  }
+
+  .speed-pill-btn {
+    min-height: 36px;
+    padding: 4px 10px;
+    font-size: 0.86rem;
+  }
+
+  .voice-picker-slot {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .voice-label {
+    font-size: 0.92rem;
+  }
+
+  .accessible-voice-select {
+    flex: 1;
+    max-width: 220px;
+    min-height: 42px;
+    font-size: 0.88rem;
+    padding: 6px 10px;
+  }
+
 }

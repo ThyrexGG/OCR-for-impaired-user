@@ -146,8 +146,6 @@ onBeforeUnmount(() => {
   bottom: 0;
   z-index: 10000;
   background: rgba(0, 0, 0, 0.78);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -160,7 +158,7 @@ onBeforeUnmount(() => {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg-surface-elevated);
+  background: var(--bg-surface);
   border: 2px solid var(--border-medium);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
@@ -172,7 +170,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   padding: 16px 22px;
-  border-bottom: 1.5px solid var(--border-subtle);
+  border-bottom: 2px solid var(--border-subtle);
 }
 
 .help-title-group {
@@ -309,5 +307,65 @@ onBeforeUnmount(() => {
 
 .btn-got-it {
   min-width: 140px;
+}
+
+@media (max-width: 640px) {
+  .help-modal-backdrop {
+    padding: 16px;
+    align-items: center;
+  }
+
+  .help-modal-card {
+    max-height: 90vh;
+    border-radius: var(--radius-xl);
+  }
+
+  .help-header {
+    padding: 18px 20px;
+  }
+
+  .help-icon-box {
+    width: 38px;
+    height: 38px;
+  }
+
+  .help-title {
+    font-size: 1.2rem;
+  }
+
+  .help-steps-body {
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .step-item {
+    padding: 12px 14px;
+    gap: 14px;
+    border-radius: var(--radius-md);
+  }
+
+  .step-num-badge {
+    width: 32px;
+    height: 32px;
+    font-size: 0.95rem;
+  }
+
+  .step-heading {
+    font-size: 1.05rem;
+  }
+
+  .step-desc {
+    font-size: 0.92rem;
+  }
+
+  .help-footer {
+    padding: 16px 20px;
+  }
+
+  .btn-got-it {
+    width: 100%;
+    min-height: 52px;
+    font-size: 1.05rem;
+  }
 }
 </style>
