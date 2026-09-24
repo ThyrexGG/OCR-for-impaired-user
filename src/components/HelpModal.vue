@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, onBeforeUnmount, inject } from 'vue'
 import { HelpCircle, X, Check, Camera, Scan, Sparkles, Volume2, ShieldCheck } from 'lucide-vue-next'
+import { t } from '../services/i18n'
 
 const emit = defineEmits(['close'])
 
@@ -9,7 +10,7 @@ const triggerHaptic = inject('triggerHaptic', () => {})
 
 const handleClose = () => {
   triggerHaptic(30)
-  speakAccessibility('បានបិទការណែនាំ')
+  speakAccessibility(t('closeHelp'))
   emit('close')
 }
 
@@ -21,7 +22,7 @@ const handleKeydown = (e) => {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
-  speakAccessibility('បានបើកការណែនាំពីរបៀបប្រើប្រាស់កម្មវិធី songKHEM')
+  speakAccessibility(t('helpTitle'))
 })
 
 onBeforeUnmount(() => {
@@ -44,13 +45,13 @@ onBeforeUnmount(() => {
           <div class="help-icon-box bg-brand">
             <HelpCircle :size="22" />
           </div>
-          <h2 id="help-title" class="help-title khmer-font">របៀបប្រើប្រាស់ (How to Use)</h2>
+          <h2 id="help-title" class="help-title khmer-font">{{ t('helpTitle') }}</h2>
         </div>
         <button 
           type="button" 
           class="help-close-btn" 
           @click="handleClose" 
-          aria-label="បិទផ្ទាំងការណែនាំ (Close Help Esc)"
+          :aria-label="t('closeHelp')"
         >
           <X :size="22" />
         </button>
@@ -63,9 +64,9 @@ onBeforeUnmount(() => {
           <li class="step-item">
             <span class="step-num-badge">1</span>
             <div class="step-content">
-              <h3 class="step-heading khmer-font">តម្រង់កាមេរ៉ាទៅកាន់ឯកសារ</h3>
+              <h3 class="step-heading khmer-font">{{ t('step1Title') }}</h3>
               <p class="step-desc khmer-font">
-                កាន់ទូរស័ព្ទរបស់អ្នកនៅពីលើក្រដាស ឬសៀវភៅដែលចង់អាន (Point your camera at a document).
+                {{ t('step1Desc') }}
               </p>
             </div>
           </li>
@@ -74,9 +75,9 @@ onBeforeUnmount(() => {
           <li class="step-item">
             <span class="step-num-badge">2</span>
             <div class="step-content">
-              <h3 class="step-heading khmer-font">កាន់ទូរស័ព្ទឱ្យនឹង</h3>
+              <h3 class="step-heading khmer-font">{{ t('step2Title') }}</h3>
               <p class="step-desc khmer-font">
-                រក្សាទីតាំងឱ្យនឹងនរ និងប្រាកដថាមានពន្លឺគ្រប់គ្រាន់ (Hold the document steady with good light).
+                {{ t('step2Desc') }}
               </p>
             </div>
           </li>
@@ -85,9 +86,9 @@ onBeforeUnmount(() => {
           <li class="step-item">
             <span class="step-num-badge">3</span>
             <div class="step-content">
-              <h3 class="step-heading khmer-font">ចុចប៊ូតុងថតរូបភាព</h3>
+              <h3 class="step-heading khmer-font">{{ t('step3Title') }}</h3>
               <p class="step-desc khmer-font">
-                ចុចប៊ូតុងធំ "ថតរូបភាព" ឬ "ស្កេន និងអាន" នៅកណ្តាលអេក្រង់ (Press Capture Document).
+                {{ t('step3Desc') }}
               </p>
             </div>
           </li>
@@ -96,9 +97,9 @@ onBeforeUnmount(() => {
           <li class="step-item">
             <span class="step-num-badge">4</span>
             <div class="step-content">
-              <h3 class="step-heading khmer-font">រង់ចាំការស្រង់អត្ថបទ</h3>
+              <h3 class="step-heading khmer-font">{{ t('step4Title') }}</h3>
               <p class="step-desc khmer-font">
-                ប្រព័ន្ធនឹងវិភាគអក្សរខ្មែរដោយស្វ័យប្រវត្តិក្នងរយៈពេលខ្លី (Wait for the text to be extracted).
+                {{ t('step4Desc') }}
               </p>
             </div>
           </li>
@@ -107,9 +108,9 @@ onBeforeUnmount(() => {
           <li class="step-item">
             <span class="step-num-badge">5</span>
             <div class="step-content">
-              <h3 class="step-heading khmer-font">ចុចប៊ូតុង អានជាសំឡេង</h3>
+              <h3 class="step-heading khmer-font">{{ t('step5Title') }}</h3>
               <p class="step-desc khmer-font">
-                ចុចប៊ូតុង "អានជាសំឡេង (Read Aloud)" ដើម្បីស្តាប់អត្ថបទ និងតាមដានពាក្យរំលេច (Press Read Aloud).
+                {{ t('step5Desc') }}
               </p>
             </div>
           </li>
@@ -117,8 +118,8 @@ onBeforeUnmount(() => {
 
         <!-- Keyboard shortcuts tip -->
         <div class="help-shortcuts-tip khmer-font">
-          <span class="tip-title">ផ្លូវកាត់រហ័ស៖</span>
-          <span class="tip-desc">ចុច <kbd>Space</kbd> ដើម្បីចាប់ផ្តើម/ផ្អាកការអាន និង <kbd>Ctrl+Enter</kbd> ដើម្បីស្កេន។</span>
+          <span class="tip-title">{{ t('shortcutTipTitle') }}</span>
+          <span class="tip-desc">{{ t('shortcutTipDesc') }}</span>
         </div>
       </div>
 
@@ -130,7 +131,7 @@ onBeforeUnmount(() => {
           @click="handleClose"
         >
           <Check :size="18" />
-          <span>យល់ព្រម (Got it)</span>
+          <span>{{ t('gotIt') }}</span>
         </button>
       </div>
     </div>

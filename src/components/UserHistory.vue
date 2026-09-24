@@ -1,6 +1,7 @@
 <script setup>
 import { inject } from 'vue'
 import { History, BookOpen, Play, Trash2, Clock, Check, Zap, ArrowRight, Share2, Edit2 } from 'lucide-vue-next'
+import { t, currentLang } from '../services/i18n'
 
 const props = defineProps({
   history: {
@@ -16,26 +17,26 @@ const triggerHaptic = inject('triggerHaptic', () => {})
 
 const handleOpenInReader = (item) => {
   triggerHaptic(40)
-  speakAccessibility(`បានបើកឯកសារ ${item.name} ក្នុងផ្ទាំងអាន`)
+  speakAccessibility(currentLang.value === 'km' ? `បានបើកឯកសារ ${item.name} ក្នុងផ្ទាំងអាន` : `Opened ${item.name} in reader`)
   emit('load-item', item)
 }
 
 const handleQuickPlay = (item) => {
   triggerHaptic([60, 40])
-  speakAccessibility(`ចាប់ផ្តើមអានឯកសារ ${item.name} ជាសំឡេង`)
+  speakAccessibility(currentLang.value === 'km' ? `ចាប់ផ្តើមអានឯកសារ ${item.name} ជាសំឡេង` : `Playing ${item.name}`)
   emit('quick-play', item)
 }
 
 const handleDelete = (item) => {
   triggerHaptic([80, 40])
-  speakAccessibility(`បានលុបឯកសារ ${item.name}`)
+  speakAccessibility(currentLang.value === 'km' ? `បានលុបឯកសារ ${item.name}` : `Deleted ${item.name}`)
   emit('delete-item', item.id)
 }
 
 const handleClearAll = () => {
-  if (confirm('តើអ្នកពិតជាចង់សម្អាតប្រវត្តិអានទាំងអស់មែនទេ? (Clear all history?)')) {
+  if (confirm(t('clearHistoryConfirm'))) {
     triggerHaptic([100, 50, 100])
-    speakAccessibility('បានសម្អាតប្រវត្តិអានទាំងអស់រួចរាល់')
+    speakAccessibility(currentLang.value === 'km' ? 'បានសម្អាតប្រវត្តិអានទាំងអស់រួចរាល់' : 'Cleared all reading history')
     emit('clear-history')
   }
 }
@@ -45,38 +46,38 @@ const handleShare = async (item) => {
   if (navigator.share && item.text) {
     try {
       await navigator.share({ title: item.name, text: item.text })
-      speakAccessibility(`បានចែករំលែកឯកសារ ${item.name}`)
+      speakAccessibility(currentLang.value === 'km' ? `បានចែករំលែកឯកសារ ${item.name}` : `Shared ${item.name}`)
       return
     } catch (e) {}
   }
   if (navigator.clipboard && item.text) {
     await navigator.clipboard.writeText(item.text)
-    speakAccessibility(`បានចម្លងអត្ថបទ ${item.name} ទៅកាន់ Clipboard រួចរាល់`)
+    speakAccessibility(currentLang.value === 'km' ? `បានចម្លងអត្ថបទ ${item.name} ទៅកាន់ Clipboard រួចរាល់` : `Copied ${item.name} text`)
   }
 }
 
 const handleRename = (item) => {
   triggerHaptic(30)
-  const newName = prompt('ប្តូរឈ្មោះឯកសារ (Rename document):', item.name)
+  const newName = prompt(t('renamePrompt'), item.name)
   if (newName && newName.trim()) {
     item.name = newName.trim()
     try {
       localStorage.setItem('songkhem_history', JSON.stringify(props.history))
     } catch (e) {}
-    speakAccessibility(`បានប្តូរឈ្មោះឯកសារទៅជា ${item.name}`)
+    speakAccessibility(currentLang.value === 'km' ? `បានប្តូរឈ្មោះឯកសារទៅជា ${item.name}` : `Renamed to ${item.name}`)
   }
 }
 
-// Estimate listening duration in Khmer based on word count (~130 words/min)
+// Estimate listening duration based on word count (~120 words/min)
 const estimateDuration = (wordsCount) => {
-  if (!wordsCount) return '~30 វិនាទី'
+  if (!wordsCount) return `~30 ${t('secondsApprox')}`
   const minutes = Math.ceil(wordsCount / 120)
-  return `~${minutes} នាទី`
+  return `~${minutes} ${t('minutesApprox')}`
 }
 </script>
 
 <template>
-  <div class="recent-reads-shelf glass-card" role="region" aria-label="ប្រវត្តិអានឯកសារថ្មីៗ">
+  <div class="recent-reads-shelf glass-card" role="region" :aria-label="t('recentReadsTitle')">
     <!-- Shelf Header -->
     <div class="shelf-header">
       <div class="header-left">
@@ -84,8 +85,8 @@ const estimateDuration = (wordsCount) => {
           <History :size="20" />
         </div>
         <div class="shelf-titles">
-          <h2 class="shelf-title khmer-font">ឯកសារអានថ្មីៗ (Recent Reads)</h2>
-          <span class="shelf-subtitle khmer-font">{{ history.length }} ឯកសារបានកត់ត្រាទុក</span>
+          <h2 class="shelf-title khmer-font">{{ t('recentReadsTitle') }}</h2>
+          <span class="shelf-subtitle khmer-font">{{ history.length }} {{ t('recordedDocsCount') }}</span>
         </div>
       </div>
 
@@ -94,11 +95,11 @@ const estimateDuration = (wordsCount) => {
           type="button" 
           class="btn-clear-shelf khmer-font"
           @click="handleClearAll"
-          aria-label="សម្អាតប្រវត្តិអានទាំងអស់"
-          title="សម្អាតប្រវត្តិអានទាំងអស់"
+          :aria-label="t('clearAll')"
+          :title="t('clearAll')"
         >
           <Trash2 :size="15" />
-          <span>សម្អាតទាំងអស់</span>
+          <span>{{ t('clearAll') }}</span>
         </button>
       </div>
     </div>
@@ -108,13 +109,13 @@ const estimateDuration = (wordsCount) => {
       <!-- Empty State -->
       <div v-if="history.length === 0" class="shelf-empty">
         <Clock :size="44" class="text-accent" />
-        <h3 class="empty-title khmer-font">មិនទាន់មានប្រវត្តិអាននៅឡើយទេ</h3>
+        <h3 class="empty-title khmer-font">{{ t('historyEmptyHeading') }}</h3>
         <p class="empty-desc khmer-font">
-          រាល់ឯកសារដែលអ្នកស្កេន ឬជ្រើសរើស នឹងត្រូវបានកត់ត្រាទុកនៅទីនេះដោយស្វ័យប្រវត្តិ ដើម្បីងាយស្រួលស្តាប់ឡើងវិញគ្រប់ពេលវេលា។
+          {{ t('historyEmptySub') }}
         </p>
       </div>
 
-      <!-- Recent Reads Accessible List (Section 24) -->
+      <!-- Recent Reads Accessible List -->
       <div v-else class="reads-cards-list">
         <ul class="history-accessible-list" role="list">
           <li 
@@ -131,7 +132,7 @@ const estimateDuration = (wordsCount) => {
               <div class="row-doc-meta khmer-font">
                 <span class="meta-time">{{ item.date || item.timestamp }}</span>
                 <span class="meta-separator">•</span>
-                <span class="meta-words">{{ item.wordsCount || 0 }} ពាក្យ ({{ estimateDuration(item.wordsCount) }})</span>
+                <span class="meta-words">{{ item.wordsCount || 0 }} {{ t('wordsCount') }} ({{ estimateDuration(item.wordsCount) }})</span>
                 <span v-if="item.cached" class="meta-cached-tag">Cache</span>
               </div>
             </div>
@@ -144,11 +145,11 @@ const estimateDuration = (wordsCount) => {
                 class="btn-row-action btn-row-play khmer-font" 
                 @click="handleQuickPlay(item)"
                 :disabled="item.pending"
-                :aria-label="`អានឯកសារ ${item.name} ឡើងវិញ`"
-                title="អានឡើងវិញ"
+                :aria-label="`${t('playAction')} ${item.name}`"
+                :title="t('playAction')"
               >
                 <Play :size="16" fill="currentColor" />
-                <span>អាន (Play)</span>
+                <span>{{ t('playAction') }}</span>
               </button>
 
               <!-- Open in Reader -->
@@ -157,11 +158,11 @@ const estimateDuration = (wordsCount) => {
                 class="btn-row-action btn-row-open khmer-font" 
                 @click="handleOpenInReader(item)"
                 :disabled="item.pending"
-                :aria-label="`បើកឯកសារ ${item.name} ក្នុងផ្ទាំងអាន`"
-                title="បើកមើល"
+                :aria-label="`${t('openAction')} ${item.name}`"
+                :title="t('openAction')"
               >
                 <BookOpen :size="16" />
-                <span>បើក (Open)</span>
+                <span>{{ t('openAction') }}</span>
               </button>
 
               <!-- Share / Copy -->
@@ -170,8 +171,8 @@ const estimateDuration = (wordsCount) => {
                 class="btn-row-tool" 
                 @click="handleShare(item)"
                 :disabled="item.pending"
-                :aria-label="`ចែករំលែក ឬចម្លង ${item.name}`"
-                title="ចែករំលែក ឬចម្លង"
+                :aria-label="`${t('shareAction')} ${item.name}`"
+                :title="t('shareAction')"
               >
                 <Share2 :size="16" />
               </button>
@@ -182,8 +183,8 @@ const estimateDuration = (wordsCount) => {
                 class="btn-row-tool" 
                 @click="handleRename(item)"
                 :disabled="item.pending"
-                :aria-label="`ប្តូរឈ្មោះ ${item.name}`"
-                title="ប្តូរឈ្មោះ"
+                :aria-label="`${t('renameAction')} ${item.name}`"
+                :title="t('renameAction')"
               >
                 <Edit2 :size="16" />
               </button>
@@ -194,8 +195,8 @@ const estimateDuration = (wordsCount) => {
                 class="btn-row-tool btn-row-delete" 
                 @click="handleDelete(item)"
                 :disabled="item.pending"
-                :aria-label="`លុបឯកសារ ${item.name}`"
-                title="លុបចោល"
+                :aria-label="`${t('deleteAction')} ${item.name}`"
+                :title="t('deleteAction')"
               >
                 <Trash2 :size="16" />
               </button>
