@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, nextTick, inject, watch } from 'vue'
 import { 
-  Upload, FileText, Trash2, X, RefreshCw,
+  Camera, Upload, FileText, Trash2, X, RefreshCw,
   Sparkles, CheckCircle2, AlertCircle, Scan, Eye, ArrowRight, ShieldAlert
 } from 'lucide-vue-next'
+import { t, currentLang } from '../services/i18n'
+import { haptics } from '../services/haptics'
 
 const props = defineProps({
   isProcessing: {
@@ -31,6 +33,9 @@ const triggerHaptic = inject('triggerHaptic', () => {})
 const activeInputTab = ref(props.mode)
 watch(() => props.mode, (newMode) => {
   activeInputTab.value = newMode
+  if (newMode !== 'camera') {
+    stopCamera()
+  }
 })
 
 // Camera & Video Elements
@@ -43,7 +48,7 @@ const cameraError = ref(null)
 // Guided Scanning State Machine
 // 'ready' | 'position' | 'detected' | 'scanning'
 const guidanceState = ref('ready')
-const guidanceMessage = ref('កាមេរ៉ាត្រៀមរួចជាស្រេច (Camera ready). សូមតម្រង់ទៅកាន់ឯកសារ។')
+const guidanceMessage = ref(t('cameraReady'))
 let guidanceTimer = null
 
 // Selected File State
@@ -57,8 +62,8 @@ const startCamera = async () => {
   
   cameraError.value = null
   guidanceState.value = 'ready'
-  guidanceMessage.value = 'កាមេរ៉ាត្រៀមរួចជាស្រេច (Camera ready). កំពុងបើក...'
-  speakAccessibility('កាមេរ៉ាត្រៀមរួចជាស្រេច សូមតម្រង់ទូរស័ព្ទទៅកាន់ឯកសារ')
+  guidanceMessage.value = t('cameraStarting')
+  speakAccessibility(t('cameraStarting'))
   
   await nextTick()
   try {
@@ -78,8 +83,8 @@ const startCamera = async () => {
   } catch (error) {
     console.warn('Camera access error:', error)
     isCameraActive.value = false
-    cameraError.value = 'កម្មវិធីមិនអាចបើកកាមេរ៉ាបានទេ (Camera permission denied or camera not found).'
-    speakAccessibility('មិនអាចបើកកាមេរ៉ាបានទេ។ សូមពិនិត្យសិទ្ធិអនុញ្ញាត ឬជ្រើសរើសការផ្ទុកឯកសារជំនួសវិញ។')
+    cameraError.value = t('cameraPermissionDenied')
+    speakAccessibility(t('cameraPermissionDenied'))
   }
 }
 
@@ -101,7 +106,7 @@ const startGuidanceSimulation = () => {
   if (guidanceTimer) clearInterval(guidanceTimer)
   
   guidanceState.value = 'position'
-  guidanceMessage.value = 'សូមតម្រង់កាមេរ៉ាទៅកាន់ឯកសារ (Align camera with document)...'
+  guidanceMessage.value = t('alignCameraPrompt')
   
   let ticks = 0
   guidanceTimer = setInterval(() => {
@@ -110,8 +115,8 @@ const startGuidanceSimulation = () => {
 
     if (ticks === 2) {
       guidanceState.value = 'ready'
-      guidanceMessage.value = 'កាមេរ៉ាត្រៀមរួចរាល់ សូមចុចថត (Camera ready: Press capture button).'
-      speakAccessibility('កាមេរ៉ាត្រៀមរួចរាល់ សូមចុចប៊ូតុងថតរូបភាព')
+      guidanceMessage.value = t('cameraReadyCapture')
+      speakAccessibility(t('cameraReadyCapture'))
       triggerHaptic([40, 30])
     }
   }, 1200)
@@ -138,43 +143,41 @@ const captureAndScan = () => {
       selectedFile.value = file
       previewUrl.value = URL.createObjectURL(blob)
       emit('file-selected', file)
-      emit('trigger-ocr')
+      triggerHaptic('success')
     }
-  }, 'image/jpeg', 0.92)
+  }, 'image/jpeg', 0.95)
 }
 
-// Process File Upload
-const processFile = (file) => {
-  const isImage = file.type.startsWith('image/')
-  const isPdf = file.type === 'application/pdf'
-  
-  if (!isImage && !isPdf) {
-    speakAccessibility('ទម្រង់ឯកសារមិនត្រឹមត្រូវ សូមជ្រើសរើសរូបភាព ឬ PDF')
-    return
-  }
-
-  selectedFile.value = file
-  emit('file-selected', file)
-  triggerHaptic(40)
-
-  if (isImage) {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      previewUrl.value = e.target.result
-    }
-    reader.readAsDataURL(file)
-  } else if (isPdf) {
-    previewUrl.value = 'pdf'
-  }
-  speakAccessibility(`បានផ្ទុកឯកសារ ${file.name} រួចរាល់។ ចុចស្កេន និងអាន។`)
-}
-
+// File Drag & Drop Handlers
 const handleDrop = (e) => {
   isDragActive.value = false
   const files = e.dataTransfer.files
   if (files && files.length > 0) {
     processFile(files[0])
   }
+}
+
+const processFile = (file) => {
+  if (!file) return
+
+  const isImage = file.type.startsWith('image/')
+  const isPdf = file.type === 'application/pdf'
+
+  if (!isImage && !isPdf) {
+    speakAccessibility(t('formatUnsupported'))
+    return
+  }
+
+  selectedFile.value = file
+  if (isPdf) {
+    previewUrl.value = 'pdf'
+  } else {
+    previewUrl.value = URL.createObjectURL(file)
+  }
+
+  triggerHaptic('success')
+  speakAccessibility(`${t('fileUploaded')} ${file.name}`)
+  emit('file-selected', file)
 }
 
 const handleFileSelect = (e) => {
@@ -188,8 +191,8 @@ const clearSelection = () => {
   selectedFile.value = null
   previewUrl.value = null
   emit('clear-file')
-  triggerHaptic(30)
-  speakAccessibility('បានសម្អាតឯកសារ')
+  haptics.pulse('tap')
+  speakAccessibility(t('fileCleared'))
   if (activeInputTab.value === 'camera') {
     startCamera()
   }
@@ -197,8 +200,8 @@ const clearSelection = () => {
 
 const triggerManualOcr = () => {
   if (!selectedFile.value || props.isProcessing) return
-  triggerHaptic([60, 40, 80])
-  speakAccessibility('កំពុងចាប់ផ្តើមស្កេន និងស្រង់អត្ថបទ...')
+  haptics.pulse('shutter')
+  speakAccessibility(t('scanningDesc'))
   emit('trigger-ocr')
 }
 
@@ -223,7 +226,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="uploader-deck glass-card" :class="{ 'deck-camera-fullscreen': mode === 'camera' }" role="region" aria-label="ផ្ទាំងថត និងបញ្ចូលឯកសារ">
+  <div class="uploader-deck glass-card" :class="{ 'deck-camera-fullscreen': activeInputTab === 'camera' }" role="region" :aria-label="t('navScan')">
     <!-- VIEW A: LIVE GUIDED CAMERA SCANNER -->
     <div v-if="activeInputTab === 'camera' && !selectedFile" class="camera-assistant-view">
       <!-- Camera Permission Error Recovery Box -->
@@ -232,23 +235,23 @@ onBeforeUnmount(() => {
           <ShieldAlert :size="36" class="text-danger" />
         </div>
         <div class="error-text-col">
-          <h3 class="error-heading">មិនអាចបើកកាមេរ៉ាបានទេ (Camera Permission Required)</h3>
+          <h3 class="error-heading">{{ t('cameraPermissionRequired') }}</h3>
           <p class="error-explanation">
-            កម្មវិធីត្រូវការសិទ្ធិប្រើប្រាស់កាមេរ៉ាដើម្បីស្កេនឯកសារ។ ប្រសិនបើអ្នកបានចុច "Block" សូមអនុញ្ញាតតាមវិធីខាងក្រោម៖
+            {{ t('cameraPermNotice') }}
           </p>
           <ol class="error-instructions-list">
-            <li>ចុចលើរូបសោ ឬការកំណត់ (Lock/Settings icon) នៅខាងមុខអាសយដ្ឋានគេហទំព័រ (URL bar)។</li>
-            <li>បើកសិទ្ធិ "Camera" ទៅជា "Allow"។</li>
-            <li>ចុចប៊ូតុង "ព្យាយាមបើកកាមេរ៉ាម្តងទៀត" ខាងក្រោម។</li>
+            <li>{{ t('cameraInstruction1') }}</li>
+            <li>{{ t('cameraInstruction2') }}</li>
+            <li>{{ t('cameraInstruction3') }}</li>
           </ol>
           <div class="error-recovery-actions">
             <button type="button" class="btn btn-primary btn-retry-cam" @click="startCamera">
               <RefreshCw :size="18" />
-              <span>ព្យាយាមបើកកាមេរ៉ាម្តងទៀត (Try Camera Again)</span>
+              <span>{{ t('tryCameraAgain') }}</span>
             </button>
-            <button type="button" class="btn btn-secondary" @click="$emit('switch-mode', 'upload')">
+            <button type="button" class="btn btn-secondary" @click="activeInputTab = 'upload'; $emit('switch-mode', 'upload'); stopCamera();">
               <Upload :size="18" />
-              <span>ផ្ទុករូបភាព ឬ PDF ជំនួសវិញ (Upload File Instead)</span>
+              <span>{{ t('uploadFileInstead') }}</span>
             </button>
           </div>
         </div>
@@ -276,38 +279,34 @@ onBeforeUnmount(() => {
             <span class="guidance-text">{{ guidanceMessage }}</span>
           </div>
 
-          <!-- iPhone-style Circular Shutter Button, floating over the feed -->
+          <!-- Circular Shutter Button -->
           <div class="camera-actions-deck">
-            <button
-              type="button"
-              class="btn-shutter"
-              @click="captureAndScan"
+            <button 
+              type="button" 
+              class="btn-shutter" 
+              @click="captureAndScan" 
               :disabled="props.isProcessing || !isCameraActive"
-              aria-label="ថតរូបភាពឯកសារ (Capture document) ចុច Enter"
-              title="ថតរូបភាពឯកសារ (Capture document) - Enter"
+              :aria-label="t('capturePhotoAria')"
+              :title="t('capturePhotoAria')"
             >
-              <span class="shutter-ring" aria-hidden="true"></span>
+              <div class="shutter-ring"></div>
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- VIEW B: FILE UPLOAD DROPZONE -->
+    <!-- VIEW B: FILE UPLOAD DROPZONE (SURFACES.md 8: Tinted zone, solid button, no border) -->
     <div v-else-if="activeInputTab === 'upload' && !selectedFile" class="upload-assistant-view">
       <div 
         class="tactile-dropzone" 
-        @click="$refs.fileInput.click()" 
         @dragenter.prevent="isDragActive = true" 
         @dragleave.prevent="isDragActive = false" 
         @dragover.prevent 
         @drop.prevent="handleDrop" 
         :class="{ 'dropzone-active': isDragActive }"
-        tabindex="0"
-        role="button"
-        aria-label="ចុច ឬទម្លាក់ឯកសាររូបភាព ឬ PDF នៅទីនេះដើម្បីស្កេន"
-        @keydown.enter="$refs.fileInput.click()"
-        @keydown.space.prevent="$refs.fileInput.click()"
+        role="region"
+        :aria-label="t('dropzoneTitle')"
       >
         <input 
           type="file" 
@@ -316,13 +315,56 @@ onBeforeUnmount(() => {
           accept="image/*,application/pdf"
           @change="handleFileSelect"
         />
-        <div class="dropzone-icon-circle bg-accent">
-          <Upload :size="40" />
+        <div class="dropzone-icon-circle">
+          <Upload :size="36" />
         </div>
-        <h3 class="dropzone-title khmer-font">ចុចទីនេះដើម្បីជ្រើសឯកសារ ឬអូសទម្លាក់</h3>
-        <p class="dropzone-desc khmer-font">គាំទ្ររូបភាព (JPG, PNG, WEBP) និងឯកសារ PDF</p>
-        <span class="dropzone-badge khmer-font">ឯកសារអក្សរខ្មែរគ្រប់ប្រភេទ (Khmer & English Documents)</span>
+        <h3 class="dropzone-title khmer-font">{{ t('dropzoneTitle') }}</h3>
+        <p class="dropzone-desc khmer-font">{{ t('dropzoneSub') }}</p>
+
+        <!-- Solid 56px Primary Button per SURFACES.md 8 -->
+        <button 
+          type="button"
+          class="btn-choose-file khmer-font"
+          @click="$refs.fileInput.click()"
+          :aria-label="t('chooseFileBtn')"
+        >
+          <Upload :size="20" />
+          <span>{{ t('chooseFileBtn') }}</span>
+        </button>
+
+        <!-- Plain helper text per SURFACES.md 6 & 8 (not a button-like pill) -->
+        <p class="dropzone-helper-text khmer-font">{{ t('dropzoneBadge') }}</p>
       </div>
+
+      <!-- Quick Use-Case Sample Documents: unboxed list with chevron, underlined title on hover, hairlines (SURFACES.md 8 & 11) -->
+      <section v-if="props.samples && props.samples.length > 0" class="sample-documents-section" :aria-label="t('sampleHeading')">
+        <div class="sample-sec-header">
+          <Sparkles :size="24" class="text-heading" />
+          <h2 class="sample-sec-title khmer-font">{{ t('sampleHeading') }}</h2>
+        </div>
+        <div class="sample-unboxed-list" role="list">
+          <div 
+            v-for="(sample, idx) in props.samples" 
+            :key="sample.id"
+            class="sample-row-wrapper"
+            role="listitem"
+          >
+            <div v-if="idx > 0" class="sample-hairline-divider" aria-hidden="true"></div>
+            <button
+              type="button"
+              class="sample-list-item khmer-font"
+              @click="$emit('load-sample', sample)"
+              :aria-label="`${t('openAction')} ${sample.title}`"
+            >
+              <div class="sample-item-text">
+                <span class="sample-item-category">{{ sample.category }}</span>
+                <span class="sample-item-title">{{ sample.title }}</span>
+              </div>
+              <ArrowRight :size="26" class="sample-item-chevron" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
 
     <!-- VIEW C: PREVIEW & ACTION (When a file/photo is captured) -->
@@ -335,7 +377,7 @@ onBeforeUnmount(() => {
         </div>
         <!-- Image Preview -->
         <div v-else class="image-box-preview">
-          <img :src="previewUrl" alt="រូបភាពដែលបានថត" class="preview-image" />
+          <img :src="previewUrl" alt="Preview" class="preview-image" />
         </div>
       </div>
 
@@ -346,10 +388,10 @@ onBeforeUnmount(() => {
           class="btn-retake-action khmer-font" 
           @click="clearSelection" 
           :disabled="props.isProcessing"
-          aria-label="ថតឡើងវិញ ឬជ្រើសរើសឯកសារផ្សេង"
+          :aria-label="t('retake')"
         >
           <RefreshCw :size="18" />
-          <span>ថតឡើងវិញ (Re-take)</span>
+          <span>{{ t('retake') }}</span>
         </button>
 
         <button 
@@ -357,37 +399,15 @@ onBeforeUnmount(() => {
           class="btn-hero-scan btn-scan-now khmer-font" 
           @click="triggerManualOcr"
           :disabled="props.isProcessing"
-          aria-label="ចាប់ផ្តើមស្កេន និងស្រង់អត្ថបទ"
+          :aria-label="t('extractText')"
         >
           <div class="btn-hero-content">
             <Sparkles :size="24" />
-            <span>{{ props.isProcessing ? 'កំពុងស្រង់អត្ថបទ...' : 'ស្កេន និងស្រង់អត្ថបទ (Extract Text)' }}</span>
+            <span>{{ props.isProcessing ? t('extractingText') : t('extractText') }}</span>
           </div>
         </button>
       </div>
     </div>
-
-    <!-- Quick Use-Case Sample Documents: lives on the Upload tab only, out of the
-         camera's way, hidden once a file/photo is selected -->
-    <section v-if="activeInputTab === 'upload' && !selectedFile && props.samples && props.samples.length > 0" class="sample-documents-section" aria-label="គំរូឯកសារសាកល្បង">
-      <div class="sample-sec-header">
-        <Sparkles :size="18" class="text-accent" />
-        <h4 class="sample-sec-title khmer-font">សាកល្បងជាមួយឯកសារគំរូ (Sample Documents)៖</h4>
-      </div>
-      <div class="sample-chips-grid">
-        <button
-          v-for="sample in props.samples"
-          :key="sample.id"
-          type="button"
-          class="sample-chip-btn khmer-font"
-          @click="$emit('load-sample', sample)"
-          :aria-label="`ផ្ទុកគំរូ ${sample.title}`"
-        >
-          <span class="sample-chip-cat">{{ sample.category }}</span>
-          <span class="sample-chip-name">{{ sample.title }}</span>
-        </button>
-      </div>
-    </section>
   </div>
 </template>
 

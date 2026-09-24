@@ -6,6 +6,7 @@ import {
 } from 'lucide-vue-next'
 import { synthesizeTextAzureTTS } from '../services/tts'
 import { getTtsCache, setTtsCache } from '../services/cache'
+import { t, currentLang } from '../services/i18n'
 
 const props = defineProps({
   text: {
@@ -401,7 +402,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="audio-deck glass-card" role="region" aria-label="ផ្ទាំងបញ្ជាការអានជាសំឡេង">
+  <div class="audio-deck glass-card" role="region" :aria-label="t('navReader')">
     <!-- Visualizer Line & Audio Status Indicator -->
     <div class="visualizer-header-bar">
       <div class="visualizer-slot">
@@ -411,91 +412,85 @@ defineExpose({
       <div class="audio-status-pill khmer-font">
         <span v-if="isSpeaking" class="audio-state-tag tag-playing">
           <span class="live-dot" aria-hidden="true"></span>
-          <span>កំពុងអាន...</span>
+          <span>{{ t('readingStatusPlaying') }}</span>
         </span>
         <span v-else-if="isPaused" class="audio-state-tag tag-paused">
-          <span>បានផ្អាក</span>
+          <span>{{ t('readingStatusPaused') }}</span>
         </span>
         <span v-else class="audio-state-tag tag-idle">
-          <span>ត្រៀមអាន</span>
+          <span>{{ t('readingStatusReady') }}</span>
         </span>
       </div>
     </div>
 
     <!-- Main Tactile Player Controls -->
     <div class="deck-primary-controls">
-      <!-- Jump Back 10 words -->
-      <button 
-        type="button" 
-        class="deck-btn btn-jump" 
-        @click="jumpWords(-10)" 
-        :disabled="!text"
-        aria-label="ថយក្រោយ ១០ ពាក្យ"
-        title="ថយក្រោយ"
-      >
-        <SkipBack :size="20" />
-        <span class="jump-tag">-10</span>
-      </button>
-
-      <!-- Primary Play / Pause Hero Button -->
+      <!-- Primary Play / Pause Hero Button — full width, 72px -->
       <button 
         type="button" 
         class="deck-btn-hero khmer-font" 
         :class="{ 'btn-hero-playing': isSpeaking }"
         @click="togglePlayback" 
         :disabled="!text"
-        :aria-label="isSpeaking ? 'ផ្អាកការអាន (Space)' : 'ចាប់ផ្តើមអានជាសំឡេង (Space)'"
-        :title="isSpeaking ? 'ផ្អាកការអាន (Space)' : 'ចាប់ផ្តើមអាន (Space)'"
+        :aria-label="isSpeaking ? t('pauseSpeech') + ' (Space)' : t('playSpeech') + ' (Space)'"
+        :title="isSpeaking ? t('pauseSpeech') + ' (Space)' : t('playSpeech') + ' (Space)'"
       >
         <Pause v-if="isSpeaking" :size="32" fill="currentColor" />
         <Play v-else :size="32" fill="currentColor" />
-        <span class="hero-play-label">{{ isSpeaking ? 'ផ្អាក (Pause)' : 'អានជាសំឡេង (PLAY)' }}</span>
+        <span class="hero-play-label">{{ isSpeaking ? t('pauseSpeech') : t('playSpeech') }}</span>
         <kbd class="deck-kbd">Space</kbd>
       </button>
 
-      <!-- Jump Forward 10 words -->
-      <button 
-        type="button" 
-        class="deck-btn btn-jump" 
-        @click="jumpWords(10)" 
-        :disabled="!text"
-        aria-label="ទៅមុខ ១០ ពាក្យ"
-        title="ទៅមុខ"
-      >
-        <SkipForward :size="20" />
-        <span class="jump-tag">+10</span>
-      </button>
+      <!-- Secondary: Jump back / Restart / Stop / Jump forward -->
+      <div class="deck-secondary-row">
+        <!-- Jump Back 10 words -->
+        <button 
+          type="button" 
+          class="deck-btn btn-jump" 
+          @click="jumpWords(-10)" 
+          :disabled="!text"
+          :aria-label="t('jumpBack10')"
+          :title="t('jumpBack10')"
+        >
+          <SkipBack :size="22" />
+          <span>{{ t('jumpBack10') }}</span>
+          <span class="jump-tag">−10</span>
+        </button>
 
-      <!-- Replay from Start -->
-      <button 
-        type="button" 
-        class="deck-btn btn-secondary-tool" 
-        @click="restartSpeech" 
-        :disabled="!text"
-        aria-label="អានឡើងវិញពីដើម"
-        title="អានឡើងវិញពីដើម"
-      >
-        <RotateCcw :size="20" />
-      </button>
+        <!-- Replay from Start -->
+        <button 
+          type="button" 
+          class="deck-btn btn-secondary-tool" 
+          @click="restartSpeech" 
+          :disabled="!text"
+          :aria-label="t('replayFromStart')"
+          :title="t('replayFromStart')"
+        >
+          <RotateCcw :size="22" />
+          <span>{{ t('replayFromStart') }}</span>
+        </button>
 
-      <!-- Stop Playback -->
-      <button 
-        type="button" 
-        class="deck-btn btn-danger-tool" 
-        @click="stopSpeech" 
-        :disabled="!isSpeaking && !isPaused && activeWordIndex === -1"
-        aria-label="បញ្ឈប់ការអាន (Esc)"
-        title="បញ្ឈប់ការអាន (Esc)"
-      >
-        <Square :size="18" fill="currentColor" />
-      </button>
+        <!-- Jump Forward 10 words -->
+        <button 
+          type="button" 
+          class="deck-btn btn-jump" 
+          @click="jumpWords(10)" 
+          :disabled="!text"
+          :aria-label="t('jumpForward10')"
+          :title="t('jumpForward10')"
+        >
+          <SkipForward :size="22" />
+          <span>{{ t('jumpForward10') }}</span>
+          <span class="jump-tag">+10</span>
+        </button>
+      </div>
     </div>
 
     <!-- Secondary Audio Controls (Speed Stepper & Voice Selector) -->
     <div class="deck-secondary-controls">
       <!-- Speed Presets Stepper -->
-      <div class="speed-stepper-row" role="group" aria-label="ល្បឿនអាន">
-        <span class="stepper-label khmer-font">ល្បឿនអាន៖</span>
+      <div class="speed-stepper-row" role="group" :aria-label="t('readingSpeed')">
+        <span class="stepper-label khmer-font">{{ t('readingSpeed') }}</span>
         <div class="speed-pills">
           <button 
             v-for="s in speedPresets" 
@@ -504,7 +499,7 @@ defineExpose({
             class="speed-pill-btn" 
             :class="{ 'speed-active': rate === s }"
             @click="setSpeedPreset(s)"
-            :aria-label="`ល្បឿន ${s} ដង`"
+            :aria-label="`${t('readingSpeed')} ${s}${t('speedTimes')}`"
           >
             {{ s }}x
           </button>
@@ -515,7 +510,7 @@ defineExpose({
       <div class="voice-picker-slot">
         <label for="tts-voice-select" class="voice-label khmer-font">
           <Music2 :size="16" class="text-accent" />
-          <span>សំឡេងអាន៖</span>
+          <span>{{ t('readingVoice') }}</span>
         </label>
         <select id="tts-voice-select" v-model="selectedVoiceName" class="accessible-voice-select khmer-font">
           <option v-for="voice in voices" :key="voice.name" :value="voice.name">

@@ -4,16 +4,23 @@
 
 .assistant-workspace-wrapper {
   width: 100%;
-  max-width: 1120px;
+  max-width: 900px;
   margin: 0 auto;
-  padding: 32px 24px 64px;
+  padding: 8px 12px;
+  height: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Camera page (Alt+1): shed the page's usual padding and become a flex parent
    so the viewfinder below can flex:1 and fill literally all remaining space
    between the header and the bottom nav */
 .assistant-workspace-wrapper:has(.camera-fullscreen) {
-  padding: 12px 12px 20px;
+  padding: 8px 10px 10px;
   max-width: 720px;
   display: flex;
   flex-direction: column;
@@ -25,51 +32,24 @@
 .mode-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  animation: fadeIn 0.25s ease;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  gap: 0;
+  touch-action: pan-y;
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .mode-container.camera-fullscreen {
   gap: 0;
   flex: 1;
+  height: 100%;
   min-height: 0;
 }
 
-.mode-container.camera-fullscreen {
-  gap: 0;
-}
-
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-/* ==========================================================================
-   Mode 1: Scan & Assist (Simplified Home Screen)
-   ========================================================================== */
-.home-hero-deck {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  align-items: center;
-}
-
-.mode-hero-header {
-  text-align: center;
-  margin-bottom: 4px;
-}
-
-.mode-hero-title {
-  font-size: 1.65rem;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.mode-hero-subtitle {
-  font-size: 1rem;
-  color: var(--text-secondary);
-  max-width: 600px;
+  from { opacity: 0.65; transform: scale(0.99); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 
@@ -299,7 +279,17 @@
 .reader-layout-grid {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   gap: 18px;
+  padding: 12px 18px 80px 18px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.reader-grid-empty {
+  overflow: visible;
+  padding: 12px 18px 24px 18px;
 }
 
 
@@ -309,7 +299,7 @@
    ========================================================================== */
 @media (max-width: 768px) {
   .assistant-workspace-wrapper {
-    padding: 24px 20px 48px;
+    padding: 24px 20px 56px;
     max-width: 680px;
     margin: 0 auto;
   }
