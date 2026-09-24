@@ -7,6 +7,7 @@ import {
   Keyboard, Sparkles, Camera, Upload, BookOpen, History, Check, HelpCircle
 } from 'lucide-vue-next'
 import HelpModal from './components/HelpModal.vue'
+import { clearOcrCache } from './services/cache'
 
 const route = useRoute()
 const isLoginScreen = computed(() => !route?.name || route.name === 'login' || route.path === '/')
@@ -25,7 +26,34 @@ const isHapticsEnabled = ref(true)
 // Active Assistant Mode: 'scan' | 'upload' | 'reader' | 'recent'
 const activeMode = ref('scan')
 const isSettingsOpen = ref(false)
-const activeSettingsTab = ref('visual') // 'visual' | 'audio' | 'interaction'
+const activeSettingsTab = ref('visual') // 'visual' | 'audio' | 'ocr' | 'interaction'
+
+// OCR & Cloud Services Configuration
+const ocrEngine = ref('tesseract')
+const googleApiKey = ref('')
+const googleEndpoint = ref('')
+const azureVisionKey = ref('')
+const azureVisionEndpoint = ref('')
+const azureTtsKey = ref('')
+const azureTtsEndpoint = ref('')
+
+const saveOcrConfig = () => {
+  localStorage.setItem('songkhem_ocr_engine', ocrEngine.value)
+  localStorage.setItem('songkhem_google_api_key', googleApiKey.value.trim())
+  localStorage.setItem('songkhem_google_endpoint', googleEndpoint.value.trim())
+  localStorage.setItem('songkhem_azure_vision_key', azureVisionKey.value.trim())
+  localStorage.setItem('songkhem_azure_vision_endpoint', azureVisionEndpoint.value.trim())
+  localStorage.setItem('songkhem_azure_tts_key', azureTtsKey.value.trim())
+  localStorage.setItem('songkhem_azure_tts_endpoint', azureTtsEndpoint.value.trim())
+  triggerHaptic(40)
+  speakAccessibility('បានរក្សាទុកការកំណត់ម៉ាស៊ីនស្កេន និងសំឡេង')
+}
+
+const handleClearCache = () => {
+  clearOcrCache()
+  triggerHaptic(40)
+  speakAccessibility('បានសម្អាត Cache ឯកសារស្កេនរួចរាល់')
+}
 
 // Spoken status for screen reader and live status banner
 const spokenStatusText = ref('ជំនួយការត្រៀមរួចជាស្រេច')
@@ -209,6 +237,16 @@ onMounted(() => {
   isUiVoiceEnabled.value = localStorage.getItem('songkhem_voice') === 'true'
   isAutoReadEnabled.value = localStorage.getItem('songkhem_auto_read') !== 'false'
   isHapticsEnabled.value = localStorage.getItem('songkhem_haptics') !== 'false'
+
+  // Load OCR & Cloud credentials
+  ocrEngine.value = localStorage.getItem('songkhem_ocr_engine') || 
+    (import.meta.env.VITE_AZURE_VISION_API_KEY ? 'azure-read' : (import.meta.env.VITE_GOOGLE_VISION_API_KEY ? 'google-vision' : 'tesseract'))
+  googleApiKey.value = localStorage.getItem('songkhem_google_api_key') || import.meta.env.VITE_GOOGLE_VISION_API_KEY || ''
+  googleEndpoint.value = localStorage.getItem('songkhem_google_endpoint') || import.meta.env.VITE_GOOGLE_VISION_ENDPOINT || ''
+  azureVisionKey.value = localStorage.getItem('songkhem_azure_vision_key') || import.meta.env.VITE_AZURE_VISION_API_KEY || ''
+  azureVisionEndpoint.value = localStorage.getItem('songkhem_azure_vision_endpoint') || import.meta.env.VITE_AZURE_VISION_ENDPOINT || ''
+  azureTtsKey.value = localStorage.getItem('songkhem_azure_tts_key') || import.meta.env.VITE_AZURE_TTS_API_KEY || ''
+  azureTtsEndpoint.value = localStorage.getItem('songkhem_azure_tts_endpoint') || import.meta.env.VITE_AZURE_TTS_ENDPOINT || ''
 
   // Global Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {
@@ -443,6 +481,17 @@ onMounted(() => {
             type="button"
             role="tab" 
             class="tab-pill khmer-font" 
+            :class="{ 'pill-active': activeSettingsTab === 'ocr' }"
+            :aria-selected="activeSettingsTab === 'ocr'"
+            @click="activeSettingsTab = 'ocr'"
+          >
+            <Sparkles :size="16" />
+            <span>ម៉ាស៊ីន OCR</span>
+          </button>
+          <button 
+            type="button"
+            role="tab" 
+            class="tab-pill khmer-font" 
             :class="{ 'pill-active': activeSettingsTab === 'interaction' }"
             :aria-selected="activeSettingsTab === 'interaction'"
             @click="activeSettingsTab = 'interaction'"
@@ -626,9 +675,136 @@ onMounted(() => {
               <span class="switch-thumb"></span>
             </button>
           </div>
+
+          <!-- Optional Azure Neural Voice API Key -->
+          <div class="setting-item cloud-api-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">សំឡេងខ្មែរ Neural កម្រិតខ្ពស់ (Azure Speech - ស្រេចចិត្ត)</span>
+              <span class="setting-desc khmer-font">បញ្ចូល API Key ដើម្បីទទួលបានសំឡេង Piseth & Sreymom កម្រិតធម្មជាតិបំផុត</span>
+            </div>
+            <div class="api-fields-group">
+              <input 
+                type="password" 
+                v-model="azureTtsKey" 
+                @blur="saveOcrConfig"
+                placeholder="Azure TTS Subscription Key" 
+                class="settings-api-input khmer-font" 
+                aria-label="Azure TTS Subscription Key"
+              />
+              <input 
+                type="text" 
+                v-model="azureTtsEndpoint" 
+                @blur="saveOcrConfig"
+                placeholder="Azure TTS Endpoint (ស្រេចចិត្ត)" 
+                class="settings-api-input khmer-font" 
+                aria-label="Azure TTS Endpoint URL"
+              />
+            </div>
+          </div>
         </div>
 
-        <!-- Tab 3: Interaction & Shortcuts -->
+        <!-- Tab 3: OCR Engine Settings -->
+        <div v-if="activeSettingsTab === 'ocr'" class="tab-pane ocr-pane">
+          <!-- OCR Engine Selector -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">ម៉ាស៊ីនស្រង់អត្ថបទ (OCR Engine)</span>
+              <span class="setting-desc khmer-font">ជ្រើសរើសបច្ចេកវិទ្យាសម្រាប់ស្កេនស្រង់អក្សរខ្មែរ និងអង់គ្លេស</span>
+            </div>
+            <div class="ocr-engine-options">
+              <label class="engine-radio-card" :class="{ 'engine-selected': ocrEngine === 'tesseract' }">
+                <input type="radio" v-model="ocrEngine" value="tesseract" @change="saveOcrConfig" class="sr-only" />
+                <div class="engine-info">
+                  <span class="engine-badge badge-free khmer-font">ឥតគិតថ្លៃ (Default)</span>
+                  <strong class="engine-name khmer-font">Tesseract.js (ស្កេនក្នុងម៉ាស៊ីន)</strong>
+                  <span class="engine-desc khmer-font">ដំណើរការផ្ទាល់ក្នុង Browser មិនត្រូវការ API Key និងមិនបាត់បង់ឯកជនភាព</span>
+                </div>
+              </label>
+
+              <label class="engine-radio-card" :class="{ 'engine-selected': ocrEngine === 'google-vision' }">
+                <input type="radio" v-model="ocrEngine" value="google-vision" @change="saveOcrConfig" class="sr-only" />
+                <div class="engine-info">
+                  <span class="engine-badge badge-cloud">Cloud API</span>
+                  <strong class="engine-name khmer-font">Google Cloud Vision API</strong>
+                  <span class="engine-desc khmer-font">កម្រិតភាពជាក់លាក់ខ្ពស់បំផុតសម្រាប់អក្សរពុម្ពខ្មែរស្មុគស្មាញ (ត្រូវការ API Key)</span>
+                </div>
+              </label>
+
+              <label class="engine-radio-card" :class="{ 'engine-selected': ocrEngine === 'azure-read' }">
+                <input type="radio" v-model="ocrEngine" value="azure-read" @change="saveOcrConfig" class="sr-only" />
+                <div class="engine-info">
+                  <span class="engine-badge badge-cloud">Cloud API</span>
+                  <strong class="engine-name khmer-font">Microsoft Azure AI Vision</strong>
+                  <span class="engine-desc khmer-font">សមត្ថភាពអានឯកសារក្រដាស និងវិក័យប័ត្រ (ត្រូវការ Subscription Key)</span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Google Cloud Vision Credentials -->
+          <div v-if="ocrEngine === 'google-vision'" class="setting-item cloud-api-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">Google Vision API Credentials</span>
+              <span class="setting-desc khmer-font">បញ្ចូល API Key ពី Google Cloud Console</span>
+            </div>
+            <div class="api-fields-group">
+              <input 
+                type="password" 
+                v-model="googleApiKey" 
+                @blur="saveOcrConfig"
+                placeholder="Google Vision API Key (AIza...)" 
+                class="settings-api-input khmer-font" 
+                aria-label="Google Vision API Key"
+              />
+            </div>
+          </div>
+
+          <!-- Azure AI Vision Credentials -->
+          <div v-if="ocrEngine === 'azure-read'" class="setting-item cloud-api-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">Azure Computer Vision Credentials</span>
+              <span class="setting-desc khmer-font">បញ្ចូល Subscription Key និង Endpoint ពី Azure Portal</span>
+            </div>
+            <div class="api-fields-group">
+              <input 
+                type="password" 
+                v-model="azureVisionKey" 
+                @blur="saveOcrConfig"
+                placeholder="Azure Computer Vision Key" 
+                class="settings-api-input khmer-font" 
+                aria-label="Azure Computer Vision Key"
+              />
+              <input 
+                type="text" 
+                v-model="azureVisionEndpoint" 
+                @blur="saveOcrConfig"
+                placeholder="Endpoint URL (ឧ. https://eastus.api.cognitive.microsoft.com/)" 
+                class="settings-api-input khmer-font" 
+                aria-label="Azure Vision Endpoint URL"
+              />
+            </div>
+          </div>
+
+          <!-- Clear OCR Cache -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">សម្អាត Cache ឯកសារ (Clear Scanned Cache)</span>
+              <span class="setting-desc khmer-font">លុបចោលលទ្ធផលស្កេនដែលបានរក្សាទុកក្នុង Browser ដើម្បីស្កេនឡើងវិញថ្មីស្រឡាង</span>
+            </div>
+            <button 
+              type="button" 
+              class="btn btn-secondary khmer-font" 
+              @click="handleClearCache"
+              style="min-height: 42px; padding: 0 16px; border-radius: var(--radius-sm);"
+              aria-label="សម្អាត Cache ឯកសារស្កេនទាំងអស់"
+            >
+              <RotateCcw :size="16" />
+              <span>សម្អាត Cache</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 4: Interaction & Shortcuts -->
         <div v-if="activeSettingsTab === 'interaction'" class="tab-pane shortcuts-pane">
           <!-- Haptic Vibrations -->
           <div class="setting-item">

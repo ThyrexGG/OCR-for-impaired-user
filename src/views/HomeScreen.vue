@@ -11,7 +11,7 @@ import OcrPanel from '../components/OcrPanel.vue'
 import TtsPanel from '../components/TtsPanel.vue'
 import UserHistory from '../components/UserHistory.vue'
 import AppToast from '../components/AppToast.vue'
-import { detectTextGoogleVision, detectTextAzureVision } from '../services/ocr'
+import { extractDocumentText } from '../services/ocr'
 import { getFileFingerprint, getOcrCache, setOcrCache } from '../services/cache'
 
 const router = useRouter()
@@ -33,6 +33,7 @@ const scanAgainErrorBtnRef = ref(null)
 // Core Application State
 const isProcessing = ref(false)
 const isLongProcessing = ref(false)
+const ocrProgress = ref(0)
 let processingTimeoutId = null
 const ocrError = ref(null)
 
@@ -272,23 +273,27 @@ const handleTriggerOcr = async () => {
     date: 'ថ្ងៃនេះ'
   })
 
-  let ocrProvider = ''
-  let envApiKey = ''
-  let envEndpoint = ''
+  ocrProgress.value = 0
 
-  if (import.meta.env.VITE_AZURE_VISION_API_KEY) {
-    ocrProvider = 'azure-read'
-    envApiKey = import.meta.env.VITE_AZURE_VISION_API_KEY
-    envEndpoint = import.meta.env.VITE_AZURE_VISION_ENDPOINT
-  } else if (import.meta.env.VITE_GOOGLE_VISION_API_KEY) {
-    ocrProvider = 'google-vision'
-    envApiKey = import.meta.env.VITE_GOOGLE_VISION_API_KEY
-    envEndpoint = import.meta.env.VITE_GOOGLE_VISION_ENDPOINT
+  const storedOcrEngine = localStorage.getItem('songkhem_ocr_engine') || 
+    (import.meta.env.VITE_AZURE_VISION_API_KEY ? 'azure-read' : (import.meta.env.VITE_GOOGLE_VISION_API_KEY ? 'google-vision' : 'tesseract'))
+  const googleApiKey = localStorage.getItem('songkhem_google_api_key') || import.meta.env.VITE_GOOGLE_VISION_API_KEY || ''
+  const googleEndpoint = localStorage.getItem('songkhem_google_endpoint') || import.meta.env.VITE_GOOGLE_VISION_ENDPOINT || ''
+  const azureApiKey = localStorage.getItem('songkhem_azure_vision_key') || import.meta.env.VITE_AZURE_VISION_API_KEY || ''
+  const azureEndpoint = localStorage.getItem('songkhem_azure_vision_endpoint') || import.meta.env.VITE_AZURE_VISION_ENDPOINT || ''
+
+  const ocrConfig = {
+    provider: storedOcrEngine,
+    googleApiKey,
+    googleEndpoint,
+    azureApiKey,
+    azureEndpoint
   }
 
   const finalizeOcr = (resultText) => {
     if (processingTimeoutId) clearTimeout(processingTimeoutId)
     isLongProcessing.value = false
+    ocrProgress.value = 100
     extractedText.value = resultText
     setOcrCache(fingerprint, resultText, selectedFileName.value)
 
@@ -327,6 +332,7 @@ const handleTriggerOcr = async () => {
     if (processingTimeoutId) clearTimeout(processingTimeoutId)
     isProcessing.value = false
     isLongProcessing.value = false
+    ocrProgress.value = 0
     
     // Remove pending item from history
     const idx = historyList.value.findIndex(i => i.id === pendingId)
@@ -334,32 +340,20 @@ const handleTriggerOcr = async () => {
 
     ocrError.value = err.message || 'មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ'
     triggerHaptic([100, 60, 100])
-    speakAccessibility('មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ។ សូមសាកល្បងស្កេនម្តងទៀត។')
+    speakAccessibility(`មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ។ ${ocrError.value}`)
     nextTick(() => {
       scanAgainErrorBtnRef.value?.focus()
     })
   }
 
-  if (envApiKey) {
-    try {
-      let text = ''
-      if (ocrProvider === 'google-vision') {
-        text = await detectTextGoogleVision(selectedFile.value, envApiKey, envEndpoint)
-      } else if (ocrProvider === 'azure-read') {
-        text = await detectTextAzureVision(selectedFile.value, envApiKey, envEndpoint)
-      }
-      finalizeOcr(text)
-    } catch (error) {
-      console.error(error)
-      const randomSample = sampleLibrary[Math.floor(Math.random() * sampleLibrary.length)]
-      finalizeOcr(randomSample.text)
-    }
-  } else {
-    // Simulation fallback with realistic delay
-    setTimeout(() => {
-      const randomSample = sampleLibrary[Math.floor(Math.random() * sampleLibrary.length)]
-      finalizeOcr(randomSample.text)
-    }, 1400)
+  try {
+    const text = await extractDocumentText(selectedFile.value, ocrConfig, (progress) => {
+      ocrProgress.value = progress
+    })
+    finalizeOcr(text)
+  } catch (error) {
+    console.error('OCR Extraction Error:', error)
+    handleOcrFailure(error)
   }
 }
 
@@ -481,8 +475,11 @@ const handleScanAgain = () => {
 
         <!-- Shimmer Progress Beam -->
         <div class="processing-beam-track" aria-hidden="true">
-          <div class="processing-beam-fill"></div>
+          <div class="processing-beam-fill" :style="{ width: ocrProgress > 0 ? `${ocrProgress}%` : undefined }"></div>
         </div>
+        <p v-if="ocrProgress > 0" class="khmer-font" style="margin-top: 8px; font-weight: 600; color: var(--color-brand); text-align: center;">
+          ដំណើរការ៖ {{ ocrProgress }}%
+        </p>
 
         <!-- Timeout Awareness Warning -->
         <div v-if="isLongProcessing" class="processing-timeout-notice khmer-font">
