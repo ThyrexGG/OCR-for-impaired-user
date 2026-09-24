@@ -1,78 +1,170 @@
 /* ==========================================================================
-   songKHEM - Accessible Modern Design System
-   Optimized for Visually Impaired Users & Khmer Typography
-   Theme: Warm Obsidian & Honey Amber (Voice Dream / Linear Pro Style)
+   songKHEM - Accessible Design System & Token Hierarchy
+   Optimized for Visually Impaired Users & Khmer Typography (WCAG 2.2 AA)
+   
+   Architecture:
+     Tier 1: Global Primitives (Fonts, spacing, touch target dimensions)
+     Tier 2: Semantic Theme Tokens (Surfaces, borders, text, brand per theme)
+     Tier 3: Component Alias Tokens (Buttons, inputs, cards, focus rings)
+     Tier 4: Base Resets & Accessibility Engine (Scaling, focus, motion)
+     Tier 5: Component Primitives & Variants (.btn, .glass-card, inputs, .badge)
    ========================================================================== */
 
+/* ==========================================================================
+   Tier 1 & Tier 2: Primitive Tokens + Default Semantic Theme (Light)
+   ========================================================================== */
 :root {
-  /* Dynamic font scale & reading adjustments */
+  /* --- Typography Families & Reading Scales --- */
+  --font-sans: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-latin: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-khmer: 'Suwannaphum', serif, system-ui, sans-serif;
+  --font-title: 'Atkinson Hyperlegible', system-ui, sans-serif;
+
   --font-scale: 1;
   --font-reading-scale: 1;
   --leading-reading: 1.85;
   --tracking-reading: 0.015em;
   --font-weight-reading: 400;
 
-  /* Font Families: Siemreap for general content, Koulen for titles and bold display */
-  --font-sans: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
-  --font-khmer: 'Siemreap', 'Kantumruy Pro', 'Battambang', system-ui, sans-serif;
-  --font-title: 'Koulen', 'Outfit', 'Siemreap', cursive, sans-serif;
+  /* --- Spacing Scale --- */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
 
-  /* Primary Default Theme: Clean Royal Sapphire Light (Matches songKHEM Logo) */
-  --bg-page: #F4F7FC;
+  /* --- Accessible Target Sizing (ProjectInstruction N-Rule: >= 48px) --- */
+  --target-size-min: 48px;
+  --target-spacing-min: 8px;
+
+  /* --- Radius Scale --- */
+  --radius-xs: 4px;
+  --radius-sm: 4px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-full: 4px;
+
+  /* --- Motion & Transitions --- */
+  --transition-fast: 0.15s ease;
+  --transition-smooth: 0.2s ease;
+
+  /* ==========================================================================
+     SURFACES.md Tokens (Colour Surfaces Instead of Borders)
+     ========================================================================== */
+  /* Surfaces */
+  --bg: #F8FAFC;            /* page background */
+  --surface-1: #EEF3FB;     /* container tint: upload zone, sections, sample list */
+  --surface-2: #DBE7FF;     /* tonal control fill, selected item */
+
+  /* Text on surfaces */
+  --on-surface: #0F172A;       /* ~17:1 on bg, ~15:1 on surface-1 */
+  --on-surface-muted: #334155; /* ~9:1 on surface-1. Never lighter for text */
+  --on-tonal: #1E3A8A;         /* ~8:1 on surface-2 */
+
+  /* Controls */
+  --primary: #1D4ED8;          /* ~5.8:1 vs surface-1, ~6.7:1 vs white */
+  --primary-pressed: #1E40AF;
+  --on-primary: #FFFFFF;
+  --accent: #F59E0B;           /* Capture only. Fill, never text */
+  --on-accent: #0F172A;        /* ~8:1 */
+  --danger: #B91C1C;
+  --on-danger: #FFFFFF;
+  --success: #047857;
+
+  /* Lines */
+  --border-input: #64748B;     /* inputs only. >= 3:1 vs bg and surface-1 */
+  --divider: #CBD5E1;          /* decorative hairline between list rows */
+  --focus: #0F172A;            /* 3px ring, 3px offset */
+
+  /* Navy & Headings */
+  --navy: #0B1B4D;
+  --on-navy: #FFFFFF;
+  --heading: #1D4ED8;
+
+  /* Shape and spacing */
+  --radius-container: 4px;
+  --radius-card: 4px;
+  --radius-button: 4px;
+  --radius-input: 4px;
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+
+  /* --- Mapped Semantic Aliases --- */
+  --bg-page: var(--bg);
   --bg-page-gradient: none;
-  --bg-surface: #FFFFFF;
-  --bg-surface-elevated: #EBF2FA;
+  --bg-surface: var(--surface-1);
+  --bg-surface-elevated: var(--surface-2);
   --bg-surface-hover: #E1ECF8;
-  --bg-glass: #FFFFFF;
-  --bg-glass-elevated: #EBF2FA;
+  --bg-glass: var(--surface-1);
+  --bg-glass-elevated: var(--surface-2);
 
-  --border-subtle: #94A3B8;
-  --border-medium: #0052CC;
-  --border-prominent: #003D99;
-  --border-focus: #0052CC;
+  --border-subtle: transparent; /* No borders on containers per SURFACES.md */
+  --border-medium: transparent;
+  --border-prominent: var(--border-input);
+  --border-focus: var(--focus);
 
-  --text-primary: #0A1628;
-  --text-secondary: #1E293B;
+  --text-primary: var(--on-surface);
+  --text-secondary: var(--on-surface-muted);
   --text-muted: #475569;
   --text-inverse: #FFFFFF;
 
-  /* Royal Sapphire Accent (Exact match to songKHEM Logo) */
-  --color-accent: #0052CC;
-  --color-accent-hover: #0040A1;
-  --color-accent-text: #FFFFFF;
-  --color-accent-subtle: rgba(0, 82, 204, 0.10);
-  --color-accent-glow: rgba(0, 82, 204, 0.22);
+  --color-accent: var(--primary);
+  --color-accent-hover: var(--primary-pressed);
+  --color-accent-text: var(--on-primary);
+  --color-accent-subtle: rgba(29, 78, 216, 0.10);
+  --color-accent-glow: rgba(29, 78, 216, 0.22);
 
-  --color-brand: #0052CC;
-  --color-brand-light: #0065FF;
-  --color-brand-subtle: rgba(0, 82, 204, 0.10);
+  --color-brand: var(--primary);
+  --color-brand-light: var(--heading);
+  --color-brand-subtle: rgba(29, 78, 216, 0.10);
 
-  --color-success: #059669;
+  --color-success: var(--success);
   --color-success-hover: #047857;
-  --color-success-subtle: rgba(5, 150, 105, 0.12);
+  --color-success-subtle: rgba(4, 120, 87, 0.12);
 
-  --color-danger: #DC2626;
-  --color-danger-subtle: rgba(220, 38, 38, 0.12);
+  --color-danger: var(--danger);
+  --color-danger-subtle: rgba(185, 28, 28, 0.12);
 
-  /* Radius & Controlled Shadows */
-  --radius-xs: 6px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
-  --radius-full: 9999px;
+  --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 6px 16px -2px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 28px -4px rgba(15, 23, 42, 0.08);
 
-  --shadow-sm: 0 2px 6px rgba(12, 26, 48, 0.06);
-  --shadow-md: 0 6px 20px -4px rgba(12, 26, 48, 0.10);
-  --shadow-lg: 0 12px 36px -6px rgba(12, 26, 48, 0.14);
-  --shadow-glow: 0 0 24px rgba(0, 82, 204, 0.25);
+  /* Buttons */
+  --btn-height: 56px;
+  --btn-min-width: 56px;
+  --btn-padding-y: 12px;
+  --btn-padding-x: 24px;
+  --btn-radius: var(--radius-button);
+  --btn-font-size: 1.1rem;
+  --btn-font-weight: 700;
 
-  --transition-fast: 0.15s ease;
-  --transition-smooth: 0.2s ease;
+  /* Inputs & Form Elements */
+  --input-height: 56px;
+  --input-padding-y: 12px;
+  --input-padding-x: 16px;
+  --input-radius: var(--radius-input);
+  --input-border-width: 2px;
+
+  /* Cards & Surfaces (SURFACES.md: No border, 24px padding, 24px radius) */
+  --card-bg: var(--surface-1);
+  --card-border: transparent;
+  --card-border-hover: transparent;
+  --card-radius: var(--radius-card);
+  --card-shadow: none;
+
+  /* Focus Indicator Tokens (Always visible, 3px, 3px offset) */
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 3px;
+  --focus-ring-color: var(--focus);
+  --focus-ring-glow: rgba(15, 23, 42, 0.25);
 }
 
 /* ==========================================================================
-   Theme: Clean Royal Sapphire Light (Matches songKHEM Logo)
+   Theme: Explicit Light
    ========================================================================== */
 [data-theme="light"] {
   --bg-page: #F4F7FC;
@@ -116,96 +208,120 @@
 }
 
 /* ==========================================================================
-   Theme: Midnight Sapphire Dark (Low-Light & Battery Saver)
+   Theme: Midnight Sapphire Dark (SURFACES.md 3)
    ========================================================================== */
 [data-theme="dark"] {
-  --bg-page: #0B111E;
-  --bg-page-gradient: none;
-  --bg-surface: #131B2E;
-  --bg-surface-elevated: #1B2640;
+  --bg: #0B1220;
+  --surface-1: #111B2E;
+  --surface-2: #1E2A44;
+  --on-surface: #E5E7EB;
+  --on-surface-muted: #CBD5E1;
+  --on-tonal: #DBEAFE;
+
+  --primary: #93C5FD;
+  --primary-pressed: #BFDBFE;
+  --on-primary: #0B1220;
+  --danger: #FCA5A5;
+  --on-danger: #0B1220;
+  --success: #6EE7B7;
+
+  --border-input: #94A3B8;
+  --divider: #334155;
+  --focus: #FFFFFF;
+  --navy: #060E2B;
+  --heading: #93C5FD;
+
+  --bg-page: var(--bg);
+  --bg-surface: var(--surface-1);
+  --bg-surface-elevated: var(--surface-2);
   --bg-surface-hover: #243254;
-  --bg-glass: #131B2E;
-  --bg-glass-elevated: #1B2640;
 
-  --border-subtle: #475569;
-  --border-medium: #3B82F6;
-  --border-prominent: #60A5FA;
-  --border-focus: #93C5FD;
-
-  --text-primary: #F8FAFC;
-  --text-secondary: #CBD5E1;
+  --text-primary: var(--on-surface);
+  --text-secondary: var(--on-surface-muted);
   --text-muted: #94A3B8;
-  --text-inverse: #0B111E;
 
-  --color-accent: #3B82F6;
-  --color-accent-hover: #2563EB;
-  --color-accent-text: #FFFFFF;
-  --color-accent-subtle: rgba(59, 130, 246, 0.16);
-  --color-accent-glow: rgba(59, 130, 246, 0.35);
+  --color-accent: var(--primary);
+  --color-accent-hover: var(--primary-pressed);
+  --color-accent-text: var(--on-primary);
 
-  --color-brand: #3B82F6;
-  --color-brand-light: #60A5FA;
-  --color-brand-subtle: rgba(59, 130, 246, 0.16);
-
-  --color-success: #10B981;
-  --color-success-hover: #059669;
-  --color-success-subtle: rgba(16, 185, 129, 0.15);
-
-  --color-danger: #EF4444;
-  --color-danger-subtle: rgba(239, 68, 68, 0.15);
-
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.6);
+  --card-bg: var(--surface-1);
+  --card-border: transparent;
 }
 
 /* ==========================================================================
-   Theme: Ultra High-Contrast (Obsidian & Vivid Amber)
+   Theme: Ultra High-Contrast (SURFACES.md 3: Black-on-Black keeps 2px white borders)
    ========================================================================== */
-[data-theme="contrast"] {
+[data-theme="contrast"], [data-theme="high-contrast"] {
+  --bg: #000000;
+  --surface-1: #000000;
+  --surface-2: #000000;
+  --on-surface: #FFFFFF;
+  --on-surface-muted: #FFFFFF;
+  --on-tonal: #FFFFFF;
+
+  --primary: #FFFF00;
+  --primary-pressed: #FFFF88;
+  --on-primary: #000000;
+  --border-input: #FFFFFF;
+  --divider: #FFFFFF;
+  --focus: #FFFFFF;
+
+  --accent: #FFFF00;
+  --on-accent: #000000;
+  --danger: #FF5555;
+  --on-danger: #FFFFFF;
+  --success: #00FF00;
+  --navy: #000000;
+  --on-navy: #FFFFFF;
+  --heading: #FFFF00;
+
   --bg-page: #000000;
-  --bg-page-gradient: none;
   --bg-surface: #000000;
   --bg-surface-elevated: #111111;
-  --bg-surface-hover: #1E1E1E;
-  --bg-glass: #000000;
-  --bg-glass-elevated: #000000;
+  --bg-surface-hover: #222222;
 
   --border-subtle: #FFFFFF;
-  --border-medium: #FBBF24;
-  --border-prominent: #FBBF24;
-  --border-focus: #FBBF24;
+  --border-medium: #FFFFFF;
+  --border-prominent: #FFFFFF;
+  --border-focus: #FFFFFF;
 
   --text-primary: #FFFFFF;
-  --text-secondary: #FBBF24;
+  --text-secondary: #FFFFFF;
   --text-muted: #E5E7EB;
-  --text-inverse: #000000;
 
-  --color-accent: #FBBF24;
+  --color-accent: #FFFF00;
   --color-accent-hover: #FFFFFF;
   --color-accent-text: #000000;
-  --color-accent-subtle: rgba(251, 191, 36, 0.2);
-  --color-accent-glow: rgba(251, 191, 36, 0.6);
 
-  --color-brand: #FBBF24;
-  --color-brand-light: #FDE68A;
-  --color-brand-subtle: rgba(251, 191, 36, 0.2);
-
-  --radius-xs: 4px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
-
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-lg: none;
-  --shadow-glow: none;
+  --card-bg: #000000;
+  --card-border: #FFFFFF;
 }
 
+/* ==========================================================================
+   SURFACES.md 5: Forced-Colours and High-Contrast Fallback (Required)
+   ========================================================================== */
+.btn, .tonal, .chip-action, .sample-list-item, .nav-tab-btn, .header-btn {
+  border: 2px solid transparent;
+}
+
+@media (forced-colors: active) {
+  .btn, .tonal, .chip-action, .nav-tab-btn, .header-btn {
+    border-color: ButtonText !important;
+  }
+  .card, .zone, .dialog, .uploader-deck, .reader-layout-grid, .user-history-card {
+    border: 1px solid CanvasText !important;
+  }
+  .divider, .sample-hairline-divider {
+    border-color: CanvasText !important;
+  }
+  :focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 3px !important;
+  }
+}
 
 /* ==========================================================================
-   Base & Resets
+   Tier 4: Base Resets & Accessibility Engine
    ========================================================================== */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -214,7 +330,7 @@
 }
 
 html {
-  font-size: calc(16px * var(--font-scale, 1));
+  font-size: calc(18px * var(--font-scale, 1));
   scroll-behavior: smooth;
 }
 
@@ -225,18 +341,51 @@ body {
   background-attachment: fixed;
   color: var(--text-primary);
   min-height: 100vh;
-  line-height: 1.55;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   transition: background-color var(--transition-smooth), color var(--transition-smooth);
 }
 
-/* Accessible focus ring on all interactive elements */
+/* Dynamic Language-Based Font & Typography Rules */
+html[lang="km"] {
+  --font-sans: 'Suwannaphum', serif, system-ui, sans-serif;
+  --font-title: 'Suwannaphum', serif, system-ui, sans-serif;
+}
+
+html[lang="km"] body,
+html[lang="km"] button,
+html[lang="km"] input,
+html[lang="km"] textarea,
+html[lang="km"] select,
+html[lang="km"] .khmer-font {
+  font-family: var(--font-khmer) !important;
+  line-height: 1.85 !important;
+  letter-spacing: 0.015em;
+}
+
+html[lang="en"] {
+  --font-sans: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-title: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+html[lang="en"] body,
+html[lang="en"] button,
+html[lang="en"] input,
+html[lang="en"] textarea,
+html[lang="en"] select,
+html[lang="en"] .khmer-font {
+  font-family: var(--font-latin) !important;
+  line-height: 1.6 !important;
+  letter-spacing: 0.01em;
+}
+
+/* Unified Accessible Focus Ring (WCAG 2.4.7 & 2.4.11) */
 :focus-visible {
-  outline: 3px solid var(--border-focus) !important;
-  outline-offset: 3px !important;
-  box-shadow: 0 0 12px var(--color-accent-glow) !important;
+  outline: var(--focus-ring-width) solid var(--focus-ring-color) !important;
+  outline-offset: var(--focus-ring-offset) !important;
+  box-shadow: 0 0 12px var(--focus-ring-glow) !important;
 }
 
 /* Scrollbars */
@@ -256,39 +405,100 @@ body {
   background: var(--color-accent);
 }
 
-/* Khmer Font utility (General text: Siemreap) */
+/* Khmer Font utility (defaults based on html[lang]) */
 .khmer-font {
-  font-family: var(--font-khmer) !important;
-  line-height: 1.75 !important;
   letter-spacing: 0.015em;
 }
 
-/* Typography Hierarchy & Headings (Titles and Bold Display: Koulen) */
+/* Suwannaphum Font Weight Classes */
+.suwannaphum-thin {
+  font-family: 'Suwannaphum', serif;
+  font-weight: 100;
+  font-style: normal;
+}
+
+.suwannaphum-light {
+  font-family: 'Suwannaphum', serif;
+  font-weight: 300;
+  font-style: normal;
+}
+
+.suwannaphum-regular {
+  font-family: 'Suwannaphum', serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.suwannaphum-bold {
+  font-family: 'Suwannaphum', serif;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.suwannaphum-black {
+  font-family: 'Suwannaphum', serif;
+  font-weight: 900;
+  font-style: normal;
+}
+
+/* Typography Hierarchy & Headings */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-title);
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.35;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
 }
 
-/* Explicit title and bold heading overrides for Koulen */
-h1.khmer-font, h2.khmer-font, h3.khmer-font, h4.khmer-font, h5.khmer-font, h6.khmer-font,
-.khmer-title,
-.mode-hero-title,
-.action-card-title,
-.doc-name,
-.hero-label,
-.label-top,
-.hero-play-label,
-.processing-title,
-.error-title,
-.help-title,
-.tips-heading,
-.step-heading,
-.brand-name {
-  font-family: var(--font-title) !important;
-  letter-spacing: 0.03em;
+html[lang="km"] h1, html[lang="km"] h2, html[lang="km"] h3,
+html[lang="km"] h4, html[lang="km"] h5, html[lang="km"] h6 {
+  font-family: var(--font-khmer) !important;
+  line-height: 1.5 !important;
+}
+
+html[lang="en"] h1, html[lang="en"] h2, html[lang="en"] h3,
+html[lang="en"] h4, html[lang="en"] h5, html[lang="en"] h6 {
+  font-family: var(--font-latin) !important;
+  line-height: 1.3 !important;
+}
+
+/* Explicit title and heading overrides */
+html[lang="km"] h1.khmer-font, html[lang="km"] h2.khmer-font, html[lang="km"] h3.khmer-font,
+html[lang="km"] h4.khmer-font, html[lang="km"] h5.khmer-font, html[lang="km"] h6.khmer-font,
+html[lang="km"] .khmer-title,
+html[lang="km"] .mode-hero-title,
+html[lang="km"] .action-card-title,
+html[lang="km"] .doc-name,
+html[lang="km"] .hero-label,
+html[lang="km"] .label-top,
+html[lang="km"] .hero-play-label,
+html[lang="km"] .processing-title,
+html[lang="km"] .error-title,
+html[lang="km"] .help-title,
+html[lang="km"] .tips-heading,
+html[lang="km"] .step-heading,
+html[lang="km"] .brand-name {
+  font-family: var(--font-khmer) !important;
+  letter-spacing: 0.02em;
+}
+
+html[lang="en"] h1.khmer-font, html[lang="en"] h2.khmer-font, html[lang="en"] h3.khmer-font,
+html[lang="en"] h4.khmer-font, html[lang="en"] h5.khmer-font, html[lang="en"] h6.khmer-font,
+html[lang="en"] .khmer-title,
+html[lang="en"] .mode-hero-title,
+html[lang="en"] .action-card-title,
+html[lang="en"] .doc-name,
+html[lang="en"] .hero-label,
+html[lang="en"] .label-top,
+html[lang="en"] .hero-play-label,
+html[lang="en"] .processing-title,
+html[lang="en"] .error-title,
+html[lang="en"] .help-title,
+html[lang="en"] .tips-heading,
+html[lang="en"] .step-heading,
+html[lang="en"] .brand-name {
+  font-family: var(--font-latin) !important;
+  letter-spacing: 0.01em;
 }
 
 b, strong, .font-bold {
@@ -301,89 +511,153 @@ p {
   color: var(--text-secondary);
 }
 
-/* Buttons System (Accessible Min-Height 44px) */
+/* ==========================================================================
+   Tier 5: Component Primitives & Standard Variants
+   ========================================================================== */
+
+/* Tactile Neo-Brutalist Accessible Button System (Braille Institute Style) */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 8px 18px;
-  border-radius: var(--radius-md);
+  gap: var(--space-sm);
+  min-height: var(--btn-height);
+  min-width: var(--btn-min-width);
+  padding: 10px 20px;
+  border-radius: 4px;
   font-family: var(--font-sans);
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: var(--btn-font-size);
+  font-weight: 700;
   cursor: pointer;
-  transition: all var(--transition-smooth);
-  border: 1.5px solid transparent;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 2px solid #0F172A;
   outline: none;
   text-decoration: none;
   user-select: none;
   white-space: nowrap;
+  box-shadow: -3px 3px 0px #1D4ED8;
+  background: #FFFFFF;
+  color: #0F172A;
+}
+
+.btn:hover:not(:disabled) {
+  transform: translate(-1px, 1px);
+  box-shadow: -2px 2px 0px #1D4ED8;
+}
+
+.btn:active:not(:disabled) {
+  transform: translate(-3px, 3px);
+  box-shadow: 0px 0px 0px #1D4ED8;
 }
 
 .btn-primary {
-  background: var(--color-accent);
-  color: var(--color-accent-text);
-  border-color: var(--color-accent);
-  box-shadow: 0 4px 14px var(--color-accent-glow);
+  background: #1D4ED8;
+  color: #FFFFFF;
+  border: 2px solid #0F172A;
+  box-shadow: -4px 4px 0px #0F172A;
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-accent-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px var(--color-accent-glow);
+  background: #1E40AF;
+  color: #FFFFFF;
+  transform: translate(-2px, 2px);
+  box-shadow: -2px 2px 0px #0F172A;
+}
+.btn-primary:active:not(:disabled) {
+  transform: translate(-4px, 4px);
+  box-shadow: 0px 0px 0px #0F172A;
 }
 
 .btn-secondary {
-  background: var(--bg-surface-elevated);
-  color: var(--text-primary);
-  border-color: var(--border-medium);
+  background: #FFFFFF;
+  color: #0F172A;
+  border: 2px solid #0F172A;
+  box-shadow: -3px 3px 0px #1D4ED8;
 }
 .btn-secondary:hover:not(:disabled) {
-  background: var(--bg-surface-hover);
-  border-color: var(--color-accent);
-  color: var(--text-primary);
-  transform: translateY(-1px);
+  background: #F8FAFC;
+  transform: translate(-1px, 1px);
+  box-shadow: -2px 2px 0px #1D4ED8;
+}
+.btn-secondary:active:not(:disabled) {
+  transform: translate(-3px, 3px);
+  box-shadow: 0px 0px 0px #1D4ED8;
 }
 
 .btn-outline {
   background: transparent;
-  color: var(--text-primary);
-  border-color: var(--border-medium);
+  color: #0F172A;
+  border: 2px solid #0F172A;
+  box-shadow: -3px 3px 0px #1D4ED8;
 }
 .btn-outline:hover:not(:disabled) {
-  background: var(--bg-surface-hover);
-  border-color: var(--color-accent);
-  color: var(--color-accent);
+  background: #EFF6FF;
+  transform: translate(-1px, 1px);
+  box-shadow: -2px 2px 0px #1D4ED8;
+}
+.btn-outline:active:not(:disabled) {
+  transform: translate(-3px, 3px);
+  box-shadow: 0px 0px 0px #1D4ED8;
 }
 
 .btn-danger {
-  background: var(--color-danger-subtle);
-  color: var(--color-danger);
-  border-color: var(--color-danger);
+  background: #FEE2E2;
+  color: #DC2626;
+  border: 2px solid #DC2626;
+  box-shadow: -3px 3px 0px #DC2626;
 }
 .btn-danger:hover:not(:disabled) {
-  background: var(--color-danger);
+  background: #DC2626;
   color: #FFFFFF;
+  transform: translate(-1px, 1px);
+  box-shadow: -2px 2px 0px #7F1D1D;
+}
+.btn-danger:active:not(:disabled) {
+  transform: translate(-3px, 3px);
+  box-shadow: 0px 0px 0px #7F1D1D;
 }
 
 .btn:disabled {
-  opacity: 0.45;
+  opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
-  box-shadow: none !important;
+  box-shadow: -1px 1px 0px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Dark mode button adaptations */
+[data-theme="dark"] .btn,
+.theme-dark .btn {
+  border-color: #E2E8F0;
+  box-shadow: -3px 3px 0px #3B82F6;
+  background: #111B2E;
+  color: #FFFFFF;
+}
+
+[data-theme="dark"] .btn-primary,
+.theme-dark .btn-primary {
+  background: #3B82F6;
+  color: #0F172A;
+  border-color: #FFFFFF;
+  box-shadow: -4px 4px 0px #FFFFFF;
+}
+
+[data-theme="dark"] .btn-secondary,
+.theme-dark .btn-secondary {
+  background: #1E293B;
+  color: #FFFFFF;
+  border-color: #94A3B8;
+  box-shadow: -3px 3px 0px #60A5FA;
 }
 
 /* Card Foundation */
 .glass-card {
-  background: var(--bg-surface);
-  border: 2px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: var(--card-radius);
+  box-shadow: var(--card-shadow);
   transition: border-color var(--transition-smooth), box-shadow var(--transition-smooth);
 }
 .glass-card:hover {
-  border-color: var(--border-medium);
+  border-color: var(--card-border-hover);
 }
 
 /* Form Inputs */
@@ -393,11 +667,11 @@ input[type="password"],
 textarea,
 select {
   width: 100%;
-  min-height: 42px;
-  padding: 10px 14px;
+  min-height: var(--input-height);
+  padding: var(--input-padding-y) var(--input-padding-x);
   background: var(--bg-surface-elevated);
-  border: 1.5px solid var(--border-medium);
-  border-radius: var(--radius-sm);
+  border: var(--input-border-width) solid var(--border-medium);
+  border-radius: var(--input-radius);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 0.95rem;
@@ -425,12 +699,13 @@ textarea::placeholder {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 14px;
+  min-height: 28px;
+  padding: 4px 12px;
   border-radius: var(--radius-full);
   font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  border: 1px solid transparent;
+  border: 1.5px solid transparent;
 }
 .badge-sapphire, .badge-amber {
   background: var(--color-accent-subtle);
@@ -462,7 +737,7 @@ body.bold-text,
   font-weight: 700 !important;
 }
 
-/* Reduced Motion Override */
+/* Reduced Motion Override (WCAG 2.3.3) */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -472,7 +747,7 @@ body.bold-text,
   }
 }
 
-/* Accessible Screen-Reader-Only Utility */
+/* Accessible Screen-Reader-Only Utility (WCAG 1.3.1) */
 .sr-only {
   position: absolute !important;
   width: 1px !important;
