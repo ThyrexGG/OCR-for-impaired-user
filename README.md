@@ -4,8 +4,10 @@
 
 [![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883?style=flat-square&logo=vue.js)](https://vuejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-8.0-646cff?style=flat-square&logo=vite)](https://vitejs.dev/)
+[![Android APK](https://img.shields.io/badge/Android-Download%20APK-3DDC84?style=flat-square&logo=android&logoColor=white)](https://github.com/ThyrexGG/OCR-for-impaired-user/releases/download/v1.0.0/songKHEM-v1.0.0.apk)
 [![WCAG 2.2 AAA](https://img.shields.io/badge/Accessibility-WCAG%202.2%20AAA-amber?style=flat-square)](https://www.w3.org/WAI/standards-guidelines/wcag/)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+
 
 ---
 
