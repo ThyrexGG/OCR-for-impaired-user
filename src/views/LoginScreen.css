@@ -1,5 +1,6 @@
 /* ==========================================================================
-   songKHEM - Honest 1-Tap Assistant Entry Point Styles
+   songKHEM - Accessible Entry Screen Styles
+   Optimized for Blind & Low-Vision Users (Generous spacing & tall Khmer line-height)
    ========================================================================== */
 
 .welcome-page-wrapper {
@@ -8,19 +9,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
+  padding: var(--space-xl) var(--space-lg);
   box-sizing: border-box;
 }
 
 .action-card-box {
   width: 100%;
-  max-width: 460px;
-  padding: 36px 32px;
+  max-width: 500px;
+  padding: 40px 36px;
   border: 2px solid var(--border-medium);
   border-radius: var(--radius-xl);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-xl);
   background: var(--bg-surface);
   box-shadow: var(--shadow-lg);
 }
@@ -30,12 +31,12 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-md);
 }
 
 .app-logo-gem {
-  width: 72px;
-  height: 72px;
+  width: 80px;
+  height: 80px;
   border-radius: var(--radius-lg);
   background: var(--bg-surface-elevated);
   border: 2px solid var(--border-medium);
@@ -44,35 +45,36 @@
   justify-content: center;
   overflow: hidden;
   box-shadow: 0 4px 16px var(--color-accent-glow);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-xs);
 }
 
 .app-logo-img {
-  width: 54px;
-  height: 54px;
+  width: 60px;
+  height: 60px;
   object-fit: contain;
 }
 
 .action-card-title {
-  font-size: 2rem;
+  font-size: 2.2rem;
   font-weight: 800;
   color: var(--color-accent);
   letter-spacing: -0.01em;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .action-card-sub {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   color: var(--text-secondary);
-  line-height: 1.6;
+  line-height: 1.8;
+  max-width: 420px;
 }
 
 /* Feature Highlights */
 .welcome-features-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px 16px;
+  gap: var(--space-md);
+  padding: 18px 20px;
   background: var(--bg-surface-elevated);
   border: 1.5px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -81,11 +83,11 @@
 .welcome-feature-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.88rem;
+  gap: 14px;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: 1.7;
 }
 
 .feature-icon {
@@ -104,15 +106,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 22px;
+  padding: 16px 24px;
   background: var(--color-accent);
   color: var(--color-accent-text);
   border: 2px solid var(--color-accent-hover);
   border-radius: var(--radius-lg);
-  font-weight: 800;
   cursor: pointer;
   box-shadow: 0 6px 20px var(--color-accent-glow);
   transition: all var(--transition-fast);
+}
+
+.label-primary-action {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .btn-try-now:hover {
@@ -121,59 +128,33 @@
   box-shadow: 0 10px 28px var(--color-accent-glow);
 }
 
-.btn-try-now:focus-visible {
-  outline: 3px solid var(--border-focus);
-  outline-offset: 3px;
-}
-
-.try-btn-label {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-}
-
-.label-top {
-  font-size: 1.18rem;
-  font-weight: 800;
-}
-
-.label-sub {
-  font-size: 0.82rem;
-  font-family: var(--font-sans);
-  opacity: 0.92;
-}
-
 .welcome-footer-note {
   text-align: center;
-  font-size: 0.82rem;
+  font-size: 0.9rem;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 @media (max-width: 640px) {
   .welcome-page-wrapper {
-    padding: 16px;
+    padding: var(--space-md);
   }
   .action-card-box {
-    padding: 24px 18px;
-    gap: 18px;
+    padding: 28px 20px;
+    gap: var(--space-lg);
     border-radius: var(--radius-lg);
   }
   .action-card-title {
-    font-size: 1.7rem;
+    font-size: 1.85rem;
   }
   .action-card-sub {
-    font-size: 0.9rem;
+    font-size: 0.98rem;
   }
   .btn-try-now {
-    min-height: 60px;
-    padding: 12px 18px;
+    min-height: 58px;
+    padding: 14px 20px;
   }
-  .label-top {
-    font-size: 1.12rem;
-  }
-  .label-sub {
-    font-size: 0.78rem;
+  .label-primary-action {
+    font-size: 1.15rem;
   }
 }
