@@ -831,3 +831,100 @@
     font-size: 1rem;
   }
 }
+
+/* OCR Engine Options & Cloud Settings Styles */
+.ocr-engine-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.engine-radio-card {
+  display: block;
+  position: relative;
+  padding: 14px 16px;
+  background: var(--bg-surface-elevated);
+  border: 2px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.engine-radio-card:hover {
+  border-color: var(--color-accent);
+}
+
+.engine-radio-card.engine-selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-subtle);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.engine-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.engine-badge {
+  align-self: flex-start;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border-radius: var(--radius-full);
+  margin-bottom: 2px;
+}
+
+.badge-free {
+  background: rgba(16, 185, 129, 0.18);
+  color: #10B981;
+}
+
+.badge-cloud {
+  background: rgba(59, 130, 246, 0.18);
+  color: #3B82F6;
+}
+
+.engine-name {
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.engine-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.cloud-api-item {
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+}
+
+.api-fields-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.settings-api-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 14px;
+  background: var(--bg-surface-elevated);
+  border: 1.5px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.88rem;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.settings-api-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-subtle);
+}
+

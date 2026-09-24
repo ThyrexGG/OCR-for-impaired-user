@@ -16,6 +16,7 @@ import { storage, STORAGE_KEYS } from '../services/storage'
 import { haptics } from '../services/haptics'
 import { t, currentLang } from '../services/i18n'
 
+
 const router = useRouter()
 
 // Injected global accessibility context from App.vue
@@ -35,6 +36,7 @@ const scanAgainErrorBtnRef = ref(null)
 // Core Application State
 const isProcessing = ref(false)
 const isLongProcessing = ref(false)
+const ocrProgress = ref(0)
 let processingTimeoutId = null
 const ocrError = ref(null)
 
@@ -262,7 +264,12 @@ const handleTriggerOcr = async () => {
     date: currentLang.value === 'km' ? 'ថ្ងៃនេះ' : 'Today'
   })
 
-  const result = await ocrService.recognize(selectedFile.value)
+  ocrProgress.value = 0
+  const result = await ocrService.recognize(selectedFile.value, {
+    onProgress: (p) => {
+      ocrProgress.value = p
+    }
+  })
 
   if (processingTimeoutId) clearTimeout(processingTimeoutId)
   isProcessing.value = false
@@ -272,6 +279,7 @@ const handleTriggerOcr = async () => {
     const { text, cached, wordsCount } = result.data
     extractedText.value = text
     isCached.value = cached
+    ocrProgress.value = 100
 
     const finalizedItem = {
       id: Date.now(),
@@ -308,6 +316,7 @@ const handleTriggerOcr = async () => {
     const idx = historyList.value.findIndex(i => i.id === pendingId)
     if (idx !== -1) historyList.value.splice(idx, 1)
 
+    ocrProgress.value = 0
     ocrError.value = result.error.message
     haptics.pulse('error')
     speakAccessibility(`${t('ocrErrorTitle')} - ${result.error.message}`)
@@ -498,8 +507,11 @@ const onPointerUp = (e) => {
 
         <!-- Shimmer Progress Beam -->
         <div class="processing-beam-track" aria-hidden="true">
-          <div class="processing-beam-fill"></div>
+          <div class="processing-beam-fill" :style="{ width: ocrProgress > 0 ? `${ocrProgress}%` : undefined }"></div>
         </div>
+        <p v-if="ocrProgress > 0" class="khmer-font" style="margin-top: 8px; font-weight: 600; color: var(--color-brand); text-align: center;">
+          ដំណើរការ៖ {{ ocrProgress }}%
+        </p>
 
         <!-- Timeout Awareness Warning -->
         <div v-if="isLongProcessing" class="processing-timeout-notice khmer-font">
