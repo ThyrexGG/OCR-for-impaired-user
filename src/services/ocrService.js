@@ -13,6 +13,7 @@
 
 import { extractDocumentText } from './ocr'
 import { getFileFingerprint, getOcrCache, setOcrCache } from './cache'
+import { CLOUD_API_AVAILABLE } from './cloudApi'
 import { t } from './i18n'
 
 class OcrService {
@@ -20,12 +21,14 @@ class OcrService {
    * Determine available OCR provider configuration from localStorage and environment
    */
   getProviderConfig() {
-    const storedOcrEngine = (typeof window !== 'undefined' && localStorage.getItem('songkhem_ocr_engine')) || 
-      (import.meta.env.VITE_AZURE_VISION_API_KEY ? 'azure-read' : (import.meta.env.VITE_GOOGLE_VISION_API_KEY ? 'google-vision' : 'tesseract'))
-    const googleApiKey = (typeof window !== 'undefined' && localStorage.getItem('songkhem_google_api_key')) || import.meta.env.VITE_GOOGLE_VISION_API_KEY || ''
-    const googleEndpoint = (typeof window !== 'undefined' && localStorage.getItem('songkhem_google_endpoint')) || import.meta.env.VITE_GOOGLE_VISION_ENDPOINT || ''
-    const azureApiKey = (typeof window !== 'undefined' && localStorage.getItem('songkhem_azure_vision_key')) || import.meta.env.VITE_AZURE_VISION_API_KEY || ''
-    const azureEndpoint = (typeof window !== 'undefined' && localStorage.getItem('songkhem_azure_vision_endpoint')) || import.meta.env.VITE_AZURE_VISION_ENDPOINT || ''
+    // Keys come only from the user's own Settings entries. With none, Google
+    // Vision runs through the api/ocr serverless proxy (keys stay server-side).
+    const storedOcrEngine = (typeof window !== 'undefined' && localStorage.getItem('songkhem_ocr_engine')) ||
+      (CLOUD_API_AVAILABLE ? 'google-vision' : 'tesseract')
+    const googleApiKey = (typeof window !== 'undefined' && localStorage.getItem('songkhem_google_api_key')) || ''
+    const googleEndpoint = (typeof window !== 'undefined' && localStorage.getItem('songkhem_google_endpoint')) || ''
+    const azureApiKey = (typeof window !== 'undefined' && localStorage.getItem('songkhem_azure_vision_key')) || ''
+    const azureEndpoint = (typeof window !== 'undefined' && localStorage.getItem('songkhem_azure_vision_endpoint')) || ''
 
     return {
       provider: storedOcrEngine,

@@ -1,4 +1,7 @@
 
+const escapeXml = (s) =>
+  s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c])
+
 /**
  * Perform text-to-speech using Microsoft Azure Cognitive Speech API
  * @param {string} text - The text to synthesize
@@ -27,7 +30,7 @@ export const synthesizeTextAzureTTS = async (text, apiKey, endpoint, rate = 1.0,
       <speak version='1.0' xml:lang='km-KH'>
         <voice xml:lang='km-KH' xml:gender='${gender}' name='${voiceName}'>
           <prosody rate='${rateString}' pitch='${pitchString}'>
-            ${text}
+            ${escapeXml(text)}
           </prosody>
         </voice>
       </speak>

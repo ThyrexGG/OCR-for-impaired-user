@@ -53,29 +53,27 @@ Open your browser at `http://localhost:5173` to explore the application.
 
 ## ⚙️ Environment Configuration
 
-songKHEM can run in **offline/demo simulation mode** out of the box with zero configuration.
+songKHEM runs out of the box with zero configuration, using on-device Tesseract.js OCR and the browser's own voices.
 
-To enable live cloud OCR and neural TTS, copy `.env.example` to `.env` and provide your credentials:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env`:
+Cloud OCR (Google Vision) and Khmer neural TTS (Azure Speech) go through two Vercel serverless functions, [`api/ocr.js`](api/ocr.js) and [`api/tts.js`](api/tts.js), so the API keys never reach the browser or the mobile app. Set these in **Vercel → Project Settings → Environment Variables**:
 
 ```ini
-# Google Cloud Vision OCR (Optional)
-VITE_GOOGLE_VISION_ENDPOINT=https://vision.googleapis.com/v1/images:annotate
-VITE_GOOGLE_VISION_API_KEY=your_google_cloud_vision_key
-
-# Microsoft Azure Cognitive Vision OCR (Optional)
-VITE_AZURE_VISION_ENDPOINT=https://<your-region>.api.cognitive.microsoft.com/
-VITE_AZURE_VISION_API_KEY=your_azure_vision_key
-
-# Microsoft Azure Cognitive Speech TTS (Optional)
-VITE_AZURE_TTS_ENDPOINT=https://<your-region>.tts.speech.microsoft.com/cognitiveservices/v1
-VITE_AZURE_TTS_API_KEY=your_azure_speech_key
+GOOGLE_VISION_API_KEY=your_google_cloud_vision_key
+AZURE_TTS_API_KEY=your_azure_speech_key
+# Optional overrides
+GOOGLE_VISION_ENDPOINT=https://vision.googleapis.com/v1/images:annotate
+AZURE_TTS_ENDPOINT=https://<your-region>.tts.speech.microsoft.com/cognitiveservices/v1
 ```
+
+> Never prefix these with `VITE_`: Vite embeds every referenced `VITE_*` variable into the public JavaScript bundle.
+
+For local development, `npm run dev` doesn't run the functions. To use the deployed ones, create `.env` with:
+
+```ini
+VITE_API_PROXY=https://<your-app>.vercel.app
+```
+
+Users can still enter their own Google/Azure keys under **Settings**; those are stored only in their browser.
 
 ---
 

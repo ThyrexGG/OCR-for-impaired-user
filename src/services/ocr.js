@@ -1,5 +1,6 @@
 import Tesseract from 'tesseract.js'
 import * as pdfjsLib from 'pdfjs-dist'
+import { CLOUD_API_AVAILABLE, cloudOcr } from './cloudApi'
 
 // Configure PDF.js worker for client-side PDF rendering
 if (typeof window !== 'undefined' && 'Worker' in window) {
@@ -27,6 +28,34 @@ export const fileToBase64 = (file) => {
     reader.onerror = (error) => reject(error)
     reader.readAsDataURL(file)
   })
+}
+
+const MAX_CLOUD_BYTES = 3 * 1024 * 1024
+const MAX_CLOUD_WIDTH = 2400
+
+/**
+ * Base64 for cloud OCR. Large photos are re-encoded as JPEG ≤2400px wide so
+ * the upload fits the serverless proxy's 4.5MB request limit; small files are
+ * sent untouched.
+ */
+const imageToBase64ForCloud = async (file) => {
+  if (file.size <= MAX_CLOUD_BYTES || typeof createImageBitmap !== 'function') {
+    return fileToBase64(file)
+  }
+  let bitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    return fileToBase64(file) // Undecodable here (e.g. HEIC): let the server judge it
+  }
+  const scale = Math.min(1, MAX_CLOUD_WIDTH / bitmap.width)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(bitmap.width * scale)
+  canvas.height = Math.round(bitmap.height * scale)
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+  bitmap.close()
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9))
+  return fileToBase64(blob)
 }
 
 /**
@@ -130,11 +159,21 @@ export const extractTextFromPdf = async (file, onProgress) => {
  */
 export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
   try {
-    if (!apiKey) {
+    if (!apiKey && !CLOUD_API_AVAILABLE) {
       throw new Error('សូមបញ្ចូល Google Cloud Vision API Key ក្នុងផ្ទាំងការកំណត់ជាមុនសិន។ (Please configure your Google Vision API Key in Settings.)')
     }
 
-    const base64Image = await fileToBase64(file)
+    const base64Image = await imageToBase64ForCloud(file)
+
+    // No personal key: go through songKHEM's own proxy (key stays server-side)
+    if (!apiKey) {
+      const proxiedText = await cloudOcr(base64Image)
+      if (!proxiedText.trim()) {
+        throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងឯកសារនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected. Try better lighting or hold the camera closer.)')
+      }
+      return proxiedText.trim()
+    }
+
     const baseEndpoint = endpoint || 'https://vision.googleapis.com/v1/images:annotate'
     const url = `${baseEndpoint}?key=${apiKey}`
 

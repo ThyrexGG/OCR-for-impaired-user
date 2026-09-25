@@ -12,6 +12,7 @@ import { haptics } from './services/haptics'
 import { announcer } from './services/announcer'
 import { useA11yPreferences } from './composables/useA11yPreferences'
 import { clearOcrCache } from './services/cache'
+import { CLOUD_API_AVAILABLE } from './services/cloudApi'
 
 
 const route = useRoute()
@@ -143,15 +144,25 @@ provide('t', t)
 onMounted(() => {
   initPreferences()
 
-  // Load OCR & Cloud credentials
-  ocrEngine.value = localStorage.getItem('songkhem_ocr_engine') || 
-    (import.meta.env.VITE_AZURE_VISION_API_KEY ? 'azure-read' : (import.meta.env.VITE_GOOGLE_VISION_API_KEY ? 'google-vision' : 'tesseract'))
-  googleApiKey.value = localStorage.getItem('songkhem_google_api_key') || import.meta.env.VITE_GOOGLE_VISION_API_KEY || ''
-  googleEndpoint.value = localStorage.getItem('songkhem_google_endpoint') || import.meta.env.VITE_GOOGLE_VISION_ENDPOINT || ''
-  azureVisionKey.value = localStorage.getItem('songkhem_azure_vision_key') || import.meta.env.VITE_AZURE_VISION_API_KEY || ''
-  azureVisionEndpoint.value = localStorage.getItem('songkhem_azure_vision_endpoint') || import.meta.env.VITE_AZURE_VISION_ENDPOINT || ''
-  azureTtsKey.value = localStorage.getItem('songkhem_azure_tts_key') || import.meta.env.VITE_AZURE_TTS_API_KEY || ''
-  azureTtsEndpoint.value = localStorage.getItem('songkhem_azure_tts_endpoint') || import.meta.env.VITE_AZURE_TTS_ENDPOINT || ''
+  // One-time cleanup: earlier builds pre-filled these fields with the site's
+  // own (now server-side, rotated) keys and saved them here on blur, where
+  // they would override the api/* proxy with a dead key.
+  if (!localStorage.getItem('songkhem_keys_migrated_v2')) {
+    ['songkhem_google_api_key', 'songkhem_google_endpoint', 'songkhem_azure_vision_key',
+      'songkhem_azure_vision_endpoint', 'songkhem_azure_tts_key', 'songkhem_azure_tts_endpoint']
+      .forEach(k => localStorage.removeItem(k))
+    localStorage.setItem('songkhem_keys_migrated_v2', '1')
+  }
+
+  // Load OCR & Cloud credentials (the user's own keys only; none by default)
+  ocrEngine.value = localStorage.getItem('songkhem_ocr_engine') ||
+    (CLOUD_API_AVAILABLE ? 'google-vision' : 'tesseract')
+  googleApiKey.value = localStorage.getItem('songkhem_google_api_key') || ''
+  googleEndpoint.value = localStorage.getItem('songkhem_google_endpoint') || ''
+  azureVisionKey.value = localStorage.getItem('songkhem_azure_vision_key') || ''
+  azureVisionEndpoint.value = localStorage.getItem('songkhem_azure_vision_endpoint') || ''
+  azureTtsKey.value = localStorage.getItem('songkhem_azure_tts_key') || ''
+  azureTtsEndpoint.value = localStorage.getItem('songkhem_azure_tts_endpoint') || ''
 
   // Global Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {
@@ -601,7 +612,7 @@ onMounted(() => {
           <div class="setting-item cloud-api-item">
             <div class="setting-label-col">
               <span class="setting-title khmer-font">សំឡេងខ្មែរ Neural កម្រិតខ្ពស់ (Azure Speech - ស្រេចចិត្ត)</span>
-              <span class="setting-desc khmer-font">បញ្ចូល API Key ដើម្បីទទួលបានសំឡេង Piseth & Sreymom កម្រិតធម្មជាតិបំផុត</span>
+              <span class="setting-desc khmer-font">សំឡេង Piseth & Sreymom មានស្រាប់។ បញ្ចូល Key តែពេលចង់ប្រើគណនី Azure ផ្ទាល់ខ្លួនប៉ុណ្ណោះ</span>
             </div>
             <div class="api-fields-group">
               <input 
@@ -647,7 +658,7 @@ onMounted(() => {
                 <div class="engine-info">
                   <span class="engine-badge badge-cloud">Cloud API</span>
                   <strong class="engine-name khmer-font">Google Cloud Vision API</strong>
-                  <span class="engine-desc khmer-font">កម្រិតភាពជាក់លាក់ខ្ពស់បំផុតសម្រាប់អក្សរពុម្ពខ្មែរស្មុគស្មាញ (ត្រូវការ API Key)</span>
+                  <span class="engine-desc khmer-font">កម្រិតភាពជាក់លាក់ខ្ពស់បំផុតសម្រាប់អក្សរពុម្ពខ្មែរស្មុគស្មាញ (ត្រូវការអ៊ីនធឺណិត)</span>
                 </div>
               </label>
 
@@ -666,7 +677,7 @@ onMounted(() => {
           <div v-if="ocrEngine === 'google-vision'" class="setting-item cloud-api-item">
             <div class="setting-label-col">
               <span class="setting-title khmer-font">Google Vision API Credentials</span>
-              <span class="setting-desc khmer-font">បញ្ចូល API Key ពី Google Cloud Console</span>
+              <span class="setting-desc khmer-font">ស្រេចចិត្ត — ទុកទទេដើម្បីប្រើម៉ាស៊ីនស្កេនរបស់ songKHEM</span>
             </div>
             <div class="api-fields-group">
               <input 

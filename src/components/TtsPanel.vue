@@ -5,6 +5,7 @@ import {
   Sliders, Music2, SkipBack, SkipForward, Repeat
 } from 'lucide-vue-next'
 import { synthesizeTextAzureTTS } from '../services/tts'
+import { CLOUD_API_AVAILABLE, cloudTts } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
 import { t, currentLang } from '../services/i18n'
 
@@ -65,9 +66,10 @@ watch(volume, (newVol) => {
 const loadVoices = () => {
   if (typeof window === 'undefined') return
   
-  const azureKey = localStorage.getItem('songkhem_azure_tts_key') || import.meta.env.VITE_AZURE_TTS_API_KEY
+  const azureKey = localStorage.getItem('songkhem_azure_tts_key')
 
-  if (azureKey) {
+  // Neural voices come from the user's own key, else the api/tts proxy
+  if (azureKey || CLOUD_API_AVAILABLE) {
     voices.value = [
       { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth - សំឡេងប្រុស Neural)', gender: 'Male', isAzure: true },
       { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom - សំឡេងស្រី Neural)', gender: 'Female', isAzure: true }
@@ -166,10 +168,10 @@ const startSpeech = async () => {
   let apiKey = ''
   let endpoint = ''
 
-  const azureKey = localStorage.getItem('songkhem_azure_tts_key') || import.meta.env.VITE_AZURE_TTS_API_KEY
-  const azureEndpoint = localStorage.getItem('songkhem_azure_tts_endpoint') || import.meta.env.VITE_AZURE_TTS_ENDPOINT || 'https://southeastasia.tts.speech.microsoft.com/cognitiveservices/v1'
+  const azureKey = localStorage.getItem('songkhem_azure_tts_key')
+  const azureEndpoint = localStorage.getItem('songkhem_azure_tts_endpoint') || 'https://southeastasia.tts.speech.microsoft.com/cognitiveservices/v1'
 
-  if (azureKey) {
+  if (azureKey || CLOUD_API_AVAILABLE) {
     provider = 'azure-tts'
     apiKey = azureKey
     endpoint = azureEndpoint
@@ -197,7 +199,7 @@ const startSpeech = async () => {
   speakAccessibility('ចាប់ផ្តើមអាន...')
 
   // Azure Neural TTS
-  if (provider === 'azure-tts' && apiKey) {
+  if (provider === 'azure-tts') {
     try {
       const selectedVoice = voices.value.find(v => v.name === selectedVoiceName.value)
       const voiceName = selectedVoice ? selectedVoice.name : 'km-KH-PisethNeural'
@@ -205,7 +207,9 @@ const startSpeech = async () => {
 
       let audioUrl = getTtsCache(props.text, voiceName, 1.0)
       if (!audioUrl) {
-        audioUrl = await synthesizeTextAzureTTS(props.text, apiKey, endpoint, 1.0, 1.0, voiceName, gender)
+        audioUrl = apiKey
+          ? await synthesizeTextAzureTTS(props.text, apiKey, endpoint, 1.0, 1.0, voiceName, gender)
+          : await cloudTts(props.text, voiceName)
         setTtsCache(props.text, voiceName, 1.0, audioUrl)
       }
 
