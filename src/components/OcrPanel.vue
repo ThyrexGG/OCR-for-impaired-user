@@ -2,7 +2,7 @@
 import { ref, watch, computed, inject, nextTick } from 'vue'
 import { 
   BookOpen, Edit3, Check, Copy, Download, ZoomIn, ZoomOut, 
-  ArrowLeft, Volume2, Pause, Sparkles, ArrowRight, Camera, 
+  ArrowLeft, Volume2, Pause, Sparkles, Camera, 
   Upload, CheckCircle2, FileText, X
 } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
@@ -35,10 +35,6 @@ const props = defineProps({
   isSpeaking: {
     type: Boolean,
     default: false
-  },
-  samples: {
-    type: Array,
-    default: () => []
   }
 })
 
@@ -49,7 +45,6 @@ const emit = defineEmits([
   'toast', 
   'read-aloud',
   'scan-again',
-  'load-sample',
   'switch-mode'
 ])
 
@@ -438,7 +433,7 @@ const speakVocabItem = (item) => {
 
 <template>
   <!-- =========================================================================
-       STATE A: EMPTY STATE (UNBOXED, IDENTICAL TO UPLOAD SCREEN, NOT SCROLLABLE)
+       STATE A: EMPTY STATE (samples live on the Upload tab only)
        ========================================================================= -->
   <div v-if="!localText" class="reader-empty-fullpage" role="region" :aria-label="t('noDocEmptyTitle')">
     <div class="tactile-dropzone">
@@ -474,37 +469,6 @@ const speakVocabItem = (item) => {
 
       <p class="dropzone-helper-text khmer-font">{{ t('dropzoneBadge') }}</p>
     </div>
-
-    <!-- Sample Documents List (Unboxed, identical to Upload Screen) -->
-    <section v-if="props.samples && props.samples.length > 0" class="sample-documents-section" :aria-label="t('sampleHeading')">
-      <div class="samples-header">
-        <Sparkles :size="20" class="text-heading" />
-        <h3 class="samples-title khmer-font">{{ t('trySamplesPrompt') }}</h3>
-      </div>
-
-      <div class="sample-unboxed-list" role="list">
-        <div 
-          v-for="(sample, idx) in props.samples" 
-          :key="sample.id"
-          class="sample-row-wrapper"
-          role="listitem"
-        >
-          <div v-if="idx > 0" class="sample-hairline-divider" aria-hidden="true"></div>
-          <button
-            type="button"
-            class="sample-list-item khmer-font"
-            @click="emit('load-sample', sample)"
-            :aria-label="`${t('openAction')} ${sample.title}`"
-          >
-            <div class="sample-item-text">
-              <span class="sample-item-category">{{ sample.category }}</span>
-              <span class="sample-item-title">{{ sample.title }}</span>
-            </div>
-            <ArrowRight :size="22" class="sample-item-chevron" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-    </section>
   </div>
 
   <!-- =========================================================================

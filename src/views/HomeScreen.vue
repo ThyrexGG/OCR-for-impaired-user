@@ -577,11 +577,9 @@ const onPointerUp = (e) => {
           :active-word-index="activeWordIndex"
           v-model:highlight-mode="highlightMode"
           :is-speaking="ttsPanelRef?.isSpeaking"
-          :samples="sampleLibrary"
           @seek-word="onSeekWord"
           @read-aloud="handleReadAloud"
           @scan-again="handleScanAgain"
-          @load-sample="loadSample"
           @switch-mode="setMode"
           @toast="addToast"
         />
