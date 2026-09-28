@@ -1,61 +1,70 @@
-# 📖 songKHEM — Khmer Document OCR & Speech Reader
+# songKHEM
 
-> **An accessibility-first web application enabling visually impaired and low-vision individuals to scan Khmer documents and listen to natural speech with karaoke-style word highlighting.**
+songKHEM is an accessibility-focused application that lets blind and low-vision users scan physical Khmer-language documents and listen to them read aloud, with word-by-word karaoke-style highlighting synchronized to the audio. The repository contains a Vue 3 web app and a companion Expo/React Native mobile app that share the same OCR and text-to-speech workflow.
 
-[![Vue 3](https://img.shields.io/badge/Vue-3.5-42b883?style=flat-square&logo=vue.js)](https://vuejs.org/)
-[![Vite](https://img.shields.io/badge/Vite-8.0-646cff?style=flat-square&logo=vite)](https://vitejs.dev/)
-[![Android APK](https://img.shields.io/badge/Android-Download%20APK-3DDC84?style=flat-square&logo=android&logoColor=white)](https://github.com/ThyrexGG/OCR-for-impaired-user/releases/download/v1.0.0/songKHEM-v1.0.0.apk)
-[![WCAG 2.2 AAA](https://img.shields.io/badge/Accessibility-WCAG%202.2%20AAA-amber?style=flat-square)](https://www.w3.org/WAI/standards-guidelines/wcag/)
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
+## How it works
 
+1. A document is captured from a live camera feed, an uploaded image (PNG/JPG/WEBP), or a multi-page PDF.
+2. Text is extracted either on-device with Tesseract.js, or via a Google Cloud Vision OCR proxy for higher accuracy.
+3. The recognized Khmer text is read aloud using Microsoft Azure Neural TTS (`km-KH-PisethNeural` / `km-KH-SreymomNeural`), with a Web Speech API fallback when Azure isn't configured.
+4. Words are highlighted in sync with playback, and recent scans are kept in a local history for quick replay.
 
----
+## Tech stack
 
-## 🌟 Key Features
+**Web app** (repository root)
+- Vue 3 + Vue Router, built with Vite
+- Tesseract.js for client-side OCR, pdfjs-dist for PDF page extraction
+- Two Vercel serverless functions (`api/ocr.js`, `api/tts.js`) that proxy Google Cloud Vision and Azure Speech so API keys never reach the browser
 
-* **📷 Multi-Source Khmer OCR**: Extract Khmer script from uploaded images (PNG, JPG, WEBP), multi-page PDFs, or direct live camera feed with high-contrast positioning guides.
-* **🎧 Natural Khmer Text-to-Speech (TTS)**: Synthesizes high-fidelity Khmer speech via Microsoft Azure Cognitive Speech (`km-KH-PisethNeural` and `km-KH-SreymomNeural`) with automatic Web Speech API fallback.
-* **✨ Karaoke Word Highlighting**: Synchronized word-by-word visual highlighting and smooth auto-scrolling to assist low-vision and dual-sensory learners.
-* **♿ WCAG 2.2 AAA Accessibility**:
-  * **3 Contrast Themes**: *Sleek Midnight* (Dark), *Ultra High Contrast* (Pure Black & Amber for severe vision impairments), and *Clean Light*.
-  * **Dynamic Font Scaler**: Global scaling from 90% up to 150% without layout disruption.
-  * **UI Spoken Guidance**: Built-in screen reader mode announcing actions and buttons upon interaction.
-  * **Accessible Keyboard Navigation**: Skip-to-content links, visible focus outlines, and keyboard shortcuts.
-* **⚡ Intelligent Dual-Tier Caching**:
-  * Content-aware fingerprinting avoids redundant OCR requests.
-  * In-memory audio caching for instant, zero-latency playback of previously spoken segments.
-* **🕒 History & Undo Management**: Saves recent scans locally with instant reload, direct audio playback, and undoable deletion snackbars.
+**Mobile app** (`mobile/`)
+- Expo / React Native, with React Navigation (bottom tabs + native stack)
+- Expo modules for camera, document picking, audio playback, file system access, haptics, and image manipulation
+- Calls the same `api/ocr.js` and `api/tts.js` endpoints as the web app for cloud OCR/TTS
 
----
+## Repository structure
 
-## 🚀 Quick Start
+```
+.
+├── src/                  # Vue 3 web app
+│   ├── components/       # DocumentUploader, OcrPanel, TtsPanel, UserHistory, AppToast, HelpModal
+│   ├── views/             # LoginScreen, HomeScreen
+│   ├── services/          # ocr.js, ocrService.js, tts.js, cache.js, cloudApi.js, i18n.js, storage.js, announcer.js, haptics.js
+│   ├── router/             # Vue Router configuration
+│   └── composables/        # useA11yPreferences.js
+├── api/                  # Vercel serverless functions (ocr.js, tts.js)
+├── public/               # Static assets (favicon, icons, logo)
+├── mobile/               # Expo / React Native app
+│   ├── App.js
+│   ├── src/screens/        # WelcomeScreen, UploadScreen, CameraScreen, ReaderScreen, RecentScreen
+│   ├── src/components/     # Camera capture, OCR text view, TTS controls, history rows, modals, etc.
+│   ├── src/context/        # AppContext, OcrContext, TtsContext
+│   ├── src/services/       # ocr.js, tts.js, cache.js, cloudApi.js, ocrEngineBridge.js, sampleLibrary.js
+│   └── src/navigation/     # RootNavigator, MainTabs
+├── PROJECT_STATE.md      # Detailed technical audit / specification document
+├── package.json          # Web app metadata and scripts
+└── vite.config.js        # Vite build/dev configuration
+```
 
-### 1. Prerequisites
-* [Node.js](https://nodejs.org/) (version 18 or higher recommended)
-* `npm` or `yarn`
+## Getting started (web app)
 
-### 2. Installation
-Clone the repository and install dependencies:
+### Prerequisites
+- Node.js 18 or later
+- npm
+
+### Install and run
 ```bash
 git clone https://github.com/ThyrexGG/OCR-for-impaired-user.git
 cd OCR-for-impaired-user
 npm install
-```
-
-### 3. Development Server
-Start the local Vite development server:
-```bash
 npm run dev
 ```
-Open your browser at `http://localhost:5173` to explore the application.
+The app runs at `http://localhost:5173`. Other available scripts: `npm run build` (production build) and `npm run preview` (preview the production build locally).
 
----
+The web app works out of the box with no configuration, using on-device Tesseract.js OCR and the browser's built-in speech synthesis voices.
 
-## ⚙️ Environment Configuration
+### Optional: cloud OCR and Khmer neural TTS
 
-songKHEM runs out of the box with zero configuration, using on-device Tesseract.js OCR and the browser's own voices.
-
-Cloud OCR (Google Vision) and Khmer neural TTS (Azure Speech) go through two Vercel serverless functions, [`api/ocr.js`](api/ocr.js) and [`api/tts.js`](api/tts.js), so the API keys never reach the browser or the mobile app. Set these in **Vercel → Project Settings → Environment Variables**:
+Cloud OCR (Google Vision) and Khmer neural TTS (Azure Speech) run through the two serverless functions in `api/`, so the underlying API keys stay server-side. To enable them in a Vercel deployment, set in **Project Settings → Environment Variables**:
 
 ```ini
 GOOGLE_VISION_API_KEY=your_google_cloud_vision_key
@@ -65,66 +74,36 @@ GOOGLE_VISION_ENDPOINT=https://vision.googleapis.com/v1/images:annotate
 AZURE_TTS_ENDPOINT=https://<your-region>.tts.speech.microsoft.com/cognitiveservices/v1
 ```
 
-> Never prefix these with `VITE_`: Vite embeds every referenced `VITE_*` variable into the public JavaScript bundle.
+These must not be prefixed with `VITE_`, since Vite would bundle any `VITE_*` variable into the public client-side JavaScript.
 
-For local development, `npm run dev` doesn't run the functions. To use the deployed ones, create `.env` with:
+`npm run dev` does not run the serverless functions locally. To use a deployed instance of them from the dev server, create a `.env` file with:
 
 ```ini
 VITE_API_PROXY=https://<your-app>.vercel.app
 ```
 
-Users can still enter their own Google/Azure keys under **Settings**; those are stored only in their browser.
+Users can also enter their own Google/Azure API keys in the app's Settings panel; those are stored only in their own browser.
 
----
+## Getting started (mobile app)
 
-## ⌨️ Global Keyboard Shortcuts
+The mobile app lives in `mobile/` and is a separate Expo project.
 
-| Shortcut | Action | Scope |
-| :--- | :--- | :--- |
-| <kbd>Space</kbd> | Play / Pause Speech Playback | Global (when not typing in an input/textarea) |
-| <kbd>Ctrl</kbd> + <kbd>Enter</kbd> | Start OCR Scan on selected document | Global |
-| <kbd>Esc</kbd> | Stop audio playback immediately | Global |
-| <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd> | Accessible focus traversal | All controls & interactive elements |
-
----
-
-## 📁 Project Architecture
-
-```
-songkhem/
-├── public/                  # Static assets, branding logo & SVG icons
-├── src/
-│   ├── assets/              # Stylesheets and media
-│   ├── components/          # Reusable accessible Vue components
-│   │   ├── AppToast.vue         # Toast notifications & undo snackbars
-│   │   ├── DocumentUploader.vue # File picker, drag-drop & camera scanner
-│   │   ├── OcrPanel.vue         # Editable text result with zoom & export
-│   │   ├── TtsPanel.vue         # Audio deck, karaoke & canvas visualizer
-│   │   └── UserHistory.vue      # Recent scan history & quick actions
-│   ├── router/              # Vue Router navigation configurations
-│   ├── services/            # Core business logic & cloud integrations
-│   │   ├── cache.js             # LRU caching & fingerprinting
-│   │   ├── ocr.js               # Google Vision & Azure Read API clients
-│   │   └── tts.js               # Azure Cognitive Speech SSML synthesizer
-│   ├── views/               # Page views
-│   │   ├── HomeScreen.vue       # Main OCR & audio workspace
-│   │   └── LoginScreen.vue      # Accessible landing & 1-click demo entry
-│   ├── App.vue              # App shell, accessibility toolbar & speech engine
-│   ├── main.js              # Application entry point
-│   └── style.css            # Custom CSS tokens & high-contrast design system
-├── PROJECT_STATE.md         # Comprehensive technical audit & specification
-├── package.json             # Project metadata & scripts
-└── vite.config.js           # Vite build pipeline configuration
+```bash
+cd mobile
+npm install
+npx expo start
 ```
 
----
+From there, run on Android/iOS/web via Expo (`npm run android`, `npm run ios`, `npm run web`), or scan the QR code with the Expo Go app. See `mobile/.env.example` for the environment variables it expects (pointing at the same OCR/TTS API endpoints as the web app).
 
-## 📚 Technical Documentation
+## Accessibility features
 
-For an in-depth breakdown of system contracts, LRU caching policies, audio stream pipelines, and WCAG compliance criteria, read the [Technical Project State Document](PROJECT_STATE.md).
+- Multiple contrast themes, including a high-contrast mode intended for severe vision impairment
+- Adjustable font scaling
+- Keyboard shortcuts for playback control and OCR scanning, and full keyboard focus traversal
+- Screen-reader-oriented spoken UI guidance
+- Scan history with local caching to avoid redundant OCR/TTS requests on repeated content
 
----
+## License
 
-## 🛡️ License
-
-This project is open source and available under the [MIT License](LICENSE).
+No license file is currently included in this repository.
