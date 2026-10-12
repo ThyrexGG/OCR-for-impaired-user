@@ -201,9 +201,13 @@ VITE_AZURE_TTS_API_KEY=your_azure_tts_key_here
 
 ---
 
-## 9. Future Roadmap & Enhancement Opportunities
+## 9. Recent Deliveries & Active Features (October 2026)
 
-1. **Client-Side Offline Khmer OCR**: Integrate WebAssembly-based OCR (e.g., Tesseract.js with `khm` trained data) to enable 100% offline text extraction without requiring external cloud credentials.
-2. **Continuous Paging & PDF Extraction**: Add multi-page document pagination and background processing for multi-page PDF documents.
-3. **Voice Command System**: Speech recognition (STT) enabling users to control playback completely hands-free ("អាន" / Play, "ឈប់" / Stop, "លឿនជាងនេះ" / Faster).
-4. **PWA & Offline Service Worker**: Add Progressive Web App manifest and service worker caching for offline mobile usage.
+* **[COMPLETED] Continuous Multi-Page Scanning & Batch Document Mode**: Users can append multiple camera captures and physical pages into a single reading session via `+ បន្ថែមទំព័រ` with automatic page dividers.
+* **[COMPLETED] Multi-Page Scanned PDF OCR**: Extended `extractTextFromPdf` to render and OCR multi-page scanned PDF documents up to 5 pages.
+* **[COMPLETED] Hands-Free Voice Commands**: Full Speech Recognition controller supporting Khmer (`km-KH`) and English (`en-US`) voice commands ("អាន" / Play, "ឈប់" / Stop, "ស្កេន" / Scan, "លឿន" / Faster, "យឺត" / Slower, "ជំនួយ" / Help) with `Alt+V` keyboard shortcut.
+* **[COMPLETED] Audio MP3 Export**: Users can download synthesized Khmer speech directly as `.mp3` files for offline listening and sharing.
+* **[COMPLETED] Real-Time Camera Luminosity Guidance**: Canvas frame analysis actively alerts visually impaired users when lighting is too dark or overexposed before capture.
+* **[COMPLETED] PWA Offline Support & Service Worker**: `manifest.json` and `sw.js` enable direct home screen installation and offline asset caching.
+* **[COMPLETED] Serverless Safety Quotas & Edge Caching**: Protected `api/tts.js` with sliding-window rate limiting, 3,000 character capping, and public edge caching headers.
+* **[COMPLETED] Mobile App Codebase Tracked**: Integrated and committed complete Expo React Native codebase under `mobile/`.
