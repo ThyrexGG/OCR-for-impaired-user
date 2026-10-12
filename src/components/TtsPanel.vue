@@ -414,12 +414,22 @@ const togglePlayback = () => {
   else startSpeech()
 }
 
+const cycleSpeed = (direction = 1) => {
+  const speeds = [0.75, 1.0, 1.25, 1.5, 2.0]
+  const currentIdx = speeds.indexOf(rate.value)
+  let nextIdx = (currentIdx === -1 ? 1 : currentIdx) + direction
+  if (nextIdx >= speeds.length) nextIdx = speeds.length - 1
+  if (nextIdx < 0) nextIdx = 0
+  setSpeed(speeds[nextIdx])
+}
+
 defineExpose({
   togglePlayback,
   startSpeech,
   pauseSpeech,
   stopPlayback: stopSpeech,
   seekToWord,
+  cycleSpeed,
   isSpeaking,
   isPaused
 })

@@ -101,25 +101,78 @@ const stopCamera = () => {
   }
 }
 
-// Simple Camera Framing & Readiness Cue (Honest framing guidance, not simulated AI detection)
+// Real Camera Luminosity & Framing Assistance for Visually Impaired Users
+const sampleCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
+if (sampleCanvas) {
+  sampleCanvas.width = 64
+  sampleCanvas.height = 64
+}
+
+let lastSpokenGuidance = ''
+
 const startGuidanceSimulation = () => {
   if (guidanceTimer) clearInterval(guidanceTimer)
   
   guidanceState.value = 'position'
   guidanceMessage.value = t('alignCameraPrompt')
+  lastSpokenGuidance = ''
   
-  let ticks = 0
+  let checks = 0
   guidanceTimer = setInterval(() => {
-    ticks++
-    if (props.isProcessing || selectedFile.value) return
+    if (props.isProcessing || selectedFile.value || !videoRef.value || !sampleCanvas) return
+    checks++
 
-    if (ticks === 2) {
-      guidanceState.value = 'ready'
-      guidanceMessage.value = t('cameraReadyCapture')
-      speakAccessibility(t('cameraReadyCapture'))
-      triggerHaptic([40, 30])
+    try {
+      const v = videoRef.value
+      if (v.readyState >= 2 && v.videoWidth > 0) {
+        const sCtx = sampleCanvas.getContext('2d', { willReadFrequently: true })
+        sCtx.drawImage(v, 0, 0, 64, 64)
+        const frameData = sCtx.getImageData(0, 0, 64, 64).data
+        let totalLuminance = 0
+        const totalPixels = 64 * 64
+
+        for (let i = 0; i < frameData.length; i += 4) {
+          totalLuminance += (0.299 * frameData[i] + 0.587 * frameData[i + 1] + 0.114 * frameData[i + 2])
+        }
+        const avgLuminance = totalLuminance / totalPixels
+
+        if (avgLuminance < 40) {
+          guidanceState.value = 'position'
+          const msg = currentLang.value === 'km' 
+            ? 'ពន្លឺងងឹតពេក សូមបើកភ្លើង ឬថតនៅកន្លែងមានពន្លឺ' 
+            : 'Too dark. Please turn on lights or find brighter area'
+          guidanceMessage.value = msg
+          if (checks % 3 === 0 && lastSpokenGuidance !== 'dark') {
+            lastSpokenGuidance = 'dark'
+            speakAccessibility(msg)
+          }
+        } else if (avgLuminance > 230) {
+          guidanceState.value = 'position'
+          const msg = currentLang.value === 'km' 
+            ? 'ពន្លឺចាំងខ្លាំងពេក សូមផ្លាស់ប្តូរមុំកាមេរ៉ា' 
+            : 'Too much glare. Please tilt camera slightly'
+          guidanceMessage.value = msg
+          if (checks % 3 === 0 && lastSpokenGuidance !== 'glare') {
+            lastSpokenGuidance = 'glare'
+            speakAccessibility(msg)
+          }
+        } else {
+          guidanceState.value = 'ready'
+          guidanceMessage.value = t('cameraReadyCapture')
+          if (lastSpokenGuidance !== 'ready') {
+            lastSpokenGuidance = 'ready'
+            speakAccessibility(t('cameraReadyCapture'))
+            triggerHaptic([40, 30])
+          }
+        }
+      }
+    } catch (e) {
+      if (checks === 2) {
+        guidanceState.value = 'ready'
+        guidanceMessage.value = t('cameraReadyCapture')
+      }
     }
-  }, 1200)
+  }, 1400)
 }
 
 // Capture Snapshot & Initiate Scan

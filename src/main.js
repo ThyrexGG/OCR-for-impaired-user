@@ -8,3 +8,12 @@ import router from './router'
 const app = createApp(App)
 app.use(router)
 app.mount('#app')
+
+// Register Service Worker for PWA offline capabilities
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((err) => {
+      console.warn('PWA Service Worker registration failed:', err)
+    })
+  })
+}

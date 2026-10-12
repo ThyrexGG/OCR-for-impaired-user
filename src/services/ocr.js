@@ -127,20 +127,32 @@ export const extractTextFromPdf = async (file, onProgress) => {
       return extractedText.trim()
     }
 
-    // Second attempt: If PDF is scanned image with no embedded text, render page 1 onto canvas and OCR
-    const page = await pdfDoc.getPage(1)
-    const viewport = page.getViewport({ scale: 2.0 })
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
+    // Second attempt: If PDF is scanned image with no embedded text, render pages onto canvas and OCR
+    const maxOcrPages = Math.min(numPages, 5)
+    let fullOcrText = ''
+    for (let pNum = 1; pNum <= maxOcrPages; pNum++) {
+      const page = await pdfDoc.getPage(pNum)
+      const viewport = page.getViewport({ scale: 2.0 })
+      const canvas = document.createElement('canvas')
+      const context = canvas.getContext('2d')
+      canvas.width = viewport.width
+      canvas.height = viewport.height
 
-    await page.render({ canvasContext: context, viewport }).promise
+      await page.render({ canvasContext: context, viewport }).promise
 
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
-    return await detectTextTesseract(blob, (pct) => {
-      if (onProgress) onProgress(40 + Math.round(pct * 0.6))
-    })
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+      const pageOcr = await detectTextTesseract(blob, (pct) => {
+        if (onProgress) {
+          const basePct = 20 + Math.round(((pNum - 1) / maxOcrPages) * 80)
+          onProgress(Math.min(99, basePct + Math.round((pct / maxOcrPages) * 0.8)))
+        }
+      })
+      if (pageOcr && pageOcr.trim()) {
+        fullOcrText += (maxOcrPages > 1 ? `--- ទំព័រទី ${pNum} ---\n` : '') + pageOcr.trim() + '\n\n'
+      }
+    }
+    if (onProgress) onProgress(100)
+    return fullOcrText.trim()
   } catch (err) {
     console.error('PDF Extraction Error:', err)
     if (err.message && err.message.includes('មិនអាច')) {

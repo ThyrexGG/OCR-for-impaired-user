@@ -27,6 +27,11 @@ const setMode = inject('setMode', () => {})
 const openSettings = inject('openSettings', () => {})
 const openHelp = inject('openHelp', () => {})
 const isAutoReadEnabled = inject('isAutoReadEnabled', ref(true))
+const lastVoiceCommand = inject('lastVoiceCommand', ref(null))
+
+// Multi-Page scanning state
+const isAppendingPage = ref(false)
+const pageCounter = ref(1)
 
 // Component Refs
 const ttsPanelRef = ref(null)
@@ -194,6 +199,29 @@ onMounted(() => {
 
   window.addEventListener('keydown', handleGlobalKeydown)
   onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown))
+
+  // Watch Hands-Free Voice Commands
+  watch(lastVoiceCommand, (cmd) => {
+    if (!cmd) return
+    if (cmd.action === 'play') {
+      if (activeMode.value !== 'reader') setMode('reader')
+      setTimeout(() => {
+        if (ttsPanelRef.value) ttsPanelRef.value.togglePlayback()
+      }, 200)
+    } else if (cmd.action === 'stop') {
+      if (ttsPanelRef.value) ttsPanelRef.value.stopPlayback()
+    } else if (cmd.action === 'scan') {
+      if (selectedFile.value && !isProcessing.value) {
+        handleTriggerOcr()
+      } else {
+        setMode('scan')
+      }
+    } else if (cmd.action === 'faster') {
+      if (ttsPanelRef.value?.cycleSpeed) ttsPanelRef.value.cycleSpeed(1)
+    } else if (cmd.action === 'slower') {
+      if (ttsPanelRef.value?.cycleSpeed) ttsPanelRef.value.cycleSpeed(-1)
+    }
+  })
 })
 
 // File Events
@@ -277,32 +305,52 @@ const handleTriggerOcr = async () => {
 
   if (result.ok) {
     const { text, cached, wordsCount } = result.data
-    extractedText.value = text
-    isCached.value = cached
     ocrProgress.value = 100
 
-    const finalizedItem = {
-      id: Date.now(),
-      name: selectedFileName.value || t('scannedDocTitle'),
-      text: text.trim(),
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      date: currentLang.value === 'km' ? 'ថ្ងៃនេះ' : 'Today',
-      wordsCount,
-      cached
-    }
-
-    const idx = historyList.value.findIndex(i => i.id === pendingId)
-    if (idx !== -1) {
-      historyList.value.splice(idx, 1, finalizedItem)
+    if (isAppendingPage.value && extractedText.value) {
+      pageCounter.value++
+      const pageHeader = `\n\n--- ${currentLang.value === 'km' ? 'ទំព័រទី ' + pageCounter.value : 'Page ' + pageCounter.value} ---\n\n`
+      extractedText.value = extractedText.value + pageHeader + text.trim()
+      isAppendingPage.value = false
+      haptics.pulse('success')
+      addToast({ 
+        message: currentLang.value === 'km' ? `បានបន្ថែមទំព័រទី ${pageCounter.value}` : `Added Page ${pageCounter.value}`, 
+        type: 'success' 
+      })
+      speakAccessibility(
+        currentLang.value === 'km' 
+          ? `បានបន្ថែមទំព័រទី ${pageCounter.value} ទៅក្នុងឯកសាររួចរាល់` 
+          : `Added Page ${pageCounter.value} to document`
+      )
     } else {
-      historyList.value.unshift(finalizedItem)
-    }
-    saveHistory()
+      pageCounter.value = 1
+      isAppendingPage.value = false
+      extractedText.value = text
+      isCached.value = cached
 
-    haptics.pulse('success')
-    const toastMsg = cached ? t('instantCacheHit') : t('toastScannedSuccess')
-    addToast({ message: toastMsg, type: cached ? 'cache' : 'success' })
-    speakAccessibility(`${t('toastScannedSuccess')} ${wordsCount} ${t('wordsCount')}`)
+      const finalizedItem = {
+        id: Date.now(),
+        name: selectedFileName.value || t('scannedDocTitle'),
+        text: text.trim(),
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: currentLang.value === 'km' ? 'ថ្ងៃនេះ' : 'Today',
+        wordsCount,
+        cached
+      }
+
+      const idx = historyList.value.findIndex(i => i.id === pendingId)
+      if (idx !== -1) {
+        historyList.value.splice(idx, 1, finalizedItem)
+      } else {
+        historyList.value.unshift(finalizedItem)
+      }
+      saveHistory()
+
+      haptics.pulse('success')
+      const toastMsg = cached ? t('instantCacheHit') : t('toastScannedSuccess')
+      addToast({ message: toastMsg, type: cached ? 'cache' : 'success' })
+      speakAccessibility(`${t('toastScannedSuccess')} ${wordsCount} ${t('wordsCount')}`)
+    }
 
     // Transition to Reader mode and start speech if auto-read is enabled
     setMode('reader')
@@ -407,6 +455,8 @@ const handleReadAloud = () => {
 // Scan Again from OcrPanel / Error Screen
 const handleScanAgain = () => {
   triggerHaptic(40)
+  isAppendingPage.value = false
+  pageCounter.value = 1
   ocrError.value = null
   selectedFile.value = null
   selectedFileName.value = ''
@@ -416,6 +466,18 @@ const handleScanAgain = () => {
   }
   setMode('scan')
   speakAccessibility('ត្រឡប់ទៅការស្កេនឯកសារ')
+}
+
+// Add Next Page (Multi-page mode)
+const handleAddPage = () => {
+  isAppendingPage.value = true
+  triggerHaptic(50)
+  speakAccessibility(
+    currentLang.value === 'km' 
+      ? 'សូមថត ឬជ្រើសរើសទំព័របន្ទាប់' 
+      : 'Please scan or upload the next page'
+  )
+  setMode('scan')
 }
 
 // Swipe gesture navigation between Camera and Upload (Instagram-style)
@@ -580,6 +642,7 @@ const onPointerUp = (e) => {
           @seek-word="onSeekWord"
           @read-aloud="handleReadAloud"
           @scan-again="handleScanAgain"
+          @add-page="handleAddPage"
           @switch-mode="setMode"
           @toast="addToast"
         />

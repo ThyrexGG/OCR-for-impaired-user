@@ -4,7 +4,8 @@ import { useRoute } from 'vue-router'
 import { 
   Settings, Volume2, VolumeX, Moon, Sun, Contrast, 
   ZoomIn, ZoomOut, RotateCcw, X, Sliders, Eye, Headphones, 
-  Keyboard, Sparkles, Camera, Upload, BookOpen, History, Check, HelpCircle, Languages
+  Keyboard, Sparkles, Camera, Upload, BookOpen, History, Check, HelpCircle, Languages,
+  Mic, MicOff
 } from 'lucide-vue-next'
 import HelpModal from './components/HelpModal.vue'
 import { currentLang, toggleLang, t } from './services/i18n'
@@ -13,6 +14,7 @@ import { announcer } from './services/announcer'
 import { useA11yPreferences } from './composables/useA11yPreferences'
 import { clearOcrCache } from './services/cache'
 import { CLOUD_API_AVAILABLE } from './services/cloudApi'
+import { voiceCommands } from './services/voiceCommands'
 
 
 const route = useRoute()
@@ -126,6 +128,41 @@ const handleToggleLang = () => {
   haptics.pulse('toggle')
 }
 
+// --- Hands-Free Voice Commands Controller ---
+const isVoiceListening = ref(false)
+const lastVoiceCommand = ref(null)
+
+const toggleVoiceListening = () => {
+  if (isVoiceListening.value) {
+    voiceCommands.stop()
+    isVoiceListening.value = false
+    haptics.pulse('tap')
+    speakAccessibility(currentLang.value === 'km' ? 'បានបិទការបញ្ជាដោយសំឡេង' : 'Voice commands turned off')
+  } else {
+    voiceCommands.setLanguage(currentLang.value)
+    const started = voiceCommands.start(
+      (cmd) => {
+        lastVoiceCommand.value = cmd
+        haptics.pulse([50, 40])
+        if (cmd.action === 'help') openHelp()
+        else if (cmd.action === 'scan') setMode('scan')
+      },
+      (err) => {
+        console.warn('Voice command recognition warning:', err)
+      }
+    )
+    isVoiceListening.value = started
+    if (started) {
+      haptics.pulse('selection')
+      speakAccessibility(
+        currentLang.value === 'km' 
+          ? 'បានបើកការបញ្ជាដោយសំឡេង។ អាចនិយាយថា អាន, ឈប់, ឬ ស្កេន' 
+          : 'Voice commands listening. You can say Play, Stop, or Scan'
+      )
+    }
+  }
+}
+
 // --- Provide Global Context to Child Components ---
 provide('speakAccessibility', speakAccessibility)
 provide('isUiVoiceEnabled', isUiVoiceEnabled)
@@ -140,6 +177,9 @@ provide('currentTheme', currentTheme)
 provide('currentLang', currentLang)
 provide('toggleLang', toggleLang)
 provide('t', t)
+provide('isVoiceListening', isVoiceListening)
+provide('toggleVoiceListening', toggleVoiceListening)
+provide('lastVoiceCommand', lastVoiceCommand)
 
 onMounted(() => {
   initPreferences()
@@ -171,6 +211,11 @@ onMounted(() => {
       e.preventDefault()
       if (isSettingsOpen.value) closeSettings()
       else openSettings()
+    }
+    // Alt + V: Toggle Voice Commands Hands-Free
+    if (e.altKey && (e.key === 'v' || e.key === 'V')) {
+      e.preventDefault()
+      toggleVoiceListening()
     }
     // Alt + 1, 2, 3, 4: Quick Mode Switch
     if (e.altKey && e.key === '1') { e.preventDefault(); setMode('scan') }
@@ -270,6 +315,20 @@ onMounted(() => {
           >
             <HelpCircle :size="20" />
             <span class="btn-caption khmer-font">{{ t('help') }}</span>
+          </button>
+
+          <!-- Hands-Free Voice Commands Button -->
+          <button 
+            type="button" 
+            class="header-btn mic-btn"
+            :class="{ 'active-voice': isVoiceListening }"
+            @click="toggleVoiceListening"
+            :aria-label="isVoiceListening ? (currentLang === 'km' ? 'បញ្ជាដោយសំឡេង៖ បើក' : 'Voice Commands: ON') : (currentLang === 'km' ? 'បញ្ជាដោយសំឡេង៖ បិទ' : 'Voice Commands: OFF')"
+            :title="isVoiceListening ? 'Voice Commands: ON' : 'Voice Commands: OFF (Alt+V)'"
+          >
+            <Mic v-if="isVoiceListening" :size="20" class="text-accent animate-pulse" />
+            <MicOff v-else :size="20" />
+            <span class="btn-caption khmer-font">{{ isVoiceListening ? (currentLang === 'km' ? 'សំឡេង: ON' : 'Voice: ON') : (currentLang === 'km' ? 'បញ្ជាសំឡេង' : 'Voice Cmd') }}</span>
           </button>
 
           <!-- Settings Trigger (Available on all screens) -->

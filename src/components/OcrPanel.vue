@@ -3,9 +3,11 @@ import { ref, watch, computed, inject, nextTick } from 'vue'
 import { 
   BookOpen, Edit3, Check, Copy, Download, ZoomIn, ZoomOut, 
   ArrowLeft, Volume2, Pause, Sparkles, Camera, 
-  Upload, CheckCircle2, FileText, X
+  Upload, CheckCircle2, FileText, X, Headphones, RefreshCw, Plus
 } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
+import { getTtsCache } from '../services/cache'
+import { cloudTts, CLOUD_API_AVAILABLE } from '../services/cloudApi'
 
 const props = defineProps({
   text: {
@@ -45,7 +47,8 @@ const emit = defineEmits([
   'toast', 
   'read-aloud',
   'scan-again',
-  'switch-mode'
+  'switch-mode',
+  'add-page'
 ])
 
 const speakAccessibility = inject('speakAccessibility', () => {})
@@ -208,6 +211,53 @@ const downloadTxt = () => {
   triggerHaptic(40)
   speakAccessibility(`${t('toastDownloaded')} ${baseName}_songkhem.txt`)
   emit('toast', { message: `${t('toastDownloaded')} ${baseName}_songkhem.txt`, type: 'info' })
+}
+
+// Download MP3 Audio File
+const isDownloadingAudio = ref(false)
+const downloadAudioMp3 = async () => {
+  if (!localText.value) return
+  isDownloadingAudio.value = true
+  triggerHaptic(40)
+  speakAccessibility(currentLang.value === 'km' ? 'កំពុងទាញយកឯកសារសំឡេង MP3...' : 'Preparing MP3 audio download...')
+
+  try {
+    const txtToSynthesize = localText.value.slice(0, 3000).trim()
+    let audioUrl = getTtsCache(txtToSynthesize, 'km-KH-PisethNeural', 1.0)
+    
+    if (!audioUrl) {
+      if (CLOUD_API_AVAILABLE) {
+        audioUrl = await cloudTts(txtToSynthesize, 'km-KH-PisethNeural')
+      } else {
+        throw new Error(currentLang.value === 'km' ? 'ម៉ាស៊ីនសំឡេង Cloud មិនទាន់ភ្ជាប់' : 'Cloud TTS unavailable')
+      }
+    }
+
+    const element = document.createElement('a')
+    element.href = audioUrl
+    const baseName = props.fileName ? props.fileName.replace(/\.[^/.]+$/, '') : 'document'
+    element.download = `${baseName}_audio.mp3`
+    document.body.appendChild(element)
+    element.click()
+    document.body.removeChild(element)
+
+    triggerHaptic('success')
+    speakAccessibility(currentLang.value === 'km' ? 'បានទាញយកឯកសារសំឡេង MP3 រួចរាល់' : 'Downloaded MP3 audio successfully')
+    emit('toast', { 
+      message: currentLang.value === 'km' ? `បានទាញយក ${baseName}_audio.mp3` : `Downloaded ${baseName}_audio.mp3`, 
+      type: 'success' 
+    })
+  } catch (err) {
+    console.warn('Audio download failed:', err)
+    triggerHaptic(40)
+    speakAccessibility(currentLang.value === 'km' ? 'មិនអាចទាញយកសំឡេង MP3 បានទេ' : 'Unable to download MP3')
+    emit('toast', { 
+      message: currentLang.value === 'km' ? 'មិនអាចទាញយកសំឡេង MP3 (ត្រូវការភ្ជាប់ Cloud)' : 'MP3 download requires Cloud TTS', 
+      type: 'warning' 
+    })
+  } finally {
+    isDownloadingAudio.value = false
+  }
 }
 
 // Text Stats & Metadata
@@ -486,6 +536,16 @@ const speakVocabItem = (item) => {
         <ArrowLeft :size="20" />
         <span>{{ t('backToDocs') }}</span>
       </button>
+
+      <button 
+        type="button" 
+        class="btn-add-page-link khmer-font" 
+        @click="emit('add-page')"
+        :aria-label="currentLang === 'km' ? 'បន្ថែមទំព័រថ្មីទៅឯកសារនេះ' : 'Add next page to document'"
+      >
+        <Plus :size="18" />
+        <span>{{ currentLang === 'km' ? '+ បន្ថែមទំព័រ' : '+ Add Page' }}</span>
+      </button>
     </div>
 
     <!-- Row 2: Document Header Card (Soft, clean, spacious) -->
@@ -549,6 +609,18 @@ const speakVocabItem = (item) => {
         >
           <Download :size="18" />
           <span>{{ t('exportOrShare') }}</span>
+        </button>
+
+        <button 
+          type="button" 
+          class="btn-neobrutal-shadow btn-secondary-pill khmer-font" 
+          :disabled="isDownloadingAudio"
+          @click="downloadAudioMp3" 
+          :aria-label="currentLang === 'km' ? 'ទាញយកឯកសារសំឡេង MP3' : 'Download MP3 Audio'"
+        >
+          <RefreshCw v-if="isDownloadingAudio" :size="18" class="animate-spin" />
+          <Headphones v-else :size="18" />
+          <span>{{ isDownloadingAudio ? (currentLang === 'km' ? 'កំពុងបង្កើត...' : 'Creating...') : (currentLang === 'km' ? 'ទាញយក MP3' : 'Audio MP3') }}</span>
         </button>
       </div>
 

@@ -1,0 +1,31 @@
+{
+  "name": "songKHEM — Khmer Assistive OCR & Speech Reader",
+  "short_name": "songKHEM",
+  "description": "កម្មវិធីជំនួយការអានឯកសារខ្មែរជាសំឡេងសម្រាប់ជនពិការគំហើញ (Accessible Khmer OCR & TTS)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#0ea5e9",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["accessibility", "utilities", "education"],
+  "lang": "km"
+}
