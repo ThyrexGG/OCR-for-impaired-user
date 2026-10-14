@@ -191,19 +191,19 @@
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: -4px 4px 0px #0F172A;
+  box-shadow: -4px 4px 0px #2563EB;
   transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .deck-btn:hover:not(:disabled) {
   background: #F8FAFC;
   transform: translate(-2px, 2px);
-  box-shadow: -2px 2px 0px #0F172A;
+  box-shadow: -2px 2px 0px #2563EB;
 }
 
 .deck-btn:active:not(:disabled) {
   transform: translate(-4px, 4px);
-  box-shadow: 0px 0px 0px #0F172A;
+  box-shadow: 0px 0px 0px #2563EB;
 }
 
 .deck-btn:disabled {
@@ -217,12 +217,12 @@
   background: #111B2E;
   border-color: #FFFFFF;
   color: #FFFFFF;
-  box-shadow: -4px 4px 0px #FFFFFF;
+  box-shadow: -4px 4px 0px #60A5FA;
 }
 
 [data-theme="dark"] .deck-btn:hover:not(:disabled),
 .theme-dark .deck-btn:hover:not(:disabled) {
-  box-shadow: -2px 2px 0px #FFFFFF;
+  box-shadow: -2px 2px 0px #60A5FA;
 }
 
 .jump-tag {

@@ -156,7 +156,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="web-app-wrapper" :class="[`theme-${currentTheme}`, { 'mode-contrast': currentTheme === 'contrast', 'no-bottom-nav': isLoginScreen }]">
+  <div class="web-app-wrapper notranslate" translate="no" :class="[`theme-${currentTheme}`, { 'mode-contrast': currentTheme === 'contrast', 'no-bottom-nav': isLoginScreen }]">
     <!-- Skip to Content for Screen Readers & Keyboard Navigation -->
     <a href="#main-content" class="skip-to-content khmer-font">{{ t('skipToContent') }}</a>
 
@@ -388,7 +388,7 @@ onMounted(() => {
                 type="button"
                 class="scale-btn" 
                 @click="changeFontScale(-0.1)" 
-                :disabled="fontScale <= 0.9"
+                :disabled="fontScale <= 0.7"
                 :aria-label="t('decreaseFont')"
               >
                 <ZoomOut :size="18" />
@@ -408,7 +408,7 @@ onMounted(() => {
                 type="button"
                 class="scale-btn" 
                 @click="changeFontScale(0.1)" 
-                :disabled="fontScale >= 1.6"
+                :disabled="fontScale >= 2.0"
                 :aria-label="t('increaseFont')"
               >
                 <ZoomIn :size="18" />
