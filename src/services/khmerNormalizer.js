@@ -123,6 +123,17 @@ export function normalizeKhmerForSpeech(rawText) {
   // Convert Khmer digits to ASCII digits for unified parsing
   s = s.replace(/[០-៩]/g, (ch) => KHMER_DIGITS[ch] ?? ch)
 
+  // Format numbered list items at the start of a line (e.g. "1 . " or "2. ") with a clear pause before & after
+  s = s.replace(/(^|\r?\n)\s*(\d{1,3})\s*\.(?!\d)\s*/g, (_, prefix, numStr) => {
+    return `${prefix} ។ ${intToKhmerWords(parseInt(numStr, 10))} , `
+  })
+
+  // Repair OCR spaces inside decimal numbers (e.g. "$ 6 . 00" -> "$ 6.00", "4 . 50" -> "4.50")
+  s = s.replace(/(\d)\s*\.\s*(\d)/g, '$1.$2')
+
+  // Replace horizontal divider lines (---, ===) with sentence pause
+  s = s.replace(/[-=_]{2,}/g, ' ។ ')
+
   // Expand dosage/metric suffixes attached to numbers (e.g. 500mg -> 500 មីលីក្រាម)
   for (const [unitEn, unitKh] of Object.entries(UNIT_SUFFIXES)) {
     const re = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*${unitEn}\\b`, 'gi')
@@ -172,6 +183,13 @@ export function normalizeKhmerForSpeech(rawText) {
   // Expand remaining numbers
   s = s.replace(/\b\d[\d,]*(?:\.\d+)?\b/g, (num) => ` ${numberStrToKhmer(num)} `)
 
+  // Convert receipt/list colons (:), equals (=), and parentheses into natural breath pauses
+  s = s.replace(/[:=]/g, ' , ')
+  s = s.replace(/[()[\]]/g, ' , ')
+
+  // Convert line breaks (\n) into full Khmer sentence pauses (។) so the voice pauses between lines & list items
+  s = s.replace(/\r?\n+/g, ' ។ ')
+
   // Expand Repeater symbol `ៗ`
   s = s.replace(/([ក-៻]+)\s*ៗ/g, '$1 $1')
   s = s.replace(/។ល។/g, ' ហើយនិងដទៃទៀត ')
@@ -183,6 +201,12 @@ export function normalizeKhmerForSpeech(rawText) {
       s = s.split(word).join(entry.respell)
     }
   }
+
+  // Collapse duplicate punctuation pauses (e.g. ", ។" or "។ ។" -> "។", ", ," -> ",")
+  s = s.replace(/(?:,\s*)+។/g, ' ។ ')
+  s = s.replace(/(?:។\s*){2,}/g, ' ។ ')
+  s = s.replace(/(?:,\s*){2,}/g, ' , ')
+  s = s.replace(/^\s*[។,]+\s*/, '')
 
   return s.replace(/\s+/g, ' ').trim()
 }

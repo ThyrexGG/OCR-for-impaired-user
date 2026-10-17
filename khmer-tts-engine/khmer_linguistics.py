@@ -272,6 +272,19 @@ class KhmerLinguisticEngine:
 
         s_digits = s.translate(KHMER_DIGIT_MAP)
 
+        # Format numbered list items at the start of a line (e.g. "1 . " or "2. ") with a clear pause before & after
+        s_digits = re.sub(
+            r"(^|\r?\n)\s*(\d{1,3})\s*\.(?!\d)\s*",
+            lambda m: f"{m.group(1)} ។ {int_to_khmer_words(int(m.group(2)))} , ",
+            s_digits,
+        )
+
+        # Repair OCR spaces inside decimal numbers (e.g. "$ 6 . 00" -> "$ 6.00")
+        s_digits = re.sub(r"(\d)\s*\.\s*(\d)", r"\1.\2", s_digits)
+
+        # Replace horizontal divider lines (---, ===) with sentence pause
+        s_digits = re.sub(r"[-=_]{2,}", " ។ ", s_digits)
+
         # Expand metric/dosage suffixes attached to numbers (e.g., 500mg -> 500 មីលីក្រាម)
         for unit_en, unit_kh in UNIT_SUFFIXES.items():
             s_digits = re.sub(
@@ -335,11 +348,22 @@ class KhmerLinguisticEngine:
             s_digits,
         )
 
+        # Convert receipt/list colons (:), equals (=), and parentheses into natural breath pauses
+        s_digits = re.sub(r"[:=]", " , ", s_digits)
+        s_digits = re.sub(r"[()\[\]]", " , ", s_digits)
+
+        # Convert line breaks (\n) into full Khmer sentence pauses (។) so the voice pauses between lines & list items
+        s_digits = re.sub(r"\r?\n+", " ។ ", s_digits)
+
         # Expand Repeater Symbol `ៗ` (lek too)
         s_digits = re.sub(r"([ក-៻]+)\s*ៗ", r"\1 \1", s_digits)
 
         s_digits = re.sub(r"។ល។", " ហើយនិងដទៃទៀត ", s_digits)
         s_digits = re.sub(r"។", " ។ ", s_digits)
+        s_digits = re.sub(r"(?:,\s*)+។", " ។ ", s_digits)
+        s_digits = re.sub(r"(?:។\s*){2,}", " ។ ", s_digits)
+        s_digits = re.sub(r"(?:,\s*){2,}", " , ", s_digits)
+        s_digits = re.sub(r"^\s*[។,]+\s*", "", s_digits)
         s_digits = re.sub(r"\s+", " ", s_digits).strip()
         return s_digits
 

@@ -221,9 +221,11 @@ const prepareTokens = (rawText) => {
 
   const rawParas = rawText.split(/\n\s*\n|\n/)
   const extracted = []
+  const weights = []
 
   for (const paraText of rawParas) {
     if (!paraText.trim()) continue
+    const paraStartIdx = extracted.length
     const rawSentences = paraText.split(/([។៕.?!]+)/).filter(Boolean)
     for (let i = 0; i < rawSentences.length; i += 2) {
       const sText = (rawSentences[i] + (rawSentences[i + 1] || '')).trim()
@@ -231,12 +233,24 @@ const prepareTokens = (rawText) => {
       const wordStrings = segmentSentenceIntoWords(sText)
       for (const w of wordStrings) {
         extracted.push(w)
+        weights.push(computeTokenAcousticWeight(w))
       }
+    }
+    const paraEndIdx = extracted.length - 1
+    if (paraEndIdx >= paraStartIdx) {
+      // Add natural pause after numbered list item at start of line (e.g. "1 ." or "១ .")
+      if (/^[០-៩0-9]{1,3}\.?$/.test(extracted[paraStartIdx])) {
+        weights[paraStartIdx] += 0.55
+        if (paraStartIdx + 1 <= paraEndIdx && extracted[paraStartIdx + 1] === '.') {
+          weights[paraStartIdx + 1] = 0.45
+        }
+      }
+      // Add full sentence line-break pause at the end of every line/paragraph
+      weights[paraEndIdx] += 0.95
     }
   }
 
   tokens.value = extracted
-  const weights = extracted.map(computeTokenAcousticWeight)
   const totalWeight = weights.reduce((acc, w) => acc + w, 0) || 1
   let cum = 0
   tokenTimeline.value = extracted.map((w, idx) => {
@@ -374,7 +388,7 @@ const startSpeech = async () => {
       unlockedAudio.load()
       currentAudio = unlockedAudio
 
-      const cacheVariantKey = `${voiceName}|pace:${isAssistivePacingActive.value ? 1 : 0}|lex:${lexiconRevision.value}`
+      const cacheVariantKey = `${voiceName}|v2|pace:${isAssistivePacingActive.value ? 1 : 0}|lex:${lexiconRevision.value}`
       let audioUrl = getTtsCache(props.text, cacheVariantKey, 1.0)
       if (!audioUrl) {
         if (apiKey && voiceName !== 'km-KH-VitsOffline') {
