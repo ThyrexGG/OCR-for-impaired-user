@@ -322,7 +322,7 @@
 
 .accessible-voice-select {
   flex: 1;
-  max-width: 220px;
+  max-width: 280px;
   min-height: 44px;
   padding: 6px 12px;
   background: #FFFFFF;
@@ -343,3 +343,270 @@
   color: #FFFFFF;
   box-shadow: -3px 3px 0px #FFFFFF;
 }
+
+/* Custom Khmer TTS Feature Row (Smart Pacing + G2P Inspector Toggles) */
+.custom-tts-feature-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+@media (max-width: 540px) {
+  .custom-tts-feature-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tts-feature-pill {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #F8FAFC;
+  border: 2px solid #0F172A;
+  border-radius: 4px;
+  box-shadow: -2px 2px 0px #0F172A;
+  color: #0F172A;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.tts-feature-pill:hover {
+  background: #EFF6FF;
+  transform: translate(-1px, 1px);
+  box-shadow: -1px 1px 0px #0F172A;
+}
+
+.tts-feature-pill.feature-pill-active {
+  background: #0F766E;
+  color: #FFFFFF;
+}
+
+[data-theme="dark"] .tts-feature-pill,
+.theme-dark .tts-feature-pill {
+  background: #0B132B;
+  border-color: #FFFFFF;
+  color: #FFFFFF;
+  box-shadow: -2px 2px 0px #FFFFFF;
+}
+
+[data-theme="dark"] .tts-feature-pill.feature-pill-active,
+.theme-dark .tts-feature-pill.feature-pill-active {
+  background: #14B8A6;
+  color: #042F2E;
+}
+
+/* Collapsible Khmer G2P & Phoneme X-Ray Inspector Card */
+.g2p-inspector-card {
+  margin-top: 6px;
+  padding: 12px 14px;
+  background: #F8FAFC;
+  border: 2px solid #0F172A;
+  border-radius: 4px;
+  box-shadow: -3px 3px 0px #0F172A;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+[data-theme="dark"] .g2p-inspector-card,
+.theme-dark .g2p-inspector-card {
+  background: #0B132B;
+  border-color: #FFFFFF;
+  box-shadow: -3px 3px 0px #FFFFFF;
+}
+
+.g2p-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid #CBD5E1;
+}
+
+.g2p-title {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--on-surface, #0F172A);
+}
+
+.g2p-model-badge {
+  font-size: 0.75rem;
+  font-family: monospace;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: #DBEAFE;
+  color: #1E3A8A;
+  border: 1.5px solid #1E3A8A;
+}
+
+[data-theme="dark"] .g2p-model-badge,
+.theme-dark .g2p-model-badge {
+  background: #1E3A8A;
+  color: #DBEAFE;
+  border-color: #93C5FD;
+}
+
+.g2p-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.g2p-section-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--on-surface, #0F172A);
+}
+
+.g2p-normalized-box {
+  padding: 8px 10px;
+  background: #FFFFFF;
+  border: 1.5px solid #0F172A;
+  border-radius: 4px;
+  font-size: 0.88rem;
+  line-height: 1.65;
+  color: #0F172A;
+  max-height: 110px;
+  overflow-y: auto;
+}
+
+[data-theme="dark"] .g2p-normalized-box,
+.theme-dark .g2p-normalized-box {
+  background: #111B2E;
+  border-color: #FFFFFF;
+  color: #FFFFFF;
+}
+
+.g2p-chips-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.g2p-word-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 5px 8px;
+  background: #FFFFFF;
+  border: 1.5px solid #0F172A;
+  border-radius: 4px;
+  box-shadow: -2px 2px 0px #0F172A;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.12s ease;
+}
+
+.g2p-word-chip:hover {
+  background: #EFF6FF;
+  transform: translate(-1px, 1px);
+}
+
+[data-theme="dark"] .g2p-word-chip,
+.theme-dark .g2p-word-chip {
+  background: #111B2E;
+  border-color: #FFFFFF;
+  color: #FFFFFF;
+  box-shadow: -2px 2px 0px #FFFFFF;
+}
+
+.chip-khmer {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: inherit;
+}
+
+.chip-ipa {
+  font-size: 0.75rem;
+  font-family: monospace;
+  font-weight: 700;
+  color: #1D4ED8;
+}
+
+[data-theme="dark"] .chip-ipa,
+.theme-dark .chip-ipa {
+  color: #60A5FA;
+}
+
+.chip-register {
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.reg-a {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.reg-o {
+  background: #E0E7FF;
+  color: #3730A3;
+}
+
+.lexicon-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 6px;
+}
+
+@media (max-width: 540px) {
+  .lexicon-form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lexicon-input {
+  min-height: 38px;
+  padding: 6px 10px;
+  background: #FFFFFF;
+  border: 1.5px solid #0F172A;
+  border-radius: 4px;
+  font-size: 0.84rem;
+  color: #0F172A;
+}
+
+[data-theme="dark"] .lexicon-input,
+.theme-dark .lexicon-input {
+  background: #111B2E;
+  border-color: #FFFFFF;
+  color: #FFFFFF;
+}
+
+.lexicon-save-btn {
+  min-height: 38px;
+  padding: 6px 12px;
+  background: #1D4ED8;
+  color: #FFFFFF;
+  border: 1.5px solid #0F172A;
+  border-radius: 4px;
+  box-shadow: -2px 2px 0px #0F172A;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.lexicon-save-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.lexicon-status-msg {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #0F766E;
+}

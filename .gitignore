@@ -33,4 +33,5 @@ __pycache__/
 *.pyc
 khmer-tts-engine/audio_cache/
 khmer-tts-engine/dataset_khmer/
-khmer-tts-engine/checkpoints/
+khmer-tts-engine/checkpoints/*.wav
+khmer-tts-engine/checkpoints/*.pt

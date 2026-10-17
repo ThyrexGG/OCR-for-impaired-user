@@ -10,11 +10,13 @@
 
 import crypto from 'node:crypto'
 import tls from 'node:tls'
-import { normalizeKhmerForSpeech } from '../src/services/khmerNormalizer.js'
+import { normalizeKhmerForSpeech, applyAssistivePacing } from '../src/services/khmerNormalizer.js'
 
 const VOICES = {
-  'km-KH-PisethNeural': 'Male',
-  'km-KH-SreymomNeural': 'Female',
+  'km-KH-PisethNeural': { baseVoice: 'km-KH-PisethNeural', pitch: '+0Hz', rate: '+0%', pace: false },
+  'km-KH-SreymomNeural': { baseVoice: 'km-KH-SreymomNeural', pitch: '+0Hz', rate: '+0%', pace: false },
+  'km-KH-SokhaMedical': { baseVoice: 'km-KH-PisethNeural', pitch: '-10Hz', rate: '-8%', pace: true },
+  'km-KH-VitsOffline': { baseVoice: 'km-KH-PisethNeural', pitch: '+6Hz', rate: '-4%', pace: false },
 }
 
 const MAX_TEXT_LENGTH = 3000
@@ -445,16 +447,19 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing or empty text' })
   }
 
-  if (!VOICES[voice]) {
+  const voiceSpec = VOICES[voice]
+  if (!voiceSpec) {
     return res.status(400).json({ error: 'Unsupported voice' })
   }
 
   const cappedText = rawText.length > MAX_TEXT_LENGTH ? rawText.slice(0, MAX_TEXT_LENGTH) : rawText
-  const text = normalizeKhmerForSpeech(cappedText)
+  const shouldPace = voiceSpec.pace || Boolean(req.body && req.body.assistive_pacing)
+  const preText = shouldPace ? applyAssistivePacing(cappedText) : cappedText
+  const text = normalizeKhmerForSpeech(preText)
 
   const ssml =
     `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='km-KH'>` +
-    `<voice name='${voice}'><prosody pitch='+0Hz' rate='+0%'>${escapeXml(text)}</prosody></voice>` +
+    `<voice name='${voiceSpec.baseVoice}'><prosody pitch='${voiceSpec.pitch}' rate='${voiceSpec.rate}'>${escapeXml(text)}</prosody></voice>` +
     `</speak>`
 
   const apiKey = process.env.AZURE_TTS_API_KEY

@@ -1,5 +1,5 @@
 
-import { normalizeKhmerForSpeech } from './khmerNormalizer'
+import { normalizeKhmerForSpeech, applyAssistivePacing } from './khmerNormalizer'
 
 const escapeXml = (s) =>
   s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c])
@@ -10,12 +10,20 @@ const LOCAL_KHMER_ENGINE_URL = import.meta.env.VITE_LOCAL_TTS_URL || '/api/tts'
  * Synthesize Khmer speech via same-origin /api/tts (proxied to KhmerNeuralTTS engine or Vercel api/tts.js).
  * Works on iPhone (iOS Safari), Android, and Desktop with zero paid API keys.
  */
-export const synthesizeLocalKhmerTTS = async (text, voiceName = 'km-KH-PisethNeural', rate = 1.0) => {
-  const normalizedText = normalizeKhmerForSpeech(text)
+export const synthesizeLocalKhmerTTS = async (
+  text,
+  voiceName = 'km-KH-PisethNeural',
+  rate = 1.0,
+  options = { assistivePacing: false }
+) => {
+  const shouldPace = voiceName === 'km-KH-SokhaMedical' || Boolean(options?.assistivePacing)
+  const preText = shouldPace ? applyAssistivePacing(text) : text
+  const normalizedText = normalizeKhmerForSpeech(preText)
   const payload = JSON.stringify({
     text: normalizedText,
     voice: voiceName,
     rate,
+    assistive_pacing: shouldPace,
     binary: true
   })
 

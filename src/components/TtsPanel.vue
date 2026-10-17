@@ -1,10 +1,11 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch, nextTick, inject } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, inject } from 'vue'
 import { 
   Play, Pause, Square, RotateCcw, Volume2, Sparkles, 
   Sliders, Music2, SkipBack, SkipForward, Repeat
 } from 'lucide-vue-next'
 import { synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts'
+import { analyzeKhmerG2P, saveCustomLexiconEntry } from '../services/khmerNormalizer'
 import { CLOUD_API_AVAILABLE, cloudTts } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
 import { t, currentLang } from '../services/i18n'
@@ -32,6 +33,70 @@ const rate = ref(1.0)
 const volume = ref(1.0)
 const isSpeaking = ref(false)
 const isPaused = ref(false)
+
+// Smart Assistive Pacing & Khmer G2P Phoneme Inspector State
+const assistivePacing = ref(false)
+const showG2pInspector = ref(false)
+const customWordInput = ref('')
+const customRespellInput = ref('')
+const lexiconRevision = ref(0)
+const lexiconSavedStatus = ref('')
+
+const isAssistivePacingActive = computed(() => {
+  return assistivePacing.value || selectedVoiceName.value === 'km-KH-SokhaMedical'
+})
+
+const g2pAnalysis = computed(() => {
+  // depend on lexiconRevision so adding a custom word immediately refreshes G2P output
+  void lexiconRevision.value
+  return analyzeKhmerG2P(props.text || '', { assistivePacing: isAssistivePacingActive.value })
+})
+
+const activeModelBadge = computed(() => {
+  if (selectedVoiceName.value === 'km-KH-VitsOffline') {
+    return 'songKHEM-VITS v2.0 (100% Offline Acoustic Checkpoint · 50 Epochs · Mel L1: 0.5378)'
+  }
+  if (selectedVoiceName.value === 'km-KH-SokhaMedical') {
+    return 'Dr. Sokha Assistive Persona (-10Hz Baritone · Smart Dosage/Currency Pacing)'
+  }
+  if (selectedVoiceName.value === 'km-KH-SreymomNeural') {
+    return 'Sreymom Neural 24kHz + Khmer Closed-Syllable G2P'
+  }
+  return 'Piseth Neural 24kHz + Khmer Closed-Syllable G2P'
+})
+
+const toggleAssistivePacing = () => {
+  assistivePacing.value = !assistivePacing.value
+  triggerHaptic(30)
+  speakAccessibility(
+    assistivePacing.value
+      ? 'បានបើកមុខងារអានបន្ថយល្បឿនត្រង់លេខ និងតម្លៃថ្នាំ'
+      : 'បានបិទមុខងារបន្ថយល្បឿនត្រង់លេខ'
+  )
+}
+
+const addCustomLexiconOverride = async () => {
+  const w = customWordInput.value.trim()
+  const r = customRespellInput.value.trim()
+  if (!w || !r) return
+  saveCustomLexiconEntry(w, r)
+  lexiconRevision.value++
+  try {
+    await fetch('/api/lexicon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word: w, respell: r })
+    })
+  } catch (_) {}
+  lexiconSavedStatus.value = `បានរក្សាទុក៖ ${w} → ${r}`
+  customWordInput.value = ''
+  customRespellInput.value = ''
+  triggerHaptic(40)
+  speakAccessibility(`បានរក្សាទុកសូរអានពាក្យ ${r}`)
+  setTimeout(() => {
+    lexiconSavedStatus.value = ''
+  }, 4000)
+}
 
 // Highlighting Tokens
 const tokens = ref([])
@@ -62,50 +127,42 @@ watch(volume, (newVol) => {
   if (currentAudio) currentAudio.volume = newVol
 })
 
-// Load speech voices - STRICTLY KHMER ONLY (No English voices allowed)
+// Load speech voices - 4 Distinct Khmer Voice Personas
 const loadVoices = () => {
   if (typeof window === 'undefined') return
 
-  // Always offer the Khmer Neural voices (backed by Local KhmerNeuralTTS Engine, Azure Key, or Cloud Proxy)
   voices.value = [
-    { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth - សំឡេងប្រុស Neural)', gender: 'Male', isAzure: true },
-    { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom - សំឡេងស្រី Neural)', gender: 'Female', isAzure: true }
+    {
+      name: 'km-KH-PisethNeural',
+      lang: 'km-KH',
+      label: 'ពិសិដ្ឋ (Piseth — សំឡេងប្រុស Neural ច្បាស់ៗ)',
+      gender: 'Male',
+      isAzure: true
+    },
+    {
+      name: 'km-KH-SreymomNeural',
+      lang: 'km-KH',
+      label: 'ស្រីមុំ (Sreymom — សំឡេងស្រី Neural ស្រទន់)',
+      gender: 'Female',
+      isAzure: true
+    },
+    {
+      name: 'km-KH-SokhaMedical',
+      lang: 'km-KH',
+      label: 'គ្រូពេទ្យ សុខា (Dr. Sokha — អានវេជ្ជបញ្ជា/វិក្កយបត្រ)',
+      gender: 'Male',
+      isAzure: true
+    },
+    {
+      name: 'km-KH-VitsOffline',
+      lang: 'km-KH',
+      label: 'songKHEM-VITS (Offline Model — ម៉ូដែលក្នុងម៉ាស៊ីនផ្ទាល់)',
+      gender: 'Male',
+      isAzure: true
+    }
   ]
   if (!selectedVoiceName.value || !voices.value.find(v => v.name === selectedVoiceName.value)) {
     selectedVoiceName.value = 'km-KH-PisethNeural'
-  }
-  return
-
-
-  // Web Speech API fallback: STRICTLY filter for Khmer language voices only
-  const available = (window.speechSynthesis && window.speechSynthesis.getVoices) ? window.speechSynthesis.getVoices() : []
-
-  // Check if system has any native Khmer voices
-  const khmerSystemVoices = available.filter(v => {
-    const l = (v.lang || '').toLowerCase()
-    const n = (v.name || '').toLowerCase()
-    return (l.startsWith('km') || l.includes('khmer') || n.includes('khmer')) &&
-           !l.startsWith('en') && !n.includes('english')
-  })
-
-  if (khmerSystemVoices.length > 0) {
-    voices.value = khmerSystemVoices.map(v => ({
-      name: v.name,
-      lang: v.lang,
-      label: `${v.name} (ភាសាខ្មែរ)`,
-      gender: v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') ? 'Female' : 'Male',
-      rawVoice: v
-    }))
-  } else {
-    // If browser lacks an installed Khmer OS voice, provide curated Khmer voice personas (NEVER show English voices)
-    voices.value = [
-      { name: 'km-khmer-male-piseth', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth - សំឡេងខ្មែរប្រុស)', gender: 'Male' },
-      { name: 'km-khmer-female-sreymom', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom - សំឡេងខ្មែរស្រី)', gender: 'Female' }
-    ]
-  }
-
-  if (!selectedVoiceName.value || !voices.value.find(v => v.name === selectedVoiceName.value)) {
-    selectedVoiceName.value = voices.value[0].name
   }
 }
 
@@ -202,13 +259,16 @@ const startSpeech = async () => {
       unlockedAudio.load()
       currentAudio = unlockedAudio
 
-      let audioUrl = getTtsCache(props.text, voiceName, 1.0)
+      const cacheVariantKey = `${voiceName}|pace:${isAssistivePacingActive.value ? 1 : 0}|lex:${lexiconRevision.value}`
+      let audioUrl = getTtsCache(props.text, cacheVariantKey, 1.0)
       if (!audioUrl) {
-        if (apiKey) {
+        if (apiKey && voiceName !== 'km-KH-VitsOffline') {
           audioUrl = await synthesizeTextAzureTTS(props.text, apiKey, endpoint, 1.0, 1.0, voiceName, gender)
         } else {
           try {
-            audioUrl = await synthesizeLocalKhmerTTS(props.text, voiceName, 1.0)
+            audioUrl = await synthesizeLocalKhmerTTS(props.text, voiceName, 1.0, {
+              assistivePacing: isAssistivePacingActive.value
+            })
           } catch (localErr) {
             if (CLOUD_API_AVAILABLE) {
               audioUrl = await cloudTts(props.text, voiceName)
@@ -217,7 +277,7 @@ const startSpeech = async () => {
             }
           }
         }
-        setTtsCache(props.text, voiceName, 1.0, audioUrl)
+        setTtsCache(props.text, cacheVariantKey, 1.0, audioUrl)
       }
 
       unlockedAudio.src = audioUrl
@@ -241,6 +301,20 @@ const startSpeech = async () => {
 
   // Fallback: Web Speech API
   fallbackWebSpeech()
+}
+
+const speakSingleWord = async (word) => {
+  if (!word) return
+  try {
+    const previewAudio = new Audio()
+    previewAudio.preload = 'auto'
+    previewAudio.load()
+    const voiceName = selectedVoiceName.value || 'km-KH-PisethNeural'
+    const url = await synthesizeLocalKhmerTTS(word, voiceName, 1.0, { assistivePacing: false })
+    previewAudio.src = url
+    previewAudio.volume = volume.value
+    await previewAudio.play()
+  } catch (_) {}
 }
 
 const fallbackWebSpeech = () => {
@@ -558,6 +632,105 @@ defineExpose({
             {{ voice.label }}
           </option>
         </select>
+      </div>
+
+      <!-- Custom Khmer TTS Feature Row: Smart Assistive Pacing & G2P Phoneme Inspector -->
+      <div class="custom-tts-feature-row">
+        <button
+          type="button"
+          class="tts-feature-pill khmer-font"
+          :class="{ 'feature-pill-active': isAssistivePacingActive }"
+          @click="toggleAssistivePacing"
+          :aria-pressed="isAssistivePacingActive"
+          title="បន្ថែមដង្ហើមឈប់ខ្លីៗមុន និងក្រោយលេខ តម្លៃថ្នាំ និងកាលបរិច្ឆេទ"
+        >
+          <Sparkles :size="15" />
+          <span>បន្ថយល្បឿនត្រង់លេខ/តម្លៃថ្នាំ (Smart Pacing)</span>
+        </button>
+
+        <button
+          type="button"
+          class="tts-feature-pill khmer-font"
+          :class="{ 'feature-pill-active': showG2pInspector }"
+          @click="showG2pInspector = !showG2pInspector"
+          :aria-expanded="showG2pInspector"
+        >
+          <Sliders :size="15" />
+          <span>ពិនិត្យសូរសៀងខ្មែរ G2P & IPA</span>
+        </button>
+      </div>
+
+      <!-- Collapsible Khmer G2P & Phoneme X-Ray Inspector Card -->
+      <div v-if="showG2pInspector" class="g2p-inspector-card" role="region" aria-label="Khmer G2P and Phoneme Inspector">
+        <div class="g2p-header-row">
+          <span class="g2p-title khmer-font">🧬 ប្រព័ន្ធវិភាគសូរសៀងខ្មែរ (Khmer G2P & Closed-Syllable IPA)</span>
+          <span class="g2p-model-badge">{{ activeModelBadge }}</span>
+        </div>
+
+        <!-- 1. Normalized Spoken Khmer Output -->
+        <div class="g2p-section">
+          <div class="g2p-section-label khmer-font">១. អត្ថបទបំប្លែងសម្រាប់អាន (Normalized Spoken Khmer)៖</div>
+          <div class="g2p-normalized-box khmer-font">
+            {{ g2pAnalysis.normalizedText || 'សូមស្កេន ឬបញ្ចូលអត្ថបទដើម្បីមើលការបំប្លែងលេខ រូបិយប័ណ្ណ និងពាក្យបច្ចេកទេស...' }}
+          </div>
+        </div>
+
+        <!-- 2. Word-by-Word A/O Register & Closed-Syllable IPA Breakdown -->
+        <div v-if="g2pAnalysis.wordBreakdown.length > 0" class="g2p-section">
+          <div class="g2p-section-label khmer-font">
+            ២. ការបំបែកព្យាង្គ និងសូរសៀងអន្តរជាតិ (ចុចលើពាក្យដើម្បីស្តាប់សូរអាន)៖
+          </div>
+          <div class="g2p-chips-grid">
+            <button
+              v-for="(item, idx) in g2pAnalysis.wordBreakdown"
+              :key="idx"
+              type="button"
+              class="g2p-word-chip"
+              @click="speakSingleWord(item.word)"
+              :title="`ចុចដើម្បីស្តាប់ពាក្យ៖ ${item.word} (${item.ipa})`"
+            >
+              <span class="chip-khmer khmer-font">{{ item.word }}</span>
+              <span class="chip-ipa">/{{ item.ipa }}/</span>
+              <span class="chip-register" :class="item.register.startsWith('អ-') ? 'reg-a' : 'reg-o'">
+                {{ item.register }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Custom Medical / Pali-Sanskrit Pronunciation Lexicon Tuner -->
+        <div class="g2p-section g2p-lexicon-tuner">
+          <div class="g2p-section-label khmer-font">
+            ៣. បង្រៀនសូរអានពាក្យពិបាក ឬពាក្យបច្ចេកទេសពេទ្យថ្មី (Custom Lexicon Tuner)៖
+          </div>
+          <div class="lexicon-form-row">
+            <input
+              v-model="customWordInput"
+              type="text"
+              class="lexicon-input khmer-font"
+              placeholder="ពាក្យដើម (ឧ. អ៊ីប៊ុយប្រូហ្វែន)"
+              aria-label="ពាក្យដើម"
+            />
+            <input
+              v-model="customRespellInput"
+              type="text"
+              class="lexicon-input khmer-font"
+              placeholder="សូរអាន (ឧ. អ៊ី-ប៊ុយ-ប្រូ-ហ្វែន)"
+              aria-label="សូរអាន"
+            />
+            <button
+              type="button"
+              class="lexicon-save-btn khmer-font"
+              @click="addCustomLexiconOverride"
+              :disabled="!customWordInput.trim() || !customRespellInput.trim()"
+            >
+              រក្សាទុកសូរអាន
+            </button>
+          </div>
+          <div v-if="lexiconSavedStatus" class="lexicon-status-msg khmer-font" role="status">
+            ✓ {{ lexiconSavedStatus }}
+          </div>
+        </div>
       </div>
     </div>
   </div>

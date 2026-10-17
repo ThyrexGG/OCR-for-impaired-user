@@ -55,12 +55,25 @@ class KhmerTTSHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
         if parsed.path == "/api/health":
+            report_path = BASE_DIR / "checkpoints" / "training_report.json"
+            model_report = {}
+            if report_path.exists():
+                try:
+                    model_report = json.loads(report_path.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
             self._send_json(
                 {
                     "status": "ONLINE",
                     "engine": "KhmerNeuralTTS v2.0 (VITS + Neural Vocoder + A/O Register G2P)",
                     "lexicon_entries": len(ENGINE.linguistics.lexicon),
-                    "voices": ["km-KH-PisethNeural", "km-KH-SreymomNeural"],
+                    "voices": [
+                        "km-KH-PisethNeural",
+                        "km-KH-SreymomNeural",
+                        "km-KH-SokhaMedical",
+                        "km-KH-VitsOffline",
+                    ],
+                    "trained_model": model_report,
                 }
             )
             return
@@ -70,9 +83,10 @@ class KhmerTTSHandler(BaseHTTPRequestHandler):
             fpath = ENGINE.cache_dir / fname
             if fpath.exists():
                 data = fpath.read_bytes()
+                mime = "audio/wav" if fpath.suffix.lower() == ".wav" else "audio/mpeg"
                 self.send_response(200)
                 self._set_cors()
-                self.send_header("Content-Type", "audio/mpeg")
+                self.send_header("Content-Type", mime)
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -106,18 +120,27 @@ class KhmerTTSHandler(BaseHTTPRequestHandler):
             voice = str(data.get("voice", "km-KH-PisethNeural"))
             rate = float(data.get("rate", 1.0))
             pitch_hz = int(data.get("pitch_hz", 0))
+            assistive_pacing = bool(data.get("assistive_pacing", False))
             return_binary = bool(data.get("binary", False))
 
             if not text:
                 self._send_json({"error": "Missing text"}, status=400)
                 return
 
-            synth = ENGINE.synthesize(text=text, voice=voice, rate=rate, pitch_hz=pitch_hz)
+            synth = ENGINE.synthesize(
+                text=text,
+                voice=voice,
+                rate=rate,
+                pitch_hz=pitch_hz,
+                assistive_pacing=assistive_pacing,
+            )
             if return_binary:
-                audio_bytes = Path(synth.audio_path).read_bytes()
+                audio_path_obj = Path(synth.audio_path)
+                audio_bytes = audio_path_obj.read_bytes()
+                mime = "audio/wav" if audio_path_obj.suffix.lower() == ".wav" else "audio/mpeg"
                 self.send_response(200)
                 self._set_cors()
-                self.send_header("Content-Type", "audio/mpeg")
+                self.send_header("Content-Type", mime)
                 self.send_header("Content-Length", str(len(audio_bytes)))
                 self.end_headers()
                 self.wfile.write(audio_bytes)

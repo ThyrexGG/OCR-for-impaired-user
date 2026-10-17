@@ -176,5 +176,208 @@ export function normalizeKhmerForSpeech(rawText) {
   s = s.replace(/([ក-៻]+)\s*ៗ/g, '$1 $1')
   s = s.replace(/។ល។/g, ' ហើយនិងដទៃទៀត ')
 
+  // Apply Pali/Sanskrit/Medical Lexicon & User Custom Overrides
+  const lexicon = getCombinedLexicon()
+  for (const [word, entry] of Object.entries(lexicon)) {
+    if (word && entry?.respell && s.includes(word)) {
+      s = s.split(word).join(entry.respell)
+    }
+  }
+
   return s.replace(/\s+/g, ' ').trim()
 }
+
+/**
+ * Built-in Pali / Sanskrit / Medical Khmer Pronunciation Lexicon
+ */
+export const DEFAULT_KHMER_LEXICON = {
+  'សុខាភិបាល': { respell: 'សុ-ខា-ភិ-បាល', ipa: 'so.kʰaː.pʰi.baːl' },
+  'វេជ្ជបណ្ឌិត': { respell: 'វេច-ជៈ-បន់-ឌិត', ipa: 'veːc.ca.bɑn.dɨt' },
+  'វេជ្ជបញ្ជា': { respell: 'វេច-ជៈ-បាញ់-ជា', ipa: 'veːc.ca.baɲ.ciə' },
+  'មន្ទីរពេទ្យ': { respell: 'មុន-ទី-ពេទ', ipa: 'mun.tiː.peːt' },
+  'ឱសថស្ថាន': { respell: 'អោ-សថ-ស្ថាន', ipa: 'ʔao.sɑt.stʰaːn' },
+  'ប៉ារ៉ាសេតាម៉ុល': { respell: 'ប៉ា-រ៉ា-សេ-តា-ម៉ុល', ipa: 'paː.raː.seː.taː.mol' },
+  'អាម៉ុកស៊ីស៊ីលីន': { respell: 'អា-ម៉ុក-ស៊ី-ស៊ី-លីន', ipa: 'ʔaː.mok.siː.siː.liːn' },
+  'សម្ពាធឈាម': { respell: 'សំ-ពៀត-ឈាម', ipa: 'sɑm.piət.cʰiəm' },
+  'ព្រះរាជាណាចក្រកម្ពុជា': { respell: 'ព្រះ-រា-ជា-ណា-ចាក់-កាំ-ពុ-ជា', ipa: 'preah.riə.ciə.naː.cak.kam.pu.ciə' },
+  'បច្ចេកវិទ្យា': { respell: 'ប៉ាច់-ចេក-កៈ-វិត-ទ្យា', ipa: 'pac.ceːk.ka.vit.tjiə' },
+  'សាកលវិទ្យាល័យ': { respell: 'សា-កល់-វិត-ទ្យា-ល័យ', ipa: 'saː.kɑl.vit.tjiə.laj' },
+  'គន្ធបុប្ផា': { respell: 'គន់-ធៈ-បុប-ផា', ipa: 'kʊən.tʰea.bop.pʰaː' }
+}
+
+const CUSTOM_LEXICON_STORAGE_KEY = 'songkhem_custom_lexicon_v1'
+
+export function getCustomLexicon() {
+  if (typeof window === 'undefined' || !window.localStorage) return {}
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_LEXICON_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch (_) {
+    return {}
+  }
+}
+
+export function saveCustomLexiconEntry(word, respell, ipa = '') {
+  if (!word || !respell) return getCombinedLexicon()
+  const current = getCustomLexicon()
+  current[word.trim()] = {
+    respell: respell.trim(),
+    ipa: (ipa || respell).trim(),
+    custom: true
+  }
+  if (typeof window !== 'undefined' && window.localStorage) {
+    try {
+      window.localStorage.setItem(CUSTOM_LEXICON_STORAGE_KEY, JSON.stringify(current))
+    } catch (_) {}
+  }
+  return getCombinedLexicon()
+}
+
+export function getCombinedLexicon() {
+  return { ...DEFAULT_KHMER_LEXICON, ...getCustomLexicon() }
+}
+
+/**
+ * Smart Assistive Pacing for visually impaired listeners:
+ * Inserts deliberate breath micro-pauses around dosages, currency amounts, dates, times, and numbers.
+ */
+export function applyAssistivePacing(rawText) {
+  if (!rawText || typeof rawText !== 'string') return ''
+  const paced = rawText.replace(
+    /([0-9០-៩][0-9០-៩,.\s/:]*(?:៛|រៀល|\$|ដុល្លារ|%|mg|មីលីក្រាម|ml|មីលីលីត្រ|kg|គីឡូក្រាម)?)/gi,
+    ' , $1 , '
+  )
+  return paced.replace(/\s{2,}/g, ' ').trim()
+}
+
+// Khmer Consonant Series & Closed-Syllable IPA Tables (A-series Akhosak vs O-series Khosak)
+const CONSONANT_IPA = {
+  'ក': ['k', 'A'], 'ខ': ['kʰ', 'A'], 'គ': ['k', 'O'], 'ឃ': ['kʰ', 'O'], 'ង': ['ŋ', 'O'],
+  'ច': ['c', 'A'], 'ឆ': ['cʰ', 'A'], 'ជ': ['c', 'O'], 'ឈ': ['cʰ', 'O'], 'ញ': ['ɲ', 'O'],
+  'ដ': ['d', 'A'], 'ឋ': ['tʰ', 'A'], 'ឌ': ['d', 'O'], 'ឍ': ['tʰ', 'O'], 'ណ': ['n', 'A'],
+  'ត': ['t', 'A'], 'ថ': ['tʰ', 'A'], 'ទ': ['t', 'O'], 'ធ': ['tʰ', 'O'], 'ន': ['n', 'O'],
+  'ប': ['b', 'A'], 'ផ': ['pʰ', 'A'], 'ព': ['p', 'O'], 'ភ': ['pʰ', 'O'], 'ម': ['m', 'O'],
+  'យ': ['j', 'O'], 'រ': ['r', 'O'], 'ល': ['l', 'O'], 'វ': ['v', 'O'],
+  'ស': ['s', 'A'], 'ហ': ['h', 'A'], 'ឡ': ['l', 'A'], 'អ': ['ʔ', 'A']
+}
+
+const FINAL_CODA_IPA = {
+  'ក': 'k̚', 'ខ': 'k̚', 'គ': 'k̚', 'ឃ': 'k̚', 'ង': 'ŋ',
+  'ច': 'c̚', 'ជ': 'c̚', 'ញ': 'ɲ',
+  'ដ': 't̚', 'ត': 't̚', 'ថ': 't̚', 'ទ': 't̚', 'ធ': 't̚', 'ណ': 'n', 'ន': 'n',
+  'ប': 'p̚', 'ផ': 'p̚', 'ព': 'p̚', 'ភ': 'p̚', 'ម': 'm',
+  'យ': 'j', 'រ': '', 'ល': 'l', 'វ': 'w', 'ស': 'h'
+}
+
+const VOWEL_IPA = {
+  'ា': ['aː', 'iə'],
+  'ិ': ['ə', 'ɨ'],
+  'ី': ['əj', 'iː'],
+  'ឹ': ['ə', 'ɨ'],
+  'ឺ': ['əɨ', 'ɨː'],
+  'ុ': ['o', 'u'],
+  'ូ': ['oː', 'uː'],
+  'ួ': ['uə', 'uə'],
+  'ើ': ['aə', 'əː'],
+  'ឿ': ['ɨə', 'ɨə'],
+  'ៀ': ['iə', 'iə'],
+  'េ': ['eː', 'eː'],
+  'ែ': ['ae', 'ɛː'],
+  'ៃ': ['aj', 'ɨj'],
+  'ោ': ['ao', 'oː'],
+  'ៅ': ['aw', 'ɨw'],
+  'ុំ': ['om', 'um'],
+  'ំ': ['ɑm', 'um'],
+  'ាំ': ['am', 'oăm'],
+  'ះ': ['ah', 'eah']
+}
+
+export function wordToKhmerIpa(word) {
+  const lexicon = getCombinedLexicon()
+  if (lexicon[word]?.ipa) {
+    return { ipa: lexicon[word].ipa, register: 'Lexicon' }
+  }
+  let currentSeries = 'A'
+  let firstSeries = 'A'
+  let hasConsonant = false
+  const chars = Array.from(word)
+  const out = []
+
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i]
+    if (ch === '៉') {
+      currentSeries = 'A'
+      continue
+    }
+    if (ch === '៊') {
+      currentSeries = 'O'
+      continue
+    }
+    if (ch === '៍' || ch === '្' || ch === '់') continue
+
+    if (CONSONANT_IPA[ch]) {
+      const [onset, series] = CONSONANT_IPA[ch]
+      const isFinal = i === chars.length - 1 && i > 0
+      if (isFinal && FINAL_CODA_IPA[ch] !== undefined) {
+        out.push(FINAL_CODA_IPA[ch])
+      } else {
+        out.push(onset)
+        currentSeries = series
+        if (!hasConsonant) {
+          firstSeries = series
+          hasConsonant = true
+        }
+        const nextCh = chars[i + 1]
+        if (!nextCh || (CONSONANT_IPA[nextCh] && i + 1 < chars.length - 1)) {
+          out.push(currentSeries === 'A' ? 'ɑː' : 'ɔː')
+        }
+      }
+      continue
+    }
+    if (VOWEL_IPA[ch]) {
+      const [vA, vO] = VOWEL_IPA[ch]
+      out.push(currentSeries === 'A' ? vA : vO)
+    }
+  }
+  return {
+    ipa: out.join('') || word,
+    register: firstSeries === 'A' ? 'អ-Series (Akhosak)' : 'អ៊-Series (Khosak)'
+  }
+}
+
+/**
+ * Full Khmer G2P & Phoneme X-Ray Analysis for the Interactive Inspector UI
+ */
+export function analyzeKhmerG2P(rawText, options = { assistivePacing: false }) {
+  if (!rawText || typeof rawText !== 'string') {
+    return {
+      normalizedText: '',
+      ipaString: '',
+      wordBreakdown: []
+    }
+  }
+  const source = options?.assistivePacing ? applyAssistivePacing(rawText) : rawText
+  const normalizedText = normalizeKhmerForSpeech(source)
+  const words = normalizedText
+    .split(/[\s,។៕]+/)
+    .map((w) => w.trim())
+    .filter((w) => w.length > 0)
+
+  const lexicon = getCombinedLexicon()
+  const wordBreakdown = words.slice(0, 60).map((w) => {
+    const { ipa, register } = wordToKhmerIpa(w)
+    return {
+      word: w,
+      respell: lexicon[w]?.respell || w,
+      ipa,
+      register
+    }
+  })
+
+  return {
+    normalizedText,
+    ipaString: wordBreakdown.map((item) => item.ipa).join(' · '),
+    wordBreakdown
+  }
+}
+
