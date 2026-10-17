@@ -5,7 +5,7 @@ import {
   Sliders, Music2, SkipBack, SkipForward, Repeat
 } from 'lucide-vue-next'
 import { synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts'
-import { analyzeKhmerG2P, saveCustomLexiconEntry } from '../services/khmerNormalizer'
+import { normalizeKhmerForSpeech, analyzeKhmerG2P, saveCustomLexiconEntry } from '../services/khmerNormalizer'
 import { CLOUD_API_AVAILABLE, cloudTts } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
 import { t, currentLang } from '../services/i18n'
@@ -166,49 +166,164 @@ const loadVoices = () => {
   }
 }
 
-// Tokenize text into words
+// Segment Khmer or English sentences into words (100% identical to OcrPanel.vue globalIndex)
+const segmentSentenceIntoWords = (sentenceText) => {
+  if (!sentenceText) return []
+  if (/[\u1780-\u17FF]/.test(sentenceText) && typeof Intl !== 'undefined' && Intl.Segmenter) {
+    try {
+      const segmenter = new Intl.Segmenter('km', { granularity: 'word' })
+      const words = []
+      for (const { segment } of segmenter.segment(sentenceText)) {
+        const trimmed = segment.trim()
+        if (trimmed) words.push(trimmed)
+      }
+      if (words.length > 0) return words
+    } catch (_) {}
+  }
+  return sentenceText.split(/\s+/).filter(w => w.length > 0)
+}
+
+const tokenTimeline = ref([])
+
+const computeTokenAcousticWeight = (rawToken) => {
+  const tStr = (rawToken || '').trim()
+  if (!tStr) return 0.05
+  // Pure visual separators / brackets / dashes take almost zero spoken time
+  if (/^[-\u2010-\u2015=_()[\]{}"'«»/\\|+*]+$/.test(tStr)) {
+    return 0.06
+  }
+  // Clause / sentence punctuation marks correspond to brief breath pauses
+  if (/^[:;,.?!។៕]+$/.test(tStr)) {
+    return /[។៕.?!]/.test(tStr) ? 0.42 : 0.22
+  }
+  // Currency symbols spoken as words
+  if (tStr === '$' || tStr === '៛') {
+    return 1.35
+  }
+  // Expand numbers/abbreviations/compounds via Khmer normalizer so spoken length matches voice
+  const spoken = normalizeKhmerForSpeech(tStr).replace(/[^\u1780-\u17FFa-zA-Z0-9]/g, '')
+  const charLen = Math.max(1, spoken.length || tStr.length)
+  let weight = Math.max(0.85, Math.pow(charLen, 0.78) * 0.62)
+  if (/[។៕.?!]$/.test(tStr)) {
+    weight += 0.38
+  }
+  return weight
+}
+
+// Tokenize text into words matching OcrPanel.vue globalIndex 1-to-1 and build cumulative timeline
 const prepareTokens = (rawText) => {
   if (!rawText) {
     tokens.value = []
+    tokenTimeline.value = []
     emit('update:activeWordIndex', -1)
     return
   }
-  const words = rawText.trim().split(/\s+/).filter(w => w.length > 0)
-  tokens.value = words
-}
 
-// Word-by-word timing synchronization
-const startHighlighting = (startIndex = 0) => {
-  emit('update:activeWordIndex', startIndex)
-  
-  const durationPerWord = Math.max(280, Math.round(700 / rate.value))
-  
-  if (highlightInterval) clearInterval(highlightInterval)
-  highlightInterval = setInterval(() => {
-    if (props.activeWordIndex < tokens.value.length - 1) {
-      emit('update:activeWordIndex', props.activeWordIndex + 1)
-    } else {
-      if (highlightInterval) {
-        clearInterval(highlightInterval)
-        highlightInterval = null
+  const rawParas = rawText.split(/\n\s*\n|\n/)
+  const extracted = []
+
+  for (const paraText of rawParas) {
+    if (!paraText.trim()) continue
+    const rawSentences = paraText.split(/([។៕.?!]+)/).filter(Boolean)
+    for (let i = 0; i < rawSentences.length; i += 2) {
+      const sText = (rawSentences[i] + (rawSentences[i + 1] || '')).trim()
+      if (!sText) continue
+      const wordStrings = segmentSentenceIntoWords(sText)
+      for (const w of wordStrings) {
+        extracted.push(w)
       }
     }
-  }, durationPerWord)
+  }
+
+  tokens.value = extracted
+  const weights = extracted.map(computeTokenAcousticWeight)
+  const totalWeight = weights.reduce((acc, w) => acc + w, 0) || 1
+  let cum = 0
+  tokenTimeline.value = extracted.map((w, idx) => {
+    const startFrac = cum / totalWeight
+    cum += weights[idx]
+    const endFrac = cum / totalWeight
+    return {
+      index: idx,
+      word: w,
+      weight: weights[idx],
+      startFrac,
+      endFrac
+    }
+  })
+}
+
+// Real-time audio-locked word highlighting synchronization (33 FPS hardware audio clock sync)
+let fallbackStartTime = 0
+let fallbackStartOffsetFrac = 0
+
+const startHighlighting = (startIndex = 0) => {
+  if (!tokens.value.length) return
+  const clampedStart = Math.max(0, Math.min(tokens.value.length - 1, startIndex))
+  emit('update:activeWordIndex', clampedStart)
+
+  if (highlightInterval) {
+    clearInterval(highlightInterval)
+    highlightInterval = null
+  }
+
+  const startEntry = tokenTimeline.value[clampedStart]
+  fallbackStartOffsetFrac = startEntry ? startEntry.startFrac : 0
+  fallbackStartTime = performance.now()
+
+  highlightInterval = setInterval(() => {
+    if (!tokens.value.length || !tokenTimeline.value.length) return
+
+    // Mode A: Locked directly to HTML5 Audio playhead (currentAudio.currentTime / currentAudio.duration)
+    if (currentAudio && Number.isFinite(currentAudio.duration) && currentAudio.duration > 0.15) {
+      const leadPad = Math.min(0.08, currentAudio.duration * 0.03)
+      const trailPad = Math.min(0.14, currentAudio.duration * 0.04)
+      const effectiveDur = Math.max(0.15, currentAudio.duration - leadPad - trailPad)
+      const effectiveTime = Math.max(0, currentAudio.currentTime - leadPad)
+      const progress = Math.min(1.0, Math.max(0.0, effectiveTime / effectiveDur))
+
+      // Find token whose [startFrac, endFrac] window contains current audio progress
+      let matchedIdx = tokenTimeline.value.length - 1
+      for (let i = 0; i < tokenTimeline.value.length; i++) {
+        if (progress <= tokenTimeline.value[i].endFrac) {
+          matchedIdx = i
+          break
+        }
+      }
+
+      if (matchedIdx !== props.activeWordIndex) {
+        emit('update:activeWordIndex', matchedIdx)
+      }
+      return
+    }
+
+    // Mode B: Weighted natural Khmer cadence fallback (when Web Speech API is used or before duration metadata loads)
+    const totalWeights = tokenTimeline.value.reduce((acc, item) => acc + item.weight, 0) || 1
+    const estimatedTotalMs = (totalWeights * 195) / Math.max(0.5, rate.value)
+    const elapsedMs = performance.now() - fallbackStartTime
+    const progress = Math.min(1.0, fallbackStartOffsetFrac + elapsedMs / Math.max(400, estimatedTotalMs))
+
+    let matchedIdx = tokenTimeline.value.length - 1
+    for (let i = 0; i < tokenTimeline.value.length; i++) {
+      if (progress <= tokenTimeline.value[i].endFrac) {
+        matchedIdx = i
+        break
+      }
+    }
+
+    if (matchedIdx !== props.activeWordIndex) {
+      emit('update:activeWordIndex', matchedIdx)
+    }
+
+    if (progress >= 1.0 && !currentAudio) {
+      clearInterval(highlightInterval)
+      highlightInterval = null
+    }
+  }, 30)
 }
 
 const resumeHighlighting = () => {
-  const durationPerWord = Math.max(280, Math.round(700 / rate.value))
-  if (highlightInterval) clearInterval(highlightInterval)
-  highlightInterval = setInterval(() => {
-    if (props.activeWordIndex < tokens.value.length - 1) {
-      emit('update:activeWordIndex', props.activeWordIndex + 1)
-    } else {
-      if (highlightInterval) {
-        clearInterval(highlightInterval)
-        highlightInterval = null
-      }
-    }
-  }, durationPerWord)
+  startHighlighting(props.activeWordIndex >= 0 ? props.activeWordIndex : 0)
 }
 
 // Start Reading Playback
@@ -403,10 +518,17 @@ const restartSpeech = () => {
   speakAccessibility('អានឡើងវិញតាំងពីដើម')
 }
 
-// Seek to specific word
+// Seek to specific word (and sync audio playhead if playing/paused)
 const seekToWord = (wordIndex) => {
   if (wordIndex < 0 || wordIndex >= tokens.value.length) return
   emit('update:activeWordIndex', wordIndex)
+  const entry = tokenTimeline.value[wordIndex]
+  if (entry && currentAudio && Number.isFinite(currentAudio.duration) && currentAudio.duration > 0.15) {
+    const leadPad = Math.min(0.08, currentAudio.duration * 0.03)
+    const trailPad = Math.min(0.14, currentAudio.duration * 0.04)
+    const effectiveDur = Math.max(0.15, currentAudio.duration - leadPad - trailPad)
+    currentAudio.currentTime = leadPad + entry.startFrac * effectiveDur
+  }
   if (isSpeaking.value) {
     startHighlighting(wordIndex)
   }
