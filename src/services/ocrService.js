@@ -12,6 +12,7 @@
  */
 
 import { extractDocumentText } from './ocr'
+import { postProcessKhmerOcr } from './khmerOcrCorrector'
 import { getFileFingerprint, getOcrCache, setOcrCache } from './cache'
 import { CLOUD_API_AVAILABLE } from './cloudApi'
 import { t } from './i18n'
@@ -59,12 +60,13 @@ class OcrService {
       fingerprint = await getFileFingerprint(file)
       const cachedText = getOcrCache(fingerprint)
       if (cachedText) {
-        const wordsCount = cachedText.trim().split(/\s+/).filter(Boolean).length
+        const refinedCached = postProcessKhmerOcr(cachedText)
+        const wordsCount = refinedCached.trim().split(/\s+/).filter(Boolean).length
         if (options.onProgress) options.onProgress(100)
         return {
           ok: true,
           data: {
-            text: cachedText,
+            text: refinedCached,
             cached: true,
             wordsCount,
             fingerprint
@@ -80,7 +82,7 @@ class OcrService {
 
     try {
       const rawText = await extractDocumentText(file, config, options.onProgress)
-      const text = (rawText || '').trim()
+      const text = postProcessKhmerOcr((rawText || '').trim())
 
       if (!text) {
         return {

@@ -1,6 +1,7 @@
 import Tesseract from 'tesseract.js'
 import * as pdfjsLib from 'pdfjs-dist'
 import { CLOUD_API_AVAILABLE, cloudOcr } from './cloudApi'
+import { preprocessImageForKhmerOcr, postProcessKhmerOcr } from './khmerOcrCorrector'
 
 // Configure PDF.js worker for client-side PDF rendering
 if (typeof window !== 'undefined' && 'Worker' in window) {
@@ -30,45 +31,43 @@ export const fileToBase64 = (file) => {
   })
 }
 
-const MAX_CLOUD_BYTES = 3 * 1024 * 1024
 const MAX_CLOUD_WIDTH = 2400
 
 /**
- * Base64 for cloud OCR. Large photos are re-encoded as JPEG ≤2400px wide so
- * the upload fits the serverless proxy's 4.5MB request limit; small files are
- * sent untouched.
+ * Enhanced Base64 for cloud OCR:
+ * Upscales small images (<1500px), normalizes contrast to remove camera shadows,
+ * sharpens tiny Khmer Coeng subscripts/diacritics, and fits within serverless limits.
  */
 const imageToBase64ForCloud = async (file) => {
-  if (file.size <= MAX_CLOUD_BYTES || typeof createImageBitmap !== 'function') {
+  try {
+    const { base64 } = await preprocessImageForKhmerOcr(file, {
+      maxWidth: MAX_CLOUD_WIDTH,
+      minWidth: 1500,
+      sharpenAmount: 0.36
+    })
+    return base64
+  } catch {
     return fileToBase64(file)
   }
-  let bitmap
-  try {
-    bitmap = await createImageBitmap(file)
-  } catch {
-    return fileToBase64(file) // Undecodable here (e.g. HEIC): let the server judge it
-  }
-  const scale = Math.min(1, MAX_CLOUD_WIDTH / bitmap.width)
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(bitmap.width * scale)
-  canvas.height = Math.round(bitmap.height * scale)
-  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  bitmap.close()
-  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9))
-  return fileToBase64(blob)
 }
 
 /**
  * Perform text detection using Client-Side Tesseract.js (Khmer + English)
- * Free, offline capable, runs directly inside the user's browser.
+ * Enhanced with Khmer subscript/diacritic pre-processing and orthographic post-correction.
  * @param {File|Blob} fileOrBlob - Selected image or camera capture
  * @param {Function} [onProgress] - Optional progress callback (0-100)
  * @returns {Promise<string>} - Detected text
  */
 export const detectTextTesseract = async (fileOrBlob, onProgress) => {
   try {
+    const { blob: enhancedBlob } = await preprocessImageForKhmerOcr(fileOrBlob, {
+      maxWidth: 2400,
+      minWidth: 1600,
+      sharpenAmount: 0.42
+    })
+
     const result = await Tesseract.recognize(
-      fileOrBlob,
+      enhancedBlob,
       'khm+eng',
       {
         logger: (m) => {
@@ -79,7 +78,8 @@ export const detectTextTesseract = async (fileOrBlob, onProgress) => {
       }
     )
 
-    const text = result?.data?.text ? result.data.text.trim() : ''
+    const rawText = result?.data?.text ? result.data.text.trim() : ''
+    const text = postProcessKhmerOcr(rawText)
     if (!text || text.length === 0) {
       throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងរូបភាពនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected by OCR. Try better lighting or hold the camera closer.)')
     }
@@ -179,7 +179,7 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
 
     // No personal key: go through songKHEM's own proxy (key stays server-side)
     if (!apiKey) {
-      const proxiedText = await cloudOcr(base64Image)
+      const proxiedText = postProcessKhmerOcr(await cloudOcr(base64Image))
       if (!proxiedText.trim()) {
         throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងឯកសារនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected. Try better lighting or hold the camera closer.)')
       }
@@ -202,11 +202,12 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
             },
             features: [
               {
-                type: 'DOCUMENT_TEXT_DETECTION' // Optimize for dense page texts (PDF/paper scans)
+                type: 'DOCUMENT_TEXT_DETECTION',
+                model: 'builtin/latest'
               }
             ],
             imageContext: {
-              languageHints: ['km', 'en'] // Guide the engine for both Khmer script and English
+              languageHints: ['km', 'en']
             }
           }
         ]
@@ -220,7 +221,8 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
     }
 
     const data = await response.json()
-    const fullText = data.responses?.[0]?.fullTextAnnotation?.text || ''
+    const rawFullText = data.responses?.[0]?.fullTextAnnotation?.text || ''
+    const fullText = postProcessKhmerOcr(rawFullText)
 
     if (!fullText || !fullText.trim()) {
       throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងឯកសារនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected. Try better lighting or hold the camera closer.)')
@@ -284,7 +286,7 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
       fullText += '\n'
     }
 
-    const trimmed = fullText.trim()
+    const trimmed = postProcessKhmerOcr(fullText)
     if (!trimmed) {
       throw new Error('មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ។ សូមព្យាយាមស្កេនម្តងទៀត។')
     }
@@ -313,19 +315,26 @@ export const extractDocumentText = async (file, config = {}, onProgress) => {
 
   const isPdf = file.type === 'application/pdf' || (file.name && file.name.toLowerCase().endsWith('.pdf'))
   if (isPdf) {
-    return await extractTextFromPdf(file, onProgress)
+    const pdfText = await extractTextFromPdf(file, onProgress)
+    return postProcessKhmerOcr(pdfText)
   }
 
   const provider = config.provider || 'tesseract'
 
   if (provider === 'google-vision') {
-    return await detectTextGoogleVision(file, config.googleApiKey, config.googleEndpoint)
+    try {
+      return await detectTextGoogleVision(file, config.googleApiKey, config.googleEndpoint)
+    } catch (gvErr) {
+      // If cloud Google Vision is unconfigured or unreachable, seamlessly fall back to enhanced Khmer Tesseract
+      console.warn('Google Vision unavailable, falling back to enhanced Khmer Tesseract:', gvErr?.message)
+      return await detectTextTesseract(file, onProgress)
+    }
   }
 
   if (provider === 'azure-read') {
     return await detectTextAzureVision(file, config.azureApiKey, config.azureEndpoint)
   }
 
-  // Default provider: Client-side in-browser Tesseract (Free, works offline, no API key required)
+  // Default provider: Enhanced Client-side Khmer+English Tesseract
   return await detectTextTesseract(file, onProgress)
 }

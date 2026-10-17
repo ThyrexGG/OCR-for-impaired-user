@@ -5,6 +5,8 @@
  * get back { text }.
  */
 
+import { postProcessKhmerOcr } from '../src/services/khmerOcrCorrector.js'
+
 // Vercel caps request bodies at 4.5MB; clients downscale photos before sending.
 const MAX_BASE64_LENGTH = 4_200_000
 
@@ -34,7 +36,7 @@ export default async function handler(req, res) {
         requests: [
           {
             image: { content: image },
-            features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],
+            features: [{ type: 'DOCUMENT_TEXT_DETECTION', model: 'builtin/latest' }],
             imageContext: { languageHints: ['km', 'en'] },
           },
         ],
@@ -49,7 +51,8 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: 'OCR provider error' })
     }
 
-    return res.status(200).json({ text: (result.fullTextAnnotation && result.fullTextAnnotation.text) || '' })
+    const rawText = (result.fullTextAnnotation && result.fullTextAnnotation.text) || ''
+    return res.status(200).json({ text: postProcessKhmerOcr(rawText) })
   } catch (error) {
     console.error('Google Vision request failed:', error)
     return res.status(502).json({ error: 'OCR provider unreachable' })
