@@ -27,3 +27,10 @@ dist-ssr
 *.sw?
 *.traineddata
 *.traineddata.gz
+
+# Khmer Neural TTS Engine caches & training datasets
+__pycache__/
+*.pyc
+khmer-tts-engine/audio_cache/
+khmer-tts-engine/dataset_khmer/
+khmer-tts-engine/checkpoints/

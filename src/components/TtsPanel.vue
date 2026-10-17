@@ -4,7 +4,7 @@ import {
   Play, Pause, Square, RotateCcw, Volume2, Sparkles, 
   Sliders, Music2, SkipBack, SkipForward, Repeat
 } from 'lucide-vue-next'
-import { synthesizeTextAzureTTS } from '../services/tts'
+import { synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts'
 import { CLOUD_API_AVAILABLE, cloudTts } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
 import { t, currentLang } from '../services/i18n'
@@ -65,20 +65,17 @@ watch(volume, (newVol) => {
 // Load speech voices - STRICTLY KHMER ONLY (No English voices allowed)
 const loadVoices = () => {
   if (typeof window === 'undefined') return
-  
-  const azureKey = localStorage.getItem('songkhem_azure_tts_key')
 
-  // Neural voices come from the user's own key, else the api/tts proxy
-  if (azureKey || CLOUD_API_AVAILABLE) {
-    voices.value = [
-      { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth - សំឡេងប្រុស Neural)', gender: 'Male', isAzure: true },
-      { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom - សំឡេងស្រី Neural)', gender: 'Female', isAzure: true }
-    ]
-    if (!selectedVoiceName.value || !voices.value.find(v => v.name === selectedVoiceName.value)) {
-      selectedVoiceName.value = 'km-KH-PisethNeural'
-    }
-    return
+  // Always offer the Khmer Neural voices (backed by Local KhmerNeuralTTS Engine, Azure Key, or Cloud Proxy)
+  voices.value = [
+    { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth - សំឡេងប្រុស Neural)', gender: 'Male', isAzure: true },
+    { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom - សំឡេងស្រី Neural)', gender: 'Female', isAzure: true }
+  ]
+  if (!selectedVoiceName.value || !voices.value.find(v => v.name === selectedVoiceName.value)) {
+    selectedVoiceName.value = 'km-KH-PisethNeural'
   }
+  return
+
 
   // Web Speech API fallback: STRICTLY filter for Khmer language voices only
   const available = (window.speechSynthesis && window.speechSynthesis.getVoices) ? window.speechSynthesis.getVoices() : []
@@ -164,18 +161,12 @@ const startSpeech = async () => {
     return
   }
   
-  let provider = 'web-speech'
-  let apiKey = ''
-  let endpoint = ''
-
   const azureKey = localStorage.getItem('songkhem_azure_tts_key')
   const azureEndpoint = localStorage.getItem('songkhem_azure_tts_endpoint') || 'https://southeastasia.tts.speech.microsoft.com/cognitiveservices/v1'
 
-  if (azureKey || CLOUD_API_AVAILABLE) {
-    provider = 'azure-tts'
-    apiKey = azureKey
-    endpoint = azureEndpoint
-  }
+  const provider = 'neural-khmer'
+  const apiKey = azureKey
+  const endpoint = azureEndpoint
 
   // Resume if paused
   if (isPaused.value) {
@@ -198,34 +189,50 @@ const startSpeech = async () => {
   triggerHaptic([60, 40])
   speakAccessibility('ចាប់ផ្តើមអាន...')
 
-  // Azure Neural TTS
-  if (provider === 'azure-tts') {
+  // Khmer Neural TTS (Local KhmerNeuralTTS Engine -> Azure Key -> Cloud Proxy -> Web Speech Fallback)
+  if (provider === 'neural-khmer') {
     try {
       const selectedVoice = voices.value.find(v => v.name === selectedVoiceName.value)
       const voiceName = selectedVoice ? selectedVoice.name : 'km-KH-PisethNeural'
       const gender = selectedVoice?.gender || 'Male'
 
+      // iOS Safari / iPhone Autoplay Fix: instantiate & unlock Audio element synchronously on user tap
+      const unlockedAudio = new Audio()
+      unlockedAudio.preload = 'auto'
+      unlockedAudio.load()
+      currentAudio = unlockedAudio
+
       let audioUrl = getTtsCache(props.text, voiceName, 1.0)
       if (!audioUrl) {
-        audioUrl = apiKey
-          ? await synthesizeTextAzureTTS(props.text, apiKey, endpoint, 1.0, 1.0, voiceName, gender)
-          : await cloudTts(props.text, voiceName)
+        if (apiKey) {
+          audioUrl = await synthesizeTextAzureTTS(props.text, apiKey, endpoint, 1.0, 1.0, voiceName, gender)
+        } else {
+          try {
+            audioUrl = await synthesizeLocalKhmerTTS(props.text, voiceName, 1.0)
+          } catch (localErr) {
+            if (CLOUD_API_AVAILABLE) {
+              audioUrl = await cloudTts(props.text, voiceName)
+            } else {
+              throw localErr
+            }
+          }
+        }
         setTtsCache(props.text, voiceName, 1.0, audioUrl)
       }
 
-      currentAudio = new Audio(audioUrl)
-      currentAudio.playbackRate = rate.value
-      currentAudio.volume = volume.value
+      unlockedAudio.src = audioUrl
+      unlockedAudio.playbackRate = rate.value
+      unlockedAudio.volume = volume.value
       
-      currentAudio.onended = () => {
+      unlockedAudio.onended = () => {
         stopSpeech()
         speakAccessibility('ការអានអត្ថបទបានបញ្ចប់')
       }
-      currentAudio.play()
+      await unlockedAudio.play()
       startHighlighting(0)
       return
     } catch (error) {
-      console.error('Azure TTS error, falling back to Web Speech:', error)
+      console.error('Neural Khmer TTS error, falling back to Web Speech:', error)
       isSpeaking.value = false
       fallbackWebSpeech()
       return

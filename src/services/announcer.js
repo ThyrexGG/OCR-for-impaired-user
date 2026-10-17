@@ -5,6 +5,7 @@
  */
 
 import { currentLang } from './i18n'
+import { synthesizeLocalKhmerTTS } from './tts'
 
 class AnnouncerService {
   constructor() {
@@ -14,6 +15,8 @@ class AnnouncerService {
     this._lastMessage = ''
     this._lastSpokenTime = 0
     this._throttleMs = 1500
+    this._audioCache = new Map()
+    this._activeAudio = null
   }
 
   setVoiceEnabled(enabled) {
@@ -81,8 +84,8 @@ class AnnouncerService {
    * @param {string} text
    * @param {boolean} interrupt
    */
-  speak(text, interrupt = true) {
-    if (!text || typeof window === 'undefined' || !window.speechSynthesis) return
+  async speak(text, interrupt = true) {
+    if (!text || typeof window === 'undefined') return
 
     const now = Date.now()
     if (text === this._lastMessage && now - this._lastSpokenTime < this._throttleMs) {
@@ -99,16 +102,40 @@ class AnnouncerService {
     if (!this._isVoiceEnabled) return
 
     if (interrupt) {
-      window.speechSynthesis.cancel()
+      this.stop()
     }
 
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.rate = 1.0
-    utterance.lang = currentLang.value === 'km' ? 'km-KH' : 'en-US'
-    window.speechSynthesis.speak(utterance)
+    const hasKhmer = /[\u1780-\u17ff]/.test(text) || currentLang.value === 'km'
+    if (hasKhmer) {
+      try {
+        let blobUrl = this._audioCache.get(text)
+        if (!blobUrl) {
+          blobUrl = await synthesizeLocalKhmerTTS(text, 'km-KH-SreymomNeural', 1.0)
+          this._audioCache.set(text, blobUrl)
+        }
+        const audio = new Audio(blobUrl)
+        this._activeAudio = audio
+        audio.play().catch(() => {})
+        return
+      } catch (_) {
+        // Fallback to speechSynthesis below if local server is offline
+      }
+    }
+
+    if (window.speechSynthesis) {
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.rate = 1.0
+      utterance.lang = currentLang.value === 'km' ? 'km-KH' : 'en-US'
+      window.speechSynthesis.speak(utterance)
+    }
   }
 
   stop() {
+    if (this._activeAudio) {
+      this._activeAudio.pause()
+      this._activeAudio.currentTime = 0
+      this._activeAudio = null
+    }
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel()
     }
