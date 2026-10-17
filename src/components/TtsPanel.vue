@@ -54,7 +54,7 @@ const g2pAnalysis = computed(() => {
 
 const activeModelBadge = computed(() => {
   if (selectedVoiceName.value === 'km-KH-VitsOffline') {
-    return 'songKHEM-VITS v2.0 (100% Offline Acoustic Checkpoint · 50 Epochs · Mel L1: 0.5378)'
+    return 'songKHEM-VITS v2.0 (PyTorch 36.29M Params · 384 Steps · Loss: 7.43 → 6.02)'
   }
   if (selectedVoiceName.value === 'km-KH-SokhaMedical') {
     return 'Dr. Sokha Assistive Persona (-10Hz Baritone · Smart Dosage/Currency Pacing)'

@@ -1,85 +1,152 @@
 {
-  "model_name": "songKHEM-VITS-Khmer-v2.0",
-  "architecture": "Phoneme-to-Mel Neural Projection + Harmonic Source-Filter Vocoder",
-  "trained_at": "2026-10-18 01:40:23",
-  "training_time_sec": 0.03,
-  "epochs": 50,
-  "phoneme_vocab_size": 106,
-  "initial_mel_l1_loss": 1.9444,
-  "final_mel_l1_loss": 0.5378,
-  "final_duration_mse": 0.02978,
-  "checkpoint_path": "C:\\Users\\Asus\\Desktop\\OCR-for-impaired-user\\khmer-tts-engine\\checkpoints\\songkhem_khmer_model.npz",
-  "checkpoint_size_kb": 45.7,
+  "model_name": "songKHEM-VITS-Khmer-v2.0 (PyTorch Fine-Tuned facebook/mms-tts-khm)",
+  "base_architecture": "VitsModel (Transformer Text Encoder + Normalizing Flows + HiFi-GAN Neural Vocoder)",
+  "framework": "PyTorch 2.14.1+cpu",
+  "total_parameters": 36291504,
+  "trainable_parameters": 9853504,
+  "dataset_utterances": 32,
+  "sampling_rate_hz": 16000,
+  "epochs": 12,
+  "total_gradient_steps": 384,
+  "training_time_sec": 977.21,
+  "initial_total_loss": 7.428,
+  "final_total_loss": 6.0225,
+  "initial_mel_l1_loss": 2.9456,
+  "final_mel_l1_loss": 2.3785,
+  "full_checkpoint_dir": "C:\\Users\\Asus\\Desktop\\OCR-for-impaired-user\\khmer-tts-engine\\checkpoints\\songkhem_vits_khmer_hf",
+  "full_checkpoint_size_mb": 138.53,
   "history": [
     {
       "epoch": 1,
-      "mel_l1_loss": 1.9444,
-      "duration_mse_loss": 0.04548,
-      "kl_loss": 0.2109,
-      "lr": 0.045
+      "stft_spectral_loss": 3.0096,
+      "mel_envelope_l1_loss": 2.9456,
+      "ewc_reg_loss": 2e-06,
+      "total_loss": 7.428,
+      "text_encoder_grad_norm": 8.5561,
+      "decoder_grad_norm": 33.5774,
+      "lr": 1.97e-05,
+      "epoch_time_sec": 74.26
+    },
+    {
+      "epoch": 2,
+      "stft_spectral_loss": 2.8496,
+      "mel_envelope_l1_loss": 2.7799,
+      "ewc_reg_loss": 7e-06,
+      "total_loss": 7.0196,
+      "text_encoder_grad_norm": 8.053,
+      "decoder_grad_norm": 35.5049,
+      "lr": 1.89e-05,
+      "epoch_time_sec": 78.33
+    },
+    {
+      "epoch": 3,
+      "stft_spectral_loss": 2.7546,
+      "mel_envelope_l1_loss": 2.6815,
+      "ewc_reg_loss": 1.2e-05,
+      "total_loss": 6.7772,
+      "text_encoder_grad_norm": 5.0088,
+      "decoder_grad_norm": 27.3056,
+      "lr": 1.77e-05,
+      "epoch_time_sec": 78.96
+    },
+    {
+      "epoch": 4,
+      "stft_spectral_loss": 2.6766,
+      "mel_envelope_l1_loss": 2.6034,
+      "ewc_reg_loss": 1.6e-05,
+      "total_loss": 6.5822,
+      "text_encoder_grad_norm": 4.9399,
+      "decoder_grad_norm": 38.8549,
+      "lr": 1.6e-05,
+      "epoch_time_sec": 79.49
+    },
+    {
+      "epoch": 5,
+      "stft_spectral_loss": 2.5961,
+      "mel_envelope_l1_loss": 2.5205,
+      "ewc_reg_loss": 2e-05,
+      "total_loss": 6.3773,
+      "text_encoder_grad_norm": 7.6787,
+      "decoder_grad_norm": 44.6409,
+      "lr": 1.41e-05,
+      "epoch_time_sec": 81.08
     },
     {
       "epoch": 6,
-      "mel_l1_loss": 1.7158,
-      "duration_mse_loss": 0.03772,
-      "kl_loss": 0.1713,
-      "lr": 0.045
+      "stft_spectral_loss": 2.6279,
+      "mel_envelope_l1_loss": 2.5544,
+      "ewc_reg_loss": 2.3e-05,
+      "total_loss": 6.4601,
+      "text_encoder_grad_norm": 5.9637,
+      "decoder_grad_norm": 52.6189,
+      "lr": 1.2e-05,
+      "epoch_time_sec": 78.12
+    },
+    {
+      "epoch": 7,
+      "stft_spectral_loss": 2.608,
+      "mel_envelope_l1_loss": 2.5363,
+      "ewc_reg_loss": 2.5e-05,
+      "total_loss": 6.4131,
+      "text_encoder_grad_norm": 5.0303,
+      "decoder_grad_norm": 33.3852,
+      "lr": 9.9e-06,
+      "epoch_time_sec": 76.6
+    },
+    {
+      "epoch": 8,
+      "stft_spectral_loss": 2.5616,
+      "mel_envelope_l1_loss": 2.4876,
+      "ewc_reg_loss": 2.7e-05,
+      "total_loss": 6.2937,
+      "text_encoder_grad_norm": 6.3802,
+      "decoder_grad_norm": 60.5107,
+      "lr": 8e-06,
+      "epoch_time_sec": 97.26
+    },
+    {
+      "epoch": 9,
+      "stft_spectral_loss": 2.5281,
+      "mel_envelope_l1_loss": 2.454,
+      "ewc_reg_loss": 2.9e-05,
+      "total_loss": 6.2098,
+      "text_encoder_grad_norm": 6.5946,
+      "decoder_grad_norm": 30.347,
+      "lr": 6.3e-06,
+      "epoch_time_sec": 91.16
+    },
+    {
+      "epoch": 10,
+      "stft_spectral_loss": 2.5237,
+      "mel_envelope_l1_loss": 2.4477,
+      "ewc_reg_loss": 3.1e-05,
+      "total_loss": 6.1961,
+      "text_encoder_grad_norm": 6.7275,
+      "decoder_grad_norm": 46.5663,
+      "lr": 5.1e-06,
+      "epoch_time_sec": 78.64
     },
     {
       "epoch": 11,
-      "mel_l1_loss": 1.4914,
-      "duration_mse_loss": 0.03434,
-      "kl_loss": 0.139,
-      "lr": 0.0369
+      "stft_spectral_loss": 2.4615,
+      "mel_envelope_l1_loss": 2.3871,
+      "ewc_reg_loss": 3.2e-05,
+      "total_loss": 6.0429,
+      "text_encoder_grad_norm": 6.346,
+      "decoder_grad_norm": 18.3513,
+      "lr": 4.3e-06,
+      "epoch_time_sec": 81.46
     },
     {
-      "epoch": 16,
-      "mel_l1_loss": 1.3129,
-      "duration_mse_loss": 0.0329,
-      "kl_loss": 0.1132,
-      "lr": 0.0369
-    },
-    {
-      "epoch": 21,
-      "mel_l1_loss": 1.1387,
-      "duration_mse_loss": 0.03197,
-      "kl_loss": 0.0921,
-      "lr": 0.03026
-    },
-    {
-      "epoch": 26,
-      "mel_l1_loss": 1.0025,
-      "duration_mse_loss": 0.0314,
-      "kl_loss": 0.0753,
-      "lr": 0.03026
-    },
-    {
-      "epoch": 31,
-      "mel_l1_loss": 0.8732,
-      "duration_mse_loss": 0.03092,
-      "kl_loss": 0.0614,
-      "lr": 0.02481
-    },
-    {
-      "epoch": 36,
-      "mel_l1_loss": 0.7714,
-      "duration_mse_loss": 0.03056,
-      "kl_loss": 0.0505,
-      "lr": 0.02481
-    },
-    {
-      "epoch": 41,
-      "mel_l1_loss": 0.6732,
-      "duration_mse_loss": 0.03023,
-      "kl_loss": 0.0414,
-      "lr": 0.02035
-    },
-    {
-      "epoch": 46,
-      "mel_l1_loss": 0.5967,
-      "duration_mse_loss": 0.02998,
-      "kl_loss": 0.0342,
-      "lr": 0.02035
+      "epoch": 12,
+      "stft_spectral_loss": 2.4539,
+      "mel_envelope_l1_loss": 2.3785,
+      "ewc_reg_loss": 3.3e-05,
+      "total_loss": 6.0225,
+      "text_encoder_grad_norm": 6.3642,
+      "decoder_grad_norm": 29.73,
+      "lr": 4e-06,
+      "epoch_time_sec": 78.6
     }
   ]
 }

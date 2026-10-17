@@ -131,6 +131,7 @@ class KhmerNeuralTTS:
                     text=pre_text,
                     out_wav_path=wav_path,
                     base_f0=f0_hz,
+                    speaking_rate=effective_rate,
                 )
             info = sf.info(str(wav_path))
             est_dur = float(info.duration)
