@@ -150,13 +150,30 @@ const parsedParagraphs = computed(() => {
   }).filter(Boolean)
 })
 
-// Auto-scroll active word/sentence into view smoothly
+// Respect user manual scrolling: never hijack window scroll, and pause internal container auto-scroll when user scrolls
+let userScrollPauseUntil = 0
+const notifyUserManualScroll = () => {
+  userScrollPauseUntil = Date.now() + 4500
+}
+
 watch(() => props.activeWordIndex, async (newIdx) => {
   if (newIdx === -1 || !readingContainerRef.value || isEditing.value) return
+  if (Date.now() < userScrollPauseUntil) return
   await nextTick()
-  const activeEl = readingContainerRef.value.querySelector('.token-active')
-  if (activeEl) {
-    activeEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+  const container = readingContainerRef.value
+  if (!container || container.scrollHeight <= container.clientHeight + 12) {
+    // Container expands naturally with the page — never hijack page/window scroll!
+    return
+  }
+  const activeEl = container.querySelector('.token-active')
+  if (!activeEl) return
+  const cRect = container.getBoundingClientRect()
+  const elRect = activeEl.getBoundingClientRect()
+  const topOffset = elRect.top - cRect.top
+  const bottomOffset = cRect.bottom - elRect.bottom
+  if (topOffset < 36 || bottomOffset < 36) {
+    const targetTop = container.scrollTop + topOffset - container.clientHeight * 0.35
+    container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
   }
 })
 
@@ -812,6 +829,8 @@ const speakVocabItem = (item) => {
         :style="{ fontSize: `${readingFontSize}rem` }"
         tabindex="0"
         aria-label="ផ្ទាំងអត្ថបទជាមួយការរំលេចពាក្យអាន"
+        @wheel.passive="notifyUserManualScroll"
+        @touchmove.passive="notifyUserManualScroll"
       >
         <div 
           v-for="para in parsedParagraphs" 
