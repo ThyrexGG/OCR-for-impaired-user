@@ -1,0 +1,707 @@
+/* ==========================================================================
+   songKHEM — Document Reader Screen Styles
+   Unified Design Tokens, 4-Point UI Grid, Minimalist Distraction-Free Layout
+   ========================================================================== */
+
+.reader-screen-viewport {
+  width: 100%;
+  height: 100dvh;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   1. Reader Top Bar (Back, Title, Settings)
+   ========================================================================== */
+.reader-top-bar {
+  flex-shrink: 0;
+  width: 100%;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--divider);
+  box-sizing: border-box;
+  z-index: 30;
+}
+
+.reader-icon-btn {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.reader-icon-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--color-accent);
+}
+
+.reader-icon-btn:active {
+  transform: scale(0.95);
+}
+
+.reader-icon-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.reader-top-title {
+  font-size: var(--font-size-md, 1.125rem);
+  line-height: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+/* ==========================================================================
+   2. Main Reading Canvas
+   ========================================================================== */
+.reader-main-canvas {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 32px 20px 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+
+.reader-text-container {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.reader-paragraph {
+  margin: 0;
+  font-size: var(--font-size-md, 1.125rem);
+  line-height: var(--leading-reading, 2.2);
+  color: var(--text-primary);
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.reader-word-token {
+  display: inline-block;
+  padding: 2px 4px;
+  border-radius: var(--radius-xs, 4px);
+  cursor: pointer;
+  transition: background-color var(--transition-fast, 0.15s ease), transform 0.1s ease;
+  user-select: text;
+}
+
+.reader-word-token:hover {
+  background: var(--color-accent-subtle);
+}
+
+.reader-word-token:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* Karaoke Word-by-Word Active Highlight (Yellow Box) */
+.reading-word-active {
+  background: #FEF08A !important; /* Soft energetic yellow */
+  color: #0F172A !important;
+  border-radius: var(--radius-xs, 4px);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] .reading-word-active,
+.theme-dark .reading-word-active {
+  background: #FDE047 !important;
+  color: #0F172A !important;
+}
+
+[data-theme="contrast"] .reading-word-active,
+.mode-contrast .reading-word-active {
+  background: #FFFF00 !important;
+  color: #000000 !important;
+  outline: 2px solid #000000;
+}
+
+/* Empty State */
+.reader-empty-sheet {
+  max-width: 440px;
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 16px;
+}
+
+.empty-icon-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--bg-surface-elevated);
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.empty-title {
+  font-size: var(--font-size-md, 1.125rem);
+  line-height: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.empty-subtitle {
+  font-size: var(--font-size-sm, 0.875rem);
+  line-height: 20px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.empty-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-reader-hero {
+  min-height: 40px;
+  padding: 8px 16px;
+  border-radius: var(--radius-button, 9999px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm, 0.875rem);
+  line-height: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.btn-hero-scan {
+  background: var(--color-accent);
+  color: var(--color-accent-text, #FFFFFF);
+  border: 1px solid var(--color-accent);
+  box-shadow: 0 4px 12px rgba(29, 78, 216, 0.25);
+}
+
+.btn-hero-scan:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-hero-upload {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+}
+
+.btn-hero-upload:hover {
+  background: var(--bg-surface-hover);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   3. Floating Action Feature (Hold Zoom & Pop-Out Physics)
+   ========================================================================== */
+.reader-actions-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  background: rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: readerBackdropFadeIn 0.25s ease forwards;
+}
+
+@keyframes readerBackdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.reader-speed-dial-anchor {
+  position: fixed;
+  bottom: 84px;
+  right: 20px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+
+/* Popped-out action pills container */
+.reader-action-pills-deck {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  pointer-events: none;
+  width: 56px;
+  height: 56px;
+}
+
+.reader-action-pills-deck.deck-visible {
+  pointer-events: auto;
+}
+
+.action-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  min-height: 40px;
+  background: var(--bg-surface-elevated);
+  border: 0px solid transparent;
+  border-radius: var(--radius-button, 9999px);
+  color: var(--color-accent);
+  font-size: var(--font-size-sm, 0.875rem);
+  line-height: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  white-space: nowrap;
+}
+
+.action-pill-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--color-accent-hover);
+  transform: scale(1.08) translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+.action-pill-btn:active {
+  transform: scale(0.96) !important;
+}
+
+.action-pill-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Positioning action pills relative to FAB center (Rest/retracted state) */
+.pill-summarize {
+  position: absolute;
+  bottom: 72px;
+  right: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(44px) scale(0.35);
+  transform-origin: center bottom;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease;
+}
+
+.pill-copy {
+  position: absolute;
+  bottom: 8px;
+  right: 74px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(46px, 0) scale(0.35);
+  transform-origin: right center;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.18s ease;
+}
+
+/* Silky-smooth spring pop-out animation (Brisk & continuous, no stutter) */
+.reader-action-pills-deck.deck-visible .pill-summarize {
+  pointer-events: auto;
+  opacity: 1;
+  animation: pillSmoothPopOutUp 0.32s cubic-bezier(0.34, 1.35, 0.64, 1) forwards !important;
+  transition: none !important;
+}
+
+.reader-action-pills-deck.deck-visible .pill-copy {
+  pointer-events: auto;
+  opacity: 1;
+  animation: pillSmoothPopOutLeft 0.35s cubic-bezier(0.34, 1.35, 0.64, 1) 0.03s forwards !important;
+  transition: none !important;
+}
+
+@keyframes pillSmoothPopOutUp {
+  0% {
+    opacity: 0;
+    transform: translateY(44px) scale(0.35);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pillSmoothPopOutLeft {
+  0% {
+    opacity: 0;
+    transform: translate(46px, 0) scale(0.35);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* Trigger FAB Button with Spring Zoom */
+.reader-fab-trigger {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(29, 78, 216, 0.35);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease,
+              background-color 0.25s ease;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.reader-fab-trigger:hover {
+  background: var(--color-accent-hover);
+  transform: scale(1.08);
+}
+
+/* Holding animation: smooth zoom in without progress bar */
+.reader-fab-trigger.fab-holding {
+  transform: scale(1.24) !important;
+  box-shadow: 0 12px 32px rgba(29, 78, 216, 0.55) !important;
+  background: var(--primary-pressed, #1E40AF) !important;
+  transition: transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease !important;
+}
+
+/* Clicked without holding: subtle shake hint to hold */
+.reader-fab-trigger.fab-hint {
+  animation: fabHintShake 0.36s cubic-bezier(0.36, 0.07, 0.19, 0.97) !important;
+}
+
+@keyframes fabHintShake {
+  0% { transform: scale(1); }
+  20% { transform: scale(0.92) rotate(-8deg); }
+  40% { transform: scale(1.08) rotate(8deg); }
+  60% { transform: scale(0.96) rotate(-4deg); }
+  80% { transform: scale(1.02) rotate(2deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.reader-fab-trigger.fab-active {
+  background: var(--color-accent-hover);
+  border-color: var(--navy, #0B1B4D);
+  transform: scale(1.1);
+  box-shadow: 0 8px 26px rgba(29, 78, 216, 0.5);
+}
+
+/* Signal Icon */
+.fab-signal-icon {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease;
+}
+
+.reader-fab-trigger:hover .fab-signal-icon {
+  transform: rotate(5deg) scale(1.05);
+}
+
+.reader-fab-trigger.fab-active .fab-signal-icon {
+  filter: brightness(0) invert(1);
+  transform: rotate(10deg);
+}
+
+/* ==========================================================================
+   4. Bottom Audio Playback Bar
+   ========================================================================== */
+.reader-bottom-player-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  background: var(--bg-surface);
+  border-top: 1px solid var(--divider);
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.04);
+}
+
+.player-controls-cluster {
+  max-width: 440px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.player-round-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  border: none;
+}
+
+.btn-rewind,
+.btn-forward {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  background: var(--bg-surface-elevated);
+  color: var(--color-accent);
+}
+
+.btn-rewind:hover,
+.btn-forward:hover {
+  background: var(--bg-surface-hover);
+  color: var(--color-accent-hover);
+  transform: scale(1.06);
+}
+
+.btn-rewind:active,
+.btn-forward:active {
+  transform: scale(0.94);
+}
+
+.btn-rewind:focus-visible,
+.btn-forward:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Large Vibrant Orange Play Button (Dedicated high-visibility contrast) */
+.btn-hero-play {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
+  background: #EA580C; /* Vibrant Orange for high visual salience */
+  color: #FFFFFF;
+  box-shadow: 0 4px 16px rgba(234, 88, 12, 0.38);
+}
+
+.btn-hero-play:hover {
+  background: #C2410C;
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.48);
+}
+
+.btn-hero-play:active {
+  transform: scale(0.95);
+}
+
+.btn-hero-play:focus-visible {
+  outline: 3px solid #EA580C;
+  outline-offset: 3px;
+}
+
+.btn-hero-play.is-playing {
+  background: #D97706; /* Amber-orange when active */
+}
+
+.play-icon-offset {
+  margin-left: 3px;
+}
+
+/* ==========================================================================
+   5. Summary Modal Dialog
+   ========================================================================== */
+.reader-summary-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.reader-summary-card {
+  width: 100%;
+  max-width: 448px;
+  max-height: 80vh;
+  background: var(--bg-surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card, 16px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.summary-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.summary-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary-icon-gem {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--bg-surface-elevated);
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.summary-header-title {
+  font-size: var(--font-size-base, 1rem);
+  line-height: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.summary-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.summary-close-btn:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.summary-card-body {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.summary-points-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summary-point-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.point-bullet-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  margin-top: 8px;
+  flex-shrink: 0;
+}
+
+.point-text {
+  font-size: var(--font-size-sm, 0.875rem);
+  line-height: 20px;
+  color: var(--text-primary);
+}
+
+.summary-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--divider);
+  background: var(--bg-surface);
+}
+
+.btn-summary-action {
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: var(--radius-button, 9999px);
+  font-size: var(--font-size-xs, 0.75rem);
+  line-height: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all var(--transition-fast, 0.15s ease);
+}
+
+.btn-summary-listen {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--divider);
+  color: var(--color-accent);
+}
+
+.btn-summary-listen:hover {
+  background: var(--bg-surface-hover);
+}
+
+.btn-summary-done {
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  color: var(--color-accent-text, #FFFFFF);
+}
+
+.btn-summary-done:hover {
+  background: var(--color-accent-hover);
+}
