@@ -150,19 +150,19 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
 }
 
 .help-modal-card {
   width: 100%;
-  max-width: 580px;
+  max-width: 448px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   background: var(--bg-surface);
-  border: 2px solid var(--border-medium);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.1);
   overflow: hidden;
 }
 
@@ -170,8 +170,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 22px;
-  border-bottom: 2px solid var(--border-subtle);
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .help-title-group {
@@ -181,9 +181,9 @@ onBeforeUnmount(() => {
 }
 
 .help-icon-box {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-sm);
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -192,20 +192,23 @@ onBeforeUnmount(() => {
 }
 
 .help-title {
-  font-size: 1.2rem;
+  font-size: 1rem;
+  line-height: 24px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .help-close-btn {
-  min-width: 44px;
-  min-height: 44px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1.5px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -217,38 +220,41 @@ onBeforeUnmount(() => {
 }
 
 .help-steps-body {
-  padding: 20px 22px;
+  padding: 16px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .steps-ordered-list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
 }
 
 .step-item {
   display: flex;
   align-items: flex-start;
-  gap: 14px;
-  padding: 10px 12px;
+  gap: 12px;
+  padding: 8px 12px;
   background: var(--bg-surface);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
 }
 
 .step-num-badge {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   background: var(--color-accent);
   color: var(--color-accent-text);
   font-weight: 800;
-  font-size: 1rem;
+  font-size: 0.75rem;
+  line-height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -262,23 +268,25 @@ onBeforeUnmount(() => {
 }
 
 .step-heading {
-  font-size: 1rem;
+  font-size: 0.875rem;
+  line-height: 20px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .step-desc {
-  font-size: 0.88rem;
+  font-size: 0.75rem;
+  line-height: 16px;
   color: var(--text-secondary);
-  line-height: 1.55;
 }
 
 .help-shortcuts-tip {
-  padding: 12px 16px;
+  padding: 8px 12px;
   background: var(--color-accent-subtle);
-  border: 1.5px solid var(--border-medium);
-  border-radius: var(--radius-md);
-  font-size: 0.9rem;
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  line-height: 16px;
   color: var(--color-brand-light);
   display: flex;
   flex-direction: column;
@@ -292,7 +300,7 @@ onBeforeUnmount(() => {
 .tip-desc kbd {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-medium);
-  border-radius: var(--radius-xs);
+  border-radius: 4px;
   padding: 2px 6px;
   font-family: monospace;
   font-weight: 700;
@@ -300,73 +308,82 @@ onBeforeUnmount(() => {
 }
 
 .help-footer {
-  padding: 14px 22px;
-  border-top: 1.5px solid var(--border-subtle);
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   justify-content: flex-end;
 }
 
 .btn-got-it {
-  min-width: 140px;
+  min-height: 40px;
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  line-height: 20px;
+  border-radius: 9999px;
 }
 
 @media (max-width: 640px) {
   .help-modal-backdrop {
-    padding: 16px;
+    padding: 12px;
     align-items: center;
   }
 
   .help-modal-card {
     max-height: 90vh;
-    border-radius: var(--radius-xl);
+    border-radius: 16px;
   }
 
   .help-header {
-    padding: 18px 20px;
+    padding: 12px 16px;
   }
 
   .help-icon-box {
-    width: 38px;
-    height: 38px;
+    width: 32px;
+    height: 32px;
   }
 
   .help-title {
-    font-size: 1.2rem;
+    font-size: 0.875rem;
+    line-height: 20px;
   }
 
   .help-steps-body {
-    padding: 20px;
-    gap: 16px;
+    padding: 12px;
+    gap: 8px;
   }
 
   .step-item {
-    padding: 12px 14px;
-    gap: 14px;
-    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    gap: 8px;
+    border-radius: 8px;
   }
 
   .step-num-badge {
-    width: 32px;
-    height: 32px;
-    font-size: 0.95rem;
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+    line-height: 16px;
   }
 
   .step-heading {
-    font-size: 1.05rem;
+    font-size: 0.875rem;
+    line-height: 20px;
   }
 
   .step-desc {
-    font-size: 0.92rem;
+    font-size: 0.75rem;
+    line-height: 16px;
   }
 
   .help-footer {
-    padding: 16px 20px;
+    padding: 12px 16px;
   }
 
   .btn-got-it {
     width: 100%;
-    min-height: 52px;
-    font-size: 1.05rem;
+    min-height: 40px;
+    font-size: 0.875rem;
+    line-height: 20px;
   }
 }
 </style>

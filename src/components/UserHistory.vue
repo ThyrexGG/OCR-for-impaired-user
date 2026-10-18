@@ -1,6 +1,6 @@
 <script setup>
 import { inject } from 'vue'
-import { History, BookOpen, Play, Trash2, Clock, Check, Zap, ArrowRight, Share2, Edit2 } from 'lucide-vue-next'
+import { History, BookOpen, Play, Trash2, Clock, Check, Zap, ArrowRight, Share2, Edit2, Upload, Camera } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 
 const props = defineProps({
@@ -10,10 +10,22 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['load-item', 'quick-play', 'delete-item', 'clear-history'])
+const emit = defineEmits(['load-item', 'quick-play', 'delete-item', 'clear-history', 'switch-mode'])
 
 const speakAccessibility = inject('speakAccessibility', () => {})
 const triggerHaptic = inject('triggerHaptic', () => {})
+
+const handleNavigateUpload = () => {
+  triggerHaptic(40)
+  speakAccessibility(currentLang.value === 'km' ? 'ចូលទៅកាន់ផ្ទាំងផ្ទុកឡើងឯកសារ' : 'Go to upload document')
+  emit('switch-mode', 'upload')
+}
+
+const handleNavigateScan = () => {
+  triggerHaptic(40)
+  speakAccessibility(currentLang.value === 'km' ? 'ចូលទៅកាន់ផ្ទាំងស្កេនកាមេរ៉ា' : 'Go to camera scanner')
+  emit('switch-mode', 'scan')
+}
 
 const handleOpenInReader = (item) => {
   triggerHaptic(40)
@@ -77,9 +89,14 @@ const estimateDuration = (wordsCount) => {
 </script>
 
 <template>
-  <div class="recent-reads-shelf glass-card" role="region" :aria-label="t('recentReadsTitle')">
-    <!-- Shelf Header -->
-    <div class="shelf-header">
+  <div 
+    class="recent-reads-shelf" 
+    :class="{ 'is-empty-state': history.length === 0 }"
+    role="region" 
+    :aria-label="t('recentReadsTitle')"
+  >
+    <!-- Shelf Header: ONLY shown when history has items (Clean state per user request) -->
+    <div v-if="history.length > 0" class="shelf-header">
       <div class="header-left">
         <div class="shelf-icon-circle bg-brand">
           <History :size="20" />
@@ -90,7 +107,7 @@ const estimateDuration = (wordsCount) => {
         </div>
       </div>
 
-      <div class="header-right" v-if="history.length > 0">
+      <div class="header-right">
         <button 
           type="button" 
           class="btn-clear-shelf khmer-font"
@@ -104,19 +121,36 @@ const estimateDuration = (wordsCount) => {
       </div>
     </div>
 
-    <!-- Shelf Content -->
-    <div class="shelf-body">
-      <!-- Empty State -->
-      <div v-if="history.length === 0" class="shelf-empty">
-        <Clock :size="44" class="text-accent" />
+    <!-- Empty State: Centered in the middle with actionable Next Steps (Upload Document button) -->
+    <div v-if="history.length === 0" class="shelf-empty-state">
+      <div class="empty-state-card tactile-dropzone">
+        <div class="empty-icon-circle">
+          <Clock :size="36" />
+        </div>
         <h3 class="empty-title khmer-font">{{ t('historyEmptyHeading') }}</h3>
         <p class="empty-desc khmer-font">
           {{ t('historyEmptySub') }}
         </p>
-      </div>
 
+        <!-- What to do next: Action button -->
+        <div class="empty-actions-row">
+          <button 
+            type="button" 
+            class="btn-choose-file btn-empty-upload khmer-font"
+            @click="handleNavigateUpload"
+            :aria-label="t('chooseFileBtn')"
+          >
+            <Upload :size="20" />
+            <span>{{ t('chooseFileBtn') }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shelf Content: Shown when history has items -->
+    <div v-else class="shelf-body">
       <!-- Recent Reads Accessible List -->
-      <div v-else class="reads-cards-list">
+      <div class="reads-cards-list">
         <ul class="history-accessible-list" role="list">
           <li 
             v-for="item in history" 
