@@ -1,7 +1,12 @@
 import Tesseract from 'tesseract.js'
 import * as pdfjsLib from 'pdfjs-dist'
 import { CLOUD_API_AVAILABLE, cloudOcr } from './cloudApi'
-import { preprocessImageForKhmerOcr, postProcessKhmerOcr } from './khmerOcrCorrector'
+import {
+  preprocessImageForKhmerOcr,
+  postProcessKhmerOcr,
+  extractCleanTextFromVisionAnnotation,
+  extractCleanTextFromTesseract,
+} from './khmerOcrCorrector'
 
 // Configure PDF.js worker for client-side PDF rendering
 if (typeof window !== 'undefined' && 'Worker' in window) {
@@ -78,7 +83,7 @@ export const detectTextTesseract = async (fileOrBlob, onProgress) => {
       }
     )
 
-    const rawText = result?.data?.text ? result.data.text.trim() : ''
+    const rawText = extractCleanTextFromTesseract(result?.data)
     const text = postProcessKhmerOcr(rawText)
     if (!text || text.length === 0) {
       throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងរូបភាពនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected by OCR. Try better lighting or hold the camera closer.)')
@@ -221,7 +226,7 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
     }
 
     const data = await response.json()
-    const rawFullText = data.responses?.[0]?.fullTextAnnotation?.text || ''
+    const rawFullText = extractCleanTextFromVisionAnnotation(data.responses?.[0]?.fullTextAnnotation)
     const fullText = postProcessKhmerOcr(rawFullText)
 
     if (!fullText || !fullText.trim()) {

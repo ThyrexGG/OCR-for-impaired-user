@@ -118,7 +118,203 @@ export function repairKhmerNumbersAndPrices(text) {
 }
 
 /**
- * Master Post-OCR Khmer Orthographic, Numeric, and Lexical Repair Pipeline.
+ * Strips OCR garbage absorbed from document logos, circular seals/stamps, emblems,
+ * decorative borders, QR/barcodes, and background clutter before/around the real text.
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripLogoAndGraphicNoise(text) {
+  if (!text || typeof text !== 'string') return ''
+
+  const rawLines = text.split(/\r?\n/)
+  const cleanedLines = []
+  let foundRealContext = false
+
+  for (let rawLine of rawLines) {
+    let line = rawLine.trim()
+    if (!line) {
+      if (foundRealContext) cleanedLines.push('')
+      continue
+    }
+
+    // Preserve explicit markdown divider
+    if (line === '---') {
+      if (foundRealContext) cleanedLines.push('---')
+      continue
+    }
+
+    // Strip leading/trailing decorative border or logo punctuation clutter from the line
+    line = line
+      .replace(/^[\s~@#$%^&*_|\\/<>+=•▪▫◊○●□■©®™«»‹›:;.,!?()-]+/, '')
+      .replace(/[\s~@#$%^&*_|\\/<>+=•▪▫◊○●□■©®™]+$/, '')
+      .trim()
+
+    if (!line) continue
+
+    // If a Khmer line has a short 1-2 char ASCII logo artifact prefix (e.g. "O l | មន្ទីរពេទ្យ"), strip the prefix
+    line = line.replace(/^(?:[A-Za-z0-9|lIoO*()]{1,2}\s+){1,4}(?=[ក-អឥ-ឱ]{2,})/u, '').trim()
+
+    const khmerLetters = (line.match(/[ក-អឥ-ឱ]/g) || []).length
+    const latinLetters = (line.match(/[A-Za-z]/g) || []).length
+    const digits = (line.match(/[០-៩\d]/g) || []).length
+    const totalLetters = khmerLetters + latinLetters
+    const noiseSymbols = (line.match(/[~@#$%^&*_|\\/<>+=•▪▫◊○●□■©®™§¶†‡]/g) || []).length
+
+    // 1. Pure symbol/punctuation line with no letters or digits
+    if (totalLetters + digits === 0) continue
+
+    // 2. High symbol-noise density (e.g. logo ASCII soup)
+    if (noiseSymbols >= 2 && noiseSymbols / Math.max(1, line.length) > 0.28) continue
+
+    // 3. Disconnected single-character soup from circular seals/stamps (e.g. "S P H 1 o" or "ក ា រ ១ c")
+    const tokens = line.split(/\s+/).filter(Boolean)
+    if (tokens.length >= 2) {
+      const multiLetterTokens = tokens.filter((tok) => {
+        const kCount = (tok.match(/[ក-អឥ-ឱ]/g) || []).length
+        const lCount = (tok.match(/[A-Za-z]/g) || []).length
+        const dCount = (tok.match(/[០-៩\d]/g) || []).length
+        return kCount >= 2 || lCount >= 2 || dCount >= 2
+      })
+      if (multiLetterTokens.length === 0) {
+        continue
+      }
+    }
+
+    // 4. Before real document context starts, aggressively drop tiny 1-3 character logo/emblem fragments
+    //    (e.g. "TM", "LOGO", "A1", "កខ", "100%", stray emblem initials) unless it's a numbered list item
+    if (!foundRealContext) {
+      const isNumberedItem = /^[១-៩\d]{1,2}[.)]\s*\S/.test(line)
+      const hasSubstantialKhmer = khmerLetters >= 3
+      const hasSubstantialEnglish = latinLetters >= 5 && tokens.some((t) => /^[A-Za-z]{3,}$/.test(t))
+      if (!isNumberedItem && !hasSubstantialKhmer && !hasSubstantialEnglish) {
+        continue
+      }
+      foundRealContext = true
+    }
+
+    cleanedLines.push(line)
+  }
+
+  // Fallback: if everything was tiny (e.g. user scanned a single 2-letter word on a flashcard), keep non-symbol lines
+  if (cleanedLines.length === 0) {
+    return rawLines
+      .map((l) => l.trim())
+      .filter((l) => /[ក-អឥ-ឱA-Za-z០-៩\d]/.test(l))
+      .join('\n')
+  }
+
+  return cleanedLines.join('\n')
+}
+
+/**
+ * Extracts clean document text from Google Cloud Vision `fullTextAnnotation`
+ * by filtering out non-text blocks (PICTURE, BARCODE, RULER), low-confidence logo
+ * hallucinations, and steeply tilted/curved words inside circular seals/stamps.
+ *
+ * @param {Object} fullTextAnnotation
+ * @returns {string}
+ */
+export function extractCleanTextFromVisionAnnotation(fullTextAnnotation) {
+  if (!fullTextAnnotation) return ''
+  const pages = fullTextAnnotation.pages
+  if (!Array.isArray(pages) || pages.length === 0) {
+    return fullTextAnnotation.text || ''
+  }
+
+  const outLines = []
+
+  for (const page of pages) {
+    const blocks = page?.blocks || []
+    for (const block of blocks) {
+      // Skip non-text graphical blocks (logos, barcodes, rulers, pictures)
+      if (block.blockType && block.blockType !== 'TEXT' && block.blockType !== 'TABLE') {
+        continue
+      }
+      // Skip low-confidence blocks hallucinated from logos/stamps
+      if (typeof block.confidence === 'number' && block.confidence > 0 && block.confidence < 0.52) {
+        continue
+      }
+
+      for (const para of block.paragraphs || []) {
+        if (typeof para.confidence === 'number' && para.confidence > 0 && para.confidence < 0.48) {
+          continue
+        }
+
+        let currentLine = ''
+        for (const word of para.words || []) {
+          // Check word baseline orientation: curved text inside circular logos/seals is steeply angled
+          const verts = word.boundingBox?.vertices || word.boundingBox?.normalizedVertices
+          if (Array.isArray(verts) && verts.length >= 2 && verts[0] && verts[1]) {
+            const dx = Math.abs((verts[1].x || 0) - (verts[0].x || 0))
+            const dy = Math.abs((verts[1].y || 0) - (verts[0].y || 0))
+            if (dx + dy > 0 && dy > dx * 0.85) {
+              // Word is tilted > ~40 degrees (curved seal text or vertical edge serial number)
+              continue
+            }
+          }
+
+          let wordStr = ''
+          let lastBreak = null
+          for (const sym of word.symbols || []) {
+            wordStr += sym.text || ''
+            const brk = sym.property?.detectedBreak?.type
+            if (brk) lastBreak = brk
+          }
+
+          if (typeof word.confidence === 'number' && word.confidence > 0 && word.confidence < 0.45 && wordStr.length <= 2) {
+            continue
+          }
+
+          currentLine += wordStr
+          if (lastBreak === 'SPACE' || lastBreak === 'SURE_SPACE') {
+            currentLine += ' '
+          } else if (lastBreak === 'EOL_SURE_SPACE' || lastBreak === 'LINE_BREAK') {
+            if (currentLine.trim()) outLines.push(currentLine.trim())
+            currentLine = ''
+          } else if (lastBreak === 'HYPHEN') {
+            currentLine += '-'
+          }
+        }
+        if (currentLine.trim()) {
+          outLines.push(currentLine.trim())
+        }
+      }
+    }
+  }
+
+  const assembled = outLines.join('\n').trim()
+  return assembled.length > 0 ? assembled : (fullTextAnnotation.text || '')
+}
+
+/**
+ * Filters Tesseract.js recognition output to discard low-confidence lines
+ * generated by logos, stamps, and background textures.
+ * @param {Object} tesseractData - `result.data` from Tesseract.recognize
+ * @returns {string}
+ */
+export function extractCleanTextFromTesseract(tesseractData) {
+  if (!tesseractData) return ''
+  if (Array.isArray(tesseractData.lines) && tesseractData.lines.length > 0) {
+    const validLines = tesseractData.lines
+      .filter((line) => {
+        const conf = typeof line.confidence === 'number' ? line.confidence : 100
+        const txt = (line.text || '').trim()
+        if (!txt) return false
+        // Drop low-confidence graphic/logo hallucinations (< 44% confidence)
+        if (conf < 44) return false
+        return true
+      })
+      .map((line) => line.text.trim())
+
+    if (validLines.length > 0) {
+      return validLines.join('\n')
+    }
+  }
+  return (tesseractData.text || '').trim()
+}
+
+/**
+ * Master Post-OCR Khmer Orthographic, Numeric, Lexical & Logo-Noise Repair Pipeline.
  * @param {string} rawOcrText
  * @returns {string}
  */
@@ -128,15 +324,18 @@ export function postProcessKhmerOcr(rawOcrText) {
   // Stage A: Repair Khmer Unicode syllable cluster order & split vowels
   let s = repairKhmerUnicodeClusters(rawOcrText)
 
-  // Stage B: Repair numbers, prices, and currency formatting
+  // Stage B: Strip logo, circular seal, border, and graphic noise lines before/around real context
+  s = stripLogoAndGraphicNoise(s)
+
+  // Stage C: Repair numbers, prices, and currency formatting
   s = repairKhmerNumbersAndPrices(s)
 
-  // Stage C: Apply Cambodian medical, pharmacy, receipt & administrative vocabulary corrections
+  // Stage D: Apply Cambodian medical, pharmacy, receipt & administrative vocabulary corrections
   for (const [pattern, replacement] of KHMER_OCR_PHRASE_CORRECTIONS) {
     s = s.replace(pattern, replacement)
   }
 
-  // Stage D: Clean up excessive horizontal spaces on each line while preserving line breaks (\n)
+  // Stage E: Clean up excessive horizontal spaces on each line while preserving line breaks (\n)
   s = s
     .split(/\r?\n/)
     .map((line) => line.replace(/[ \t]{2,}/g, ' ').trim())
@@ -148,9 +347,49 @@ export function postProcessKhmerOcr(rawOcrText) {
 }
 
 /**
+ * Crops an image File/Blob to a normalized bounding box `{ top, bottom, left, right }` (0..1).
+ * Used both for exact WYSIWYG camera border cropping and for skipping top document logos.
+ *
+ * @param {File|Blob} fileOrBlob
+ * @param {{ top?: number, bottom?: number, left?: number, right?: number }} cropBox
+ * @returns {Promise<File>}
+ */
+export async function cropImageToRegion(fileOrBlob, cropBox = {}) {
+  const top = Math.max(0, Math.min(0.85, cropBox.top ?? 0))
+  const bottom = Math.max(top + 0.1, Math.min(1, cropBox.bottom ?? 1))
+  const left = Math.max(0, Math.min(0.85, cropBox.left ?? 0))
+  const right = Math.max(left + 0.1, Math.min(1, cropBox.right ?? 1))
+
+  if (top === 0 && bottom === 1 && left === 0 && right === 1) {
+    return fileOrBlob
+  }
+  if (typeof window === 'undefined' || typeof createImageBitmap !== 'function') {
+    return fileOrBlob
+  }
+
+  const bitmap = await createImageBitmap(fileOrBlob)
+  const sx = Math.round(bitmap.width * left)
+  const sy = Math.round(bitmap.height * top)
+  const sw = Math.max(1, Math.round(bitmap.width * (right - left)))
+  const sh = Math.max(1, Math.round(bitmap.height * (bottom - top)))
+
+  const canvas = document.createElement('canvas')
+  canvas.width = sw
+  canvas.height = sh
+  const ctx = canvas.getContext('2d')
+  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, sw, sh)
+  bitmap.close()
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.95))
+  if (!blob) return fileOrBlob
+  const origName = fileOrBlob.name ? fileOrBlob.name.replace(/\.[^.]+$/, '') : 'document'
+  return new File([blob], `${origName}_cropped.jpg`, { type: 'image/jpeg' })
+}
+
+/**
  * Pre-OCR Canvas Vision Enhancer for Khmer Script:
  * - Upscales small images (<1500px wide) by up to 2x so tiny Khmer Coeng subscripts and top vowels are crisp.
- * - Applies 2nd–98th percentile luminance contrast stretching to remove phone camera shadows.
+ * - Applies 2nd–96th percentile luminance contrast stretching to remove phone camera shadows.
  * - Applies a subtle 3x3 Unsharp Mask edge-sharpening pass to boost Khmer stroke definition.
  *
  * @param {File|Blob} fileOrBlob
