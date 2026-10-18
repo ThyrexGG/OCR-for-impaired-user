@@ -122,11 +122,10 @@ onMounted(() => {
       if (isSettingsOpen.value) closeSettings()
       else openSettings()
     }
-    // Alt + 1, 2, 3, 4: Quick Mode Switch
+    // Alt + 1, 2, 3: Quick Mode Switch
     if (e.altKey && e.key === '1') { e.preventDefault(); setMode('scan') }
     if (e.altKey && e.key === '2') { e.preventDefault(); setMode('upload') }
-    if (e.altKey && e.key === '3') { e.preventDefault(); setMode('reader') }
-    if (e.altKey && e.key === '4') { e.preventDefault(); setMode('recent') }
+    if (e.altKey && e.key === '3') { e.preventDefault(); setMode('recent') }
     // Escape closes modal
     if (e.key === 'Escape' && isSettingsOpen.value) {
       closeSettings()
@@ -156,13 +155,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="web-app-wrapper notranslate" translate="no" :class="[`theme-${currentTheme}`, { 'mode-contrast': currentTheme === 'contrast', 'no-bottom-nav': isLoginScreen }]">
+  <div class="web-app-wrapper notranslate" translate="no" :class="[`theme-${currentTheme}`, { 'mode-contrast': currentTheme === 'contrast', 'no-bottom-nav': isLoginScreen, 'is-reader-mode': activeMode === 'reader' }]">
     <!-- Skip to Content for Screen Readers & Keyboard Navigation -->
     <a href="#main-content" class="skip-to-content khmer-font">{{ t('skipToContent') }}</a>
 
-    <!-- Top Accessible Header (Clean, Permanent, Tactile Accessible Navigation) -->
+    <!-- Top Accessible Header (Hidden in dedicated Reader screen) -->
     <header 
-      v-if="!isLoginScreen" 
+      v-if="!isLoginScreen && activeMode !== 'reader'" 
       class="assistive-header" 
       role="banner" 
       :aria-label="t('appName')"
@@ -242,8 +241,8 @@ onMounted(() => {
       <router-view />
     </main>
 
-    <!-- Tactile Accessible Bottom Navigation Bar (SURFACES.md: Tonal fill + bold + 3px indicator + aria-current) -->
-    <nav v-if="!isLoginScreen" class="bottom-nav-bar" :aria-label="t('navScan')">
+    <!-- Tactile Accessible Bottom Navigation Bar (Hidden in dedicated Reader screen) -->
+    <nav v-if="!isLoginScreen && activeMode !== 'reader'" class="bottom-nav-bar" :aria-label="t('navScan')">
       <div class="nav-bar-inner">
         <!-- Mode 1: Camera -->
         <button
@@ -277,23 +276,7 @@ onMounted(() => {
           <span class="tab-label khmer-font">{{ t('navUpload') }}</span>
         </button>
 
-        <!-- Mode 3: Document Reader -->
-        <button
-          type="button"
-          class="nav-tab-btn"
-          :class="{ 'tab-active': activeMode === 'reader' }"
-          @click="setMode('reader')"
-          :aria-label="t('navReaderAria')"
-          :aria-current="activeMode === 'reader' ? 'page' : undefined"
-        >
-          <span v-if="activeMode === 'reader'" class="nav-indicator-bar" aria-hidden="true"></span>
-          <div class="tab-icon-wrap">
-            <BookOpen :size="24" />
-          </div>
-          <span class="tab-label khmer-font">{{ t('navReader') }}</span>
-        </button>
-
-        <!-- Mode 4: Recent Reads -->
+        <!-- Mode 3: Recent Reads / History -->
         <button
           type="button"
           class="nav-tab-btn"
