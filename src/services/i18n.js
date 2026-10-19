@@ -11,7 +11,7 @@ if (typeof window !== 'undefined') {
 export const translations = {
   km: {
     // Header & Global
-    appName: 'songKHEM',
+    appName: 'SongKhem',
     brandSub: 'ជំនួយការអានឯកសារ',
     spokenStatusReady: 'ជំនួយការត្រៀមរួចជាស្រេច',
     skipToContent: 'រំលងទៅមាតិកាចម្បង',
