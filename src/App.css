@@ -381,19 +381,23 @@
 }
 
 .nav-tab-btn.tab-active {
-  color: var(--primary, #1D4ED8);
+  color: var(--on-surface, #0F172A);
   background: transparent;
   border: none;
 }
 
 .nav-tab-btn.tab-active .tab-icon-wrap {
-  background: rgba(29, 78, 216, 0.12);
-  color: var(--primary, #1D4ED8);
+  background: rgba(15, 23, 42, 0.08);
+  color: var(--on-surface, #0F172A);
+}
+
+[data-theme="dark"] .nav-tab-btn.tab-active {
+  color: #FFFFFF;
 }
 
 [data-theme="dark"] .nav-tab-btn.tab-active .tab-icon-wrap {
-  background: rgba(147, 197, 253, 0.16);
-  color: #93C5FD;
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
 }
 
 [data-theme="contrast"] .nav-tab-btn.tab-active .tab-icon-wrap {

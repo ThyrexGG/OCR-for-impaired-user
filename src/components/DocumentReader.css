@@ -162,12 +162,18 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: var(--bg-surface-elevated);
-  color: var(--color-accent);
+  background: var(--bg-surface-elevated, #F1F5F9);
+  color: var(--text-primary, #0F172A);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 8px;
+}
+
+[data-theme="dark"] .empty-icon-circle,
+.theme-dark .empty-icon-circle {
+  background: #1E293B;
+  color: #FFFFFF;
 }
 
 .empty-title {

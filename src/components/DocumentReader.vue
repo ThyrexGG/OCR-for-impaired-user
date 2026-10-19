@@ -547,9 +547,6 @@ onBeforeUnmount(() => {
 
       <!-- Empty State: Scan or Upload Prompt -->
       <div v-else class="reader-empty-sheet khmer-font">
-        <div class="empty-icon-circle">
-          <BookOpen :size="36" />
-        </div>
         <h2 class="empty-title">
           {{ currentLang === 'km' ? 'មិនទាន់មានឯកសារអានទេ' : 'No document loaded' }}
         </h2>

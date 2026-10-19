@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, inject } from 'vue'
-import { BookOpen, Trash2, Clock, Upload } from 'lucide-vue-next'
+import { BookOpen, Trash2, Upload } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 
 const props = defineProps({
@@ -74,12 +74,9 @@ const estimateDuration = (wordsCount) => {
     role="region" 
     :aria-label="t('recentReadsTitle')"
   >
-    <!-- Empty State: Centered in the middle with actionable Next Steps (Upload Document button) -->
+    <!-- Empty State: Seamlessly centered on page background without enclosing card -->
     <div v-if="validHistory.length === 0" class="shelf-empty-state">
-      <div class="empty-state-card tactile-dropzone">
-        <div class="empty-icon-circle">
-          <Clock :size="36" />
-        </div>
+      <div class="empty-state-card">
         <h3 class="empty-title khmer-font">{{ t('historyEmptyHeading') }}</h3>
         <p class="empty-desc khmer-font">
           {{ t('historyEmptySub') }}

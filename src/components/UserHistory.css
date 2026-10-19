@@ -17,7 +17,7 @@
   min-height: 0;
 }
 
-/* Empty State: Centers the action card directly in the middle of the available space */
+/* Empty State: Content blends seamlessly directly into the page background with no box */
 .recent-reads-shelf.is-empty-state {
   display: flex;
   flex-direction: column;
@@ -26,6 +26,9 @@
   padding: 24px 16px;
   height: 100%;
   min-height: 100%;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .shelf-empty-state {
@@ -34,25 +37,24 @@
   align-items: center;
   justify-content: center;
   width: 100%;
+  max-width: 440px;
   margin: auto;
+  text-align: center;
 }
 
 .shelf-empty-state .empty-state-card {
   margin: auto;
   width: 100%;
-  max-width: 440px;
-  padding: 40px 24px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 14px;
-  background: var(--bg, #F8FAFC);
-  border-radius: var(--radius-card);
+  gap: 16px;
+  background: transparent;
   border: none;
-  box-shadow: 0 14px 34px -4px rgba(15, 23, 42, 0.08), 0 4px 14px -2px rgba(15, 23, 42, 0.04);
-  transition: all var(--transition-fast);
+  box-shadow: none;
 }
 
 .empty-icon-circle {
@@ -62,16 +64,22 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-2);
-  color: var(--primary);
+  background: var(--bg-surface-elevated, #F1F5F9);
+  color: var(--text-primary, #0F172A);
   margin-bottom: 2px;
 }
 
+[data-theme="dark"] .empty-icon-circle,
+.theme-dark .empty-icon-circle {
+  background: #1E293B;
+  color: #FFFFFF;
+}
+
 .empty-title {
-  font-size: 1.0625rem;
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--on-surface);
-  line-height: 24px;
+  line-height: 28px;
   margin: 0;
 }
 
