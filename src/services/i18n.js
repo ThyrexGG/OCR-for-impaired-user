@@ -32,7 +32,7 @@ export const translations = {
     navHistoryAria: 'ម៉ូដប្រវត្តិអាន Alt+4',
 
     // Welcome Screen
-    welcomeTitle: 'songKHEM',
+    welcomeTitle: 'SongKhem',
     welcomeSub: 'ជំនួយការមើលឃើញ និងអានឯកសារជាសំឡេង',
     featureInstant: 'ស្កេន និងអានជាសំឡេងភ្លាមៗ',
     featureKaraoke: 'រំលេចពាក្យពេលកំពុងអាន',
@@ -240,7 +240,7 @@ export const translations = {
   },
   en: {
     // Header & Global
-    appName: 'songKHEM',
+    appName: 'SongKhem',
     brandSub: 'Assistive Document Reader',
     spokenStatusReady: 'Assistant is ready',
     skipToContent: 'Skip to main content',
