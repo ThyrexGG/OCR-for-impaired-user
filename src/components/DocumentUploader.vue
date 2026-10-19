@@ -176,13 +176,6 @@ const processFile = (file) => {
     return
   }
 
-  selectedFile.value = file
-  if (isPdf) {
-    previewUrl.value = 'pdf'
-  } else {
-    previewUrl.value = URL.createObjectURL(file)
-  }
-
   triggerHaptic('success')
   speakAccessibility(`${t('fileUploaded')} ${file.name}`)
   emit('file-selected', file)
@@ -236,7 +229,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="uploader-deck glass-card" :class="{ 'deck-camera-fullscreen': activeInputTab === 'camera' }" role="region" :aria-label="t('navScan')">
     <!-- VIEW A: LIVE GUIDED CAMERA SCANNER -->
-    <div v-if="activeInputTab === 'camera' && !selectedFile" class="camera-assistant-view">
+    <div v-if="activeInputTab === 'camera'" class="camera-assistant-view">
       <!-- Camera Permission Error Recovery Box -->
       <div v-if="cameraError" class="camera-error-box khmer-font" role="alert">
         <div class="error-icon-col">
@@ -306,7 +299,7 @@ onBeforeUnmount(() => {
 
     <!-- VIEW B: FILE UPLOAD DROPZONE (SURFACES.md 8: Tinted zone, solid button, no border) -->
     <div 
-      v-else-if="activeInputTab === 'upload' && !selectedFile" 
+      v-else-if="activeInputTab === 'upload'" 
       class="upload-assistant-view"
       :class="{ 'is-empty-state': !props.recentDocs || props.recentDocs.length === 0 }"
     >
@@ -379,55 +372,6 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </section>
-    </div>
-
-    <!-- VIEW C: PREVIEW & ACTION (When a file/photo is captured) -->
-    <div v-else-if="selectedFile" class="preview-assistant-view">
-      <div class="preview-media-container">
-        <!-- PDF Badge Preview -->
-        <div v-if="previewUrl === 'pdf'" class="pdf-card-preview">
-          <FileText :size="60" class="text-accent" />
-          <div class="preview-file-details">
-            <span class="pdf-name khmer-font">{{ selectedFile?.name }}</span>
-            <span class="file-size-tag">{{ formatFileSize(selectedFile?.size) }}</span>
-          </div>
-        </div>
-        <!-- Image Preview -->
-        <div v-else class="image-box-preview">
-          <img :src="previewUrl" alt="Preview" class="preview-image" />
-          <div class="preview-file-overlay">
-            <span class="file-overlay-name">{{ selectedFile?.name }}</span>
-            <span class="file-overlay-size">{{ formatFileSize(selectedFile?.size) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Action Bar -->
-      <div class="preview-action-row">
-        <button 
-          type="button" 
-          class="btn-retake-action khmer-font" 
-          @click="clearSelection" 
-          :disabled="props.isProcessing"
-          :aria-label="t('retake')"
-        >
-          <RefreshCw :size="18" />
-          <span>{{ t('retake') }}</span>
-        </button>
-
-        <button 
-          type="button" 
-          class="btn-hero-scan btn-scan-now khmer-font" 
-          @click="triggerManualOcr"
-          :disabled="props.isProcessing"
-          :aria-label="t('extractText')"
-        >
-          <div class="btn-hero-content">
-            <Sparkles :size="24" />
-            <span>{{ props.isProcessing ? t('extractingText') : t('extractText') }}</span>
-          </div>
-        </button>
-      </div>
     </div>
   </div>
 </template>
