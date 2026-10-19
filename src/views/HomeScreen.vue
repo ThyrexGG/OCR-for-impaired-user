@@ -102,9 +102,12 @@ onMounted(() => {
   // Load real user history from storage (Clean production state — no mock data)
   const saved = storage.getJson(STORAGE_KEYS.HISTORY, [])
   if (saved && Array.isArray(saved)) {
-    // Purge any legacy sample mock items from earlier testing
+    // Purge any legacy sample mock items or invalid blank items from earlier testing
     historyList.value = saved.filter(item => 
       item && 
+      item.name &&
+      item.name.trim() !== '' &&
+      !item.pending &&
       item.id !== 1 && 
       item.id !== 2 && 
       !item.name?.includes('សេចក្តីជូនដំណឹង_ក្រសួង') && 

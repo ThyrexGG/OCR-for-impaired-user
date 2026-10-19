@@ -1,6 +1,6 @@
 <script setup>
-import { ref, inject } from 'vue'
-import { History, BookOpen, Play, Trash2, Clock, Check, Zap, ArrowRight, Share2, Edit2, Upload, Camera } from 'lucide-vue-next'
+import { ref, computed, inject } from 'vue'
+import { BookOpen, Trash2, Clock, Upload } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 
 const props = defineProps({
@@ -14,12 +14,16 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['load-item', 'quick-play', 'delete-item', 'clear-history', 'switch-mode', 'file-selected'])
+const emit = defineEmits(['load-item', 'delete-item', 'clear-history', 'switch-mode', 'file-selected'])
 
 const speakAccessibility = inject('speakAccessibility', () => {})
 const triggerHaptic = inject('triggerHaptic', () => {})
 
 const fileInputRef = ref(null)
+
+const validHistory = computed(() => {
+  return (props.history || []).filter(item => item && item.name && item.name.trim())
+})
 
 const triggerFileInput = () => {
   triggerHaptic(30)
@@ -41,12 +45,6 @@ const handleOpenInReader = (item) => {
   emit('load-item', item)
 }
 
-const handleQuickPlay = (item) => {
-  triggerHaptic([60, 40])
-  speakAccessibility(currentLang.value === 'km' ? `ចាប់ផ្តើមអានឯកសារ ${item.name} ជាសំឡេង` : `Playing ${item.name}`)
-  emit('quick-play', item)
-}
-
 const handleDelete = (item) => {
   triggerHaptic([80, 40])
   speakAccessibility(currentLang.value === 'km' ? `បានលុបឯកសារ ${item.name}` : `Deleted ${item.name}`)
@@ -61,33 +59,6 @@ const handleClearAll = () => {
   }
 }
 
-const handleShare = async (item) => {
-  triggerHaptic(30)
-  if (navigator.share && item.text) {
-    try {
-      await navigator.share({ title: item.name, text: item.text })
-      speakAccessibility(currentLang.value === 'km' ? `បានចែករំលែកឯកសារ ${item.name}` : `Shared ${item.name}`)
-      return
-    } catch (e) {}
-  }
-  if (navigator.clipboard && item.text) {
-    await navigator.clipboard.writeText(item.text)
-    speakAccessibility(currentLang.value === 'km' ? `បានចម្លងអត្ថបទ ${item.name} ទៅកាន់ Clipboard រួចរាល់` : `Copied ${item.name} text`)
-  }
-}
-
-const handleRename = (item) => {
-  triggerHaptic(30)
-  const newName = prompt(t('renamePrompt'), item.name)
-  if (newName && newName.trim()) {
-    item.name = newName.trim()
-    try {
-      localStorage.setItem('songkhem_history', JSON.stringify(props.history))
-    } catch (e) {}
-    speakAccessibility(currentLang.value === 'km' ? `បានប្តូរឈ្មោះឯកសារទៅជា ${item.name}` : `Renamed to ${item.name}`)
-  }
-}
-
 // Estimate listening duration based on word count (~120 words/min)
 const estimateDuration = (wordsCount) => {
   if (!wordsCount) return `~30 ${t('secondsApprox')}`
@@ -99,38 +70,12 @@ const estimateDuration = (wordsCount) => {
 <template>
   <div 
     class="recent-reads-shelf" 
-    :class="{ 'is-empty-state': history.length === 0 }"
+    :class="{ 'is-empty-state': validHistory.length === 0 }"
     role="region" 
     :aria-label="t('recentReadsTitle')"
   >
-    <!-- Shelf Header: ONLY shown when history has items (Clean state per user request) -->
-    <div v-if="history.length > 0" class="shelf-header">
-      <div class="header-left">
-        <div class="shelf-icon-circle bg-brand">
-          <History :size="20" />
-        </div>
-        <div class="shelf-titles">
-          <h2 class="shelf-title khmer-font">{{ t('recentReadsTitle') }}</h2>
-          <span class="shelf-subtitle khmer-font">{{ history.length }} {{ t('recordedDocsCount') }}</span>
-        </div>
-      </div>
-
-      <div class="header-right">
-        <button 
-          type="button" 
-          class="btn-clear-shelf khmer-font"
-          @click="handleClearAll"
-          :aria-label="t('clearAll')"
-          :title="t('clearAll')"
-        >
-          <Trash2 :size="15" />
-          <span>{{ t('clearAll') }}</span>
-        </button>
-      </div>
-    </div>
-
     <!-- Empty State: Centered in the middle with actionable Next Steps (Upload Document button) -->
-    <div v-if="history.length === 0" class="shelf-empty-state">
+    <div v-if="validHistory.length === 0" class="shelf-empty-state">
       <div class="empty-state-card tactile-dropzone">
         <div class="empty-icon-circle">
           <Clock :size="36" />
@@ -171,7 +116,7 @@ const estimateDuration = (wordsCount) => {
       <div class="reads-cards-list">
         <ul class="history-accessible-list" role="list">
           <li 
-            v-for="item in history" 
+            v-for="item in validHistory" 
             :key="item.id"
             class="history-list-row"
             :class="{ 'card-pending': item.pending }"
@@ -189,22 +134,9 @@ const estimateDuration = (wordsCount) => {
               </div>
             </div>
 
-            <!-- Right: Predictable Actions (Play, Open, Delete) -->
+            <!-- Actions (Open and Delete only) -->
             <div class="row-actions-group">
-              <!-- Quick Play -->
-              <button 
-                type="button" 
-                class="btn-row-action btn-row-play khmer-font" 
-                @click="handleQuickPlay(item)"
-                :disabled="item.pending"
-                :aria-label="`${t('playAction')} ${item.name}`"
-                :title="t('playAction')"
-              >
-                <Play :size="16" fill="currentColor" />
-                <span>{{ t('playAction') }}</span>
-              </button>
-
-              <!-- Open in Reader -->
+              <!-- Open in Reader (Primary) -->
               <button 
                 type="button" 
                 class="btn-row-action btn-row-open khmer-font" 
@@ -217,44 +149,33 @@ const estimateDuration = (wordsCount) => {
                 <span>{{ t('openAction') }}</span>
               </button>
 
-              <!-- Share / Copy -->
+              <!-- Delete (Alongside Open) -->
               <button 
                 type="button" 
-                class="btn-row-tool" 
-                @click="handleShare(item)"
-                :disabled="item.pending"
-                :aria-label="`${t('shareAction')} ${item.name}`"
-                :title="t('shareAction')"
-              >
-                <Share2 :size="16" />
-              </button>
-
-              <!-- Rename -->
-              <button 
-                type="button" 
-                class="btn-row-tool" 
-                @click="handleRename(item)"
-                :disabled="item.pending"
-                :aria-label="`${t('renameAction')} ${item.name}`"
-                :title="t('renameAction')"
-              >
-                <Edit2 :size="16" />
-              </button>
-
-              <!-- Delete -->
-              <button 
-                type="button" 
-                class="btn-row-tool btn-row-delete" 
+                class="btn-row-action btn-row-delete-action khmer-font" 
                 @click="handleDelete(item)"
                 :disabled="item.pending"
                 :aria-label="`${t('deleteAction')} ${item.name}`"
                 :title="t('deleteAction')"
               >
                 <Trash2 :size="16" />
+                <span>{{ t('deleteAction') }}</span>
               </button>
             </div>
           </li>
         </ul>
+      </div>
+
+      <!-- Shelf Footer: Clear All button at the bottom (large, full container width, text only) -->
+      <div class="shelf-footer">
+        <button 
+          type="button" 
+          class="btn-clear-all-bottom khmer-font"
+          @click="handleClearAll"
+          :aria-label="t('clearAll')"
+        >
+          {{ t('clearAll') }}
+        </button>
       </div>
     </div>
   </div>
