@@ -1,5 +1,5 @@
 <script setup>
-import { inject } from 'vue'
+import { ref, inject } from 'vue'
 import { History, BookOpen, Play, Trash2, Clock, Check, Zap, ArrowRight, Share2, Edit2, Upload, Camera } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 
@@ -7,24 +7,32 @@ const props = defineProps({
   history: {
     type: Array,
     default: () => []
+  },
+  isProcessing: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['load-item', 'quick-play', 'delete-item', 'clear-history', 'switch-mode'])
+const emit = defineEmits(['load-item', 'quick-play', 'delete-item', 'clear-history', 'switch-mode', 'file-selected'])
 
 const speakAccessibility = inject('speakAccessibility', () => {})
 const triggerHaptic = inject('triggerHaptic', () => {})
 
-const handleNavigateUpload = () => {
-  triggerHaptic(40)
-  speakAccessibility(currentLang.value === 'km' ? 'ចូលទៅកាន់ផ្ទាំងផ្ទុកឡើងឯកសារ' : 'Go to upload document')
-  emit('switch-mode', 'upload')
+const fileInputRef = ref(null)
+
+const triggerFileInput = () => {
+  triggerHaptic(30)
+  fileInputRef.value?.click()
 }
 
-const handleNavigateScan = () => {
-  triggerHaptic(40)
-  speakAccessibility(currentLang.value === 'km' ? 'ចូលទៅកាន់ផ្ទាំងស្កេនកាមេរ៉ា' : 'Go to camera scanner')
-  emit('switch-mode', 'scan')
+const handleFileSelect = (e) => {
+  const file = e.target?.files?.[0]
+  if (!file) return
+  triggerHaptic('success')
+  speakAccessibility(`${t('fileUploaded')} ${file.name}`)
+  emit('file-selected', file)
+  e.target.value = ''
 }
 
 const handleOpenInReader = (item) => {
@@ -132,12 +140,22 @@ const estimateDuration = (wordsCount) => {
           {{ t('historyEmptySub') }}
         </p>
 
-        <!-- What to do next: Action button -->
+        <!-- Hidden native file input for direct in-place uploading -->
+        <input 
+          type="file" 
+          ref="fileInputRef" 
+          class="sr-only" 
+          accept="image/*,application/pdf"
+          @change="handleFileSelect"
+        />
+
+        <!-- What to do next: Direct upload button -->
         <div class="empty-actions-row">
           <button 
             type="button" 
             class="btn-choose-file btn-empty-upload khmer-font"
-            @click="handleNavigateUpload"
+            @click="triggerFileInput"
+            :disabled="props.isProcessing"
             :aria-label="t('chooseFileBtn')"
           >
             <Upload :size="20" />
