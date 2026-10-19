@@ -61,63 +61,67 @@
 }
 
 /* ==========================================================================
-   OCR Processing State Card (Timeout-Aware)
+   OCR Progression Overlay & Card (Dead-center in middle of screen, minimal, no logo)
    ========================================================================== */
+.ocr-progression-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(248, 250, 252, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 .ocr-processing-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 24px 16px;
-  border: 1px solid var(--divider, #E2E8F0);
-  border-radius: 16px;
+  padding: 32px 24px;
+  border: none;
+  background: var(--bg, #F8FAFC);
+  border-radius: 20px;
   gap: 12px;
-  max-width: 440px;
-  margin: 8px auto;
+  max-width: 360px;
   width: 100%;
-  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
-}
-
-.processing-glow-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-accent-text);
-  box-shadow: 0 6px 20px var(--color-accent-glow);
-  animation: pulseGlow 1.8s infinite ease-in-out;
+  box-shadow: 0 20px 40px -8px rgba(15, 23, 42, 0.12), 0 8px 16px -4px rgba(15, 23, 42, 0.06);
 }
 
 .processing-title {
-  font-size: 1rem;
-  line-height: 24px;
+  font-size: 1.125rem;
+  line-height: 26px;
   font-weight: 700;
   color: var(--text-primary);
+  margin: 0;
 }
 
 .processing-desc {
   font-size: 0.875rem;
   line-height: 20px;
   color: var(--text-secondary);
+  margin: 0;
 }
 
 .processing-beam-track {
   width: 100%;
-  max-width: 320px;
-  height: 4px;
-  background: var(--bg-surface-elevated);
-  border-radius: 4px;
+  max-width: 280px;
+  height: 6px;
+  background: rgba(37, 99, 235, 0.12);
+  border-radius: 9999px;
   overflow: hidden;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .processing-beam-fill {
-  width: 50%;
+  width: 45%;
   height: 100%;
-  background: var(--color-accent);
-  border-radius: 4px;
+  background: var(--color-accent, #2563EB);
+  border-radius: 9999px;
   animation: progressPulse 1.6s infinite ease-in-out;
 }
 
@@ -357,17 +361,18 @@
   }
 
   /* Processing & Error Cards */
-  .ocr-processing-card,
+  .ocr-processing-card {
+    padding: 24px 18px;
+    gap: 12px;
+    border-radius: 18px;
+    margin: 0;
+  }
+
   .ocr-error-card {
     padding: 20px 12px;
     gap: 12px;
     border-radius: 16px;
     margin: 8px 0;
-  }
-
-  .processing-glow-icon {
-    width: 48px;
-    height: 48px;
   }
 
   .processing-title {

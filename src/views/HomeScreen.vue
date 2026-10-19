@@ -142,13 +142,15 @@ onMounted(() => {
 })
 
 // File Events
-const onFileSelected = (file) => {
+const onFileSelected = async (file) => {
+  if (!file) return
   selectedFileName.value = file.name
   selectedFile.value = file
   extractedText.value = ''
   ocrError.value = null
   isCached.value = false
   addToast({ message: `បានជ្រើសរើស ${file.name}`, type: 'info' })
+  await handleTriggerOcr()
 }
 
 const onClearFile = () => {
@@ -247,6 +249,14 @@ const handleTriggerOcr = async () => {
       scanAgainErrorBtnRef.value?.focus()
     })
   }
+}
+
+// In-place File Selection directly from History (minimal steps for user)
+const onFileSelectedFromHistory = async (file) => {
+  if (!file) return
+  onFileSelected(file)
+  originMode.value = 'recent'
+  await handleTriggerOcr()
 }
 
 // History Actions
@@ -418,21 +428,9 @@ const onPointerUp = (e) => {
 
 <template>
   <div class="assistant-workspace-wrapper">
-    <!-- MODE 1 & 2: CAMERA (full-screen) + UPLOAD (dropzone & samples) with Instagram-style swipe navigation -->
-    <div 
-      v-if="activeMode === 'scan' || activeMode === 'upload'" 
-      class="mode-container scan-mode-container" 
-      :class="{ 'camera-fullscreen': activeMode === 'scan' }"
-      @touchstart.passive="onTouchStart"
-      @touchend="onTouchEnd"
-      @pointerdown="onPointerDown"
-      @pointerup="onPointerUp"
-    >
-      <!-- OCR PROCESSING STATE (Clear, timeout-aware screen) -->
-      <div v-if="isProcessing" class="ocr-processing-card glass-card" role="status" aria-live="assertive">
-        <div class="processing-glow-icon bg-brand">
-          <Sparkles :size="36" />
-        </div>
+    <!-- OCR PROGRESSION OVERLAY: Centered in the middle of the screen, minimal, no logo -->
+    <div v-if="isProcessing" class="ocr-progression-overlay" role="status" aria-live="assertive">
+      <div class="ocr-processing-card">
         <h2 class="processing-title khmer-font">{{ t('scanningTitle') }}</h2>
         <p class="processing-desc khmer-font">
           {{ t('scanningDesc') }}
@@ -449,9 +447,11 @@ const onPointerUp = (e) => {
           <span>{{ t('longProcessingNotice') }}</span>
         </div>
       </div>
+    </div>
 
-      <!-- OCR ERROR STATE (Human-readable tips + SCAN AGAIN button) -->
-      <div v-else-if="ocrError" class="ocr-error-card glass-card" role="alert">
+    <!-- OCR ERROR STATE (Human-readable tips + SCAN AGAIN button) -->
+    <div v-if="ocrError && !isProcessing" class="mode-container scan-mode-container" role="alert">
+      <div class="ocr-error-card glass-card">
         <div class="error-glow-icon bg-danger">
           <AlertCircle :size="40" />
         </div>
@@ -479,10 +479,19 @@ const onPointerUp = (e) => {
           <span>{{ t('scanAgainBtn') }}</span>
         </button>
       </div>
+    </div>
 
-      <!-- Camera Viewfinder (scan tab) or Upload Dropzone (upload tab) -->
+    <!-- MODE 1 & 2: CAMERA (full-screen) + UPLOAD (dropzone & samples) with Instagram-style swipe navigation -->
+    <div 
+      v-else-if="activeMode === 'scan' || activeMode === 'upload'" 
+      class="mode-container scan-mode-container" 
+      :class="{ 'camera-fullscreen': activeMode === 'scan' }"
+      @touchstart.passive="onTouchStart"
+      @touchend="onTouchEnd"
+      @pointerdown="onPointerDown"
+      @pointerup="onPointerUp"
+    >
       <DocumentUploader
-        v-else
         :mode="activeMode === 'upload' ? 'upload' : 'camera'"
         :is-processing="isProcessing"
         :recent-docs="historyList"
@@ -495,7 +504,7 @@ const onPointerUp = (e) => {
     </div>
 
     <!-- MODE 3: READING MODE (Dedicated Clean Document Reader per Screenshot) -->
-    <div v-show="activeMode === 'reader'" class="mode-container reader-mode-container">
+    <div v-show="!isProcessing && !ocrError && activeMode === 'reader'" class="mode-container reader-mode-container">
       <DocumentReader 
         ref="documentReaderRef"
         :text="extractedText"
@@ -507,15 +516,17 @@ const onPointerUp = (e) => {
       />
     </div>
 
-    <!-- MODE 4: RECENT READS MODE (Accessible History Shelf) -->
-    <div v-show="activeMode === 'recent'" class="mode-container recent-mode-container">
+    <!-- MODE 4: RECENT READS MODE (Accessible History Shelf with in-place upload) -->
+    <div v-show="!isProcessing && !ocrError && activeMode === 'recent'" class="mode-container recent-mode-container">
       <UserHistory 
         :history="historyList"
+        :is-processing="isProcessing"
         @load-item="onLoadHistoryItem"
         @quick-play="onQuickPlayHistoryItem"
         @delete-item="onDeleteHistoryItem"
         @clear-history="onClearHistory"
         @switch-mode="setMode"
+        @file-selected="onFileSelectedFromHistory"
       />
     </div>
 
