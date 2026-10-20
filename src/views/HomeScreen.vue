@@ -181,6 +181,7 @@ const onFileSelected = async (file) => {
   ocrError.value = null
   isCached.value = false
   addToast({ message: currentLang.value === 'km' ? 'បានជ្រើសរើសឯកសារ' : 'File selected', type: 'info' })
+  await handleTriggerOcr()
 }
 
 const onClearFile = () => {
