@@ -159,14 +159,12 @@ const handleCopy = async () => {
     await navigator.clipboard.writeText(props.text)
     isCopied.value = true
     triggerHaptic(50)
-    const msg = currentLang.value === 'km' 
-      ? 'បានចម្លងអត្ថបទទៅក្ដារតម្បៀតខ្ទាស់' 
-      : 'Text copied to clipboard'
+    const msg = currentLang.value === 'km' ? 'បានចម្លង' : 'Copied'
     speakAccessibility(msg)
     emit('toast', { message: msg, type: 'success' })
     setTimeout(() => { isCopied.value = false }, 2500)
   } catch (err) {
-    emit('toast', { message: 'មិនអាចចម្លងអត្ថបទបានទេ', type: 'error' })
+    emit('toast', { message: currentLang.value === 'km' ? 'មិនអាចចម្លងបាន' : 'Copy failed', type: 'error' })
   }
 }
 
