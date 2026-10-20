@@ -353,10 +353,10 @@
   justify-content: center;
   min-height: 48px;
   padding: 12px 24px;
-  background: var(--bg, #F8FAFC);
+  background: var(--color-danger,#EF4444);
   border: none;
   border-radius: 12px;
-  color: var(--color-danger, #EF4444);
+  color: var(--bg,#F8FAFC);
   font-size: 0.9375rem;
   font-weight: 700;
   cursor: pointer;
