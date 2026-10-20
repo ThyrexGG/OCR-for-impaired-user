@@ -15,18 +15,27 @@
    ========================================================================== */
 :root {
   /* --- Typography Families & Reading Scales --- */
-  --font-sans: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-latin: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-khmer: 'Suwannaphum', serif, system-ui, sans-serif;
-  --font-title: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  --font-sans: 'SN Pro', 'Atkinson Hyperlegible', 'Kantumruy Pro', 'Noto Sans Khmer', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-latin: 'SN Pro', 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-khmer: 'Kantumruy Pro', 'Noto Sans Khmer', 'Battambang', system-ui, sans-serif;
+  --font-title: 'SN Pro', 'Kantumruy Pro', 'Noto Sans Khmer', system-ui, sans-serif;
 
   --font-scale: 1;
   --font-reading-scale: 1;
-  --leading-reading: 1.85;
-  --tracking-reading: 0.015em;
+  --leading-reading: 1.9;
+  --tracking-reading: 0.02em;
   --font-weight-reading: 400;
 
-  /* --- Spacing Scale --- */
+  /* --- 4-Point System Spacing Scale (Multiples of 4px) --- */
+  --space-1: 4px;   /* 4px */
+  --space-2: 8px;   /* 8px */
+  --space-3: 12px;  /* 12px */
+  --space-4: 16px;  /* 16px */
+  --space-5: 20px;  /* 20px */
+  --space-6: 24px;  /* 24px */
+  --space-7: 28px;  /* 28px */
+  --space-8: 32px;  /* 32px */
+
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
@@ -34,17 +43,34 @@
   --space-xl: 24px;
   --space-2xl: 32px;
 
-  /* --- Accessible Target Sizing (ProjectInstruction N-Rule: >= 48px) --- */
-  --target-size-min: 48px;
-  --target-spacing-min: 8px;
+  /* --- 4-Point Standard Typography Scale --- */
+  --font-size-xs: 0.75rem;   /* 12px, line-height 16px */
+  --font-size-sm: 0.875rem;  /* 14px, line-height 20px */
+  --font-size-base: 1rem;    /* 16px, line-height 24px */
+  --font-size-md: 1.125rem;  /* 18px, line-height 24px */
+  --font-size-lg: 1.25rem;   /* 20px, line-height 28px */
+  --font-size-xl: 1.5rem;    /* 24px, line-height 32px */
+  --font-size-2xl: 1.75rem;  /* 28px, line-height 36px */
 
-  /* --- Radius Scale --- */
+  /* --- Accessible Target & Layout Sizing (4-Point Aligned) --- */
+  --container-max-reading: 48rem;  /* 768px */
+  --container-max-compact: 40rem;  /* 640px */
+  --container-max-wide: 60rem;     /* 960px */
+  --target-size-min: 44px;         /* Standard accessible touch target */
+  --target-size-lg: 48px;          /* Large Target (48px = 4 * 12) */
+  --target-spacing-min: 8px;       /* 8px = 4 * 2 */
+  --btn-height-sm: 36px;          /* 36px = 4 * 9 */
+  --btn-height-md: 40px;          /* 40px = 4 * 10 */
+  --btn-height-lg: 48px;          /* 48px = 4 * 12 */
+
+  /* --- 4-Point Radius Scale --- */
   --radius-xs: 4px;
   --radius-sm: 4px;
-  --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 4px;
-  --radius-full: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
 
   /* --- Motion & Transitions --- */
   --transition-fast: 0.15s ease;
@@ -54,8 +80,8 @@
      SURFACES.md Tokens (Colour Surfaces Instead of Borders)
      ========================================================================== */
   /* Surfaces */
-  --bg: #F8FAFC;            /* page background */
-  --surface-1: #EEF3FB;     /* container tint: upload zone, sections, sample list */
+  --bg: #F8FAFC;            /* unified background */
+  --surface-1: #F8FAFC;     /* unified background */
   --surface-2: #DBE7FF;     /* tonal control fill, selected item */
 
   /* Text on surfaces */
@@ -64,8 +90,8 @@
   --on-tonal: #1E3A8A;         /* ~8:1 on surface-2 */
 
   /* Controls */
-  --primary: #1D4ED8;          /* ~5.8:1 vs surface-1, ~6.7:1 vs white */
-  --primary-pressed: #1E40AF;
+  --primary: #4466F6;          /* Primary Brand Blue */
+  --primary-pressed: #3353E2;  /* Deepened Pressed State */
   --on-primary: #FFFFFF;
   --accent: #F59E0B;           /* Capture only. Fill, never text */
   --on-accent: #0F172A;        /* ~8:1 */
@@ -76,31 +102,27 @@
   /* Lines */
   --border-input: #64748B;     /* inputs only. >= 3:1 vs bg and surface-1 */
   --divider: #CBD5E1;          /* decorative hairline between list rows */
-  --focus: #0F172A;            /* 3px ring, 3px offset */
+  --focus: #4466F6;            /* 3px ring, 3px offset */
 
   /* Navy & Headings */
   --navy: #0B1B4D;
   --on-navy: #FFFFFF;
-  --heading: #1D4ED8;
+  --heading: #4466F6;
 
-  /* Shape and spacing */
-  --radius-container: 4px;
-  --radius-card: 4px;
-  --radius-button: 4px;
-  --radius-input: 4px;
-  --space-1: 8px;
-  --space-2: 16px;
-  --space-3: 24px;
-  --space-4: 32px;
+  /* Shape and spacing tokens (4-Point System) */
+  --radius-container: 20px;
+  --radius-card: 16px;
+  --radius-button: 9999px;
+  --radius-input: 8px;
 
   /* --- Mapped Semantic Aliases --- */
-  --bg-page: var(--bg);
+  --bg-page: #F8FAFC;
   --bg-page-gradient: none;
-  --bg-surface: var(--surface-1);
-  --bg-surface-elevated: var(--surface-2);
-  --bg-surface-hover: #E1ECF8;
-  --bg-glass: var(--surface-1);
-  --bg-glass-elevated: var(--surface-2);
+  --bg-surface: #F8FAFC;
+  --bg-surface-elevated: #F8FAFC;
+  --bg-surface-hover: #F1F5F9;
+  --bg-glass: #F8FAFC;
+  --bg-glass-elevated: #F8FAFC;
 
   --border-subtle: transparent; /* No borders on containers per SURFACES.md */
   --border-medium: transparent;
@@ -115,12 +137,12 @@
   --color-accent: var(--primary);
   --color-accent-hover: var(--primary-pressed);
   --color-accent-text: var(--on-primary);
-  --color-accent-subtle: rgba(29, 78, 216, 0.10);
-  --color-accent-glow: rgba(29, 78, 216, 0.22);
+  --color-accent-subtle: rgba(68, 102, 246, 0.10);
+  --color-accent-glow: rgba(68, 102, 246, 0.24);
 
   --color-brand: var(--primary);
   --color-brand-light: var(--heading);
-  --color-brand-subtle: rgba(29, 78, 216, 0.10);
+  --color-brand-subtle: rgba(68, 102, 246, 0.10);
 
   --color-success: var(--success);
   --color-success-hover: #047857;
@@ -129,27 +151,27 @@
   --color-danger: var(--danger);
   --color-danger-subtle: rgba(185, 28, 28, 0.12);
 
-  --shadow-sm: 0 2px 6px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 6px 16px -2px rgba(15, 23, 42, 0.06);
-  --shadow-lg: 0 12px 28px -4px rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 10px 24px -4px rgba(15, 23, 42, 0.08);
 
-  /* Buttons */
-  --btn-height: 56px;
-  --btn-min-width: 56px;
-  --btn-padding-y: 12px;
-  --btn-padding-x: 24px;
+  /* Buttons (4-point aligned) */
+  --btn-height: 40px;
+  --btn-min-width: 40px;
+  --btn-padding-y: 8px;
+  --btn-padding-x: 16px;
   --btn-radius: var(--radius-button);
-  --btn-font-size: 1.1rem;
+  --btn-font-size: 0.875rem;
   --btn-font-weight: 700;
 
-  /* Inputs & Form Elements */
-  --input-height: 56px;
-  --input-padding-y: 12px;
-  --input-padding-x: 16px;
+  /* Inputs & Form Elements (4-point aligned) */
+  --input-height: 44px;
+  --input-padding-y: 8px;
+  --input-padding-x: 12px;
   --input-radius: var(--radius-input);
-  --input-border-width: 2px;
+  --input-border-width: 1px;
 
-  /* Cards & Surfaces (SURFACES.md: No border, 24px padding, 24px radius) */
+  /* Cards & Surfaces (4-point aligned) */
   --card-bg: var(--surface-1);
   --card-border: transparent;
   --card-border-hover: transparent;
@@ -167,13 +189,14 @@
    Theme: Explicit Light
    ========================================================================== */
 [data-theme="light"] {
-  --bg-page: #F4F7FC;
+  --bg-page: #F8FAFC;
   --bg-page-gradient: none;
-  --bg-surface: #FFFFFF;
-  --bg-surface-elevated: #EBF2FA;
-  --bg-surface-hover: #E1ECF8;
-  --bg-glass: #FFFFFF;
-  --bg-glass-elevated: #EBF2FA;
+  --bg-surface: #F8FAFC;
+  --bg-surface-elevated: #F8FAFC;
+  --bg-surface-hover: #F1F5F9;
+  --bg-glass: #F8FAFC;
+  --bg-glass-elevated: #F8FAFC;
+  --card-bg: #F8FAFC;
 
   --border-subtle: #94A3B8;
   --border-medium: #0052CC;
@@ -185,15 +208,15 @@
   --text-muted: #475569;
   --text-inverse: #FFFFFF;
 
-  --color-accent: #0052CC;
-  --color-accent-hover: #0040A1;
+  --color-accent: #4466F6;
+  --color-accent-hover: #3353E2;
   --color-accent-text: #FFFFFF;
-  --color-accent-subtle: rgba(0, 82, 204, 0.10);
-  --color-accent-glow: rgba(0, 82, 204, 0.22);
+  --color-accent-subtle: rgba(68, 102, 246, 0.10);
+  --color-accent-glow: rgba(68, 102, 246, 0.24);
 
-  --color-brand: #0052CC;
-  --color-brand-light: #0065FF;
-  --color-brand-subtle: rgba(0, 82, 204, 0.10);
+  --color-brand: #4466F6;
+  --color-brand-light: #5B7BF7;
+  --color-brand-subtle: rgba(68, 102, 246, 0.10);
 
   --color-success: #059669;
   --color-success-hover: #047857;
@@ -330,12 +353,13 @@
 }
 
 html {
-  font-size: calc(18px * var(--font-scale, 1));
+  font-size: calc(100% * var(--font-scale, 1));
   scroll-behavior: smooth;
 }
 
 body {
   font-family: var(--font-sans);
+  font-size: 1rem;
   background-color: var(--bg-page);
   background-image: var(--bg-page-gradient);
   background-attachment: fixed;
@@ -350,8 +374,10 @@ body {
 
 /* Dynamic Language-Based Font & Typography Rules */
 html[lang="km"] {
-  --font-sans: 'Suwannaphum', serif, system-ui, sans-serif;
-  --font-title: 'Suwannaphum', serif, system-ui, sans-serif;
+  --font-sans: 'Kantumruy Pro', 'Noto Sans Khmer', 'Battambang', system-ui, sans-serif;
+  --font-title: 'Kantumruy Pro', 'Noto Sans Khmer', 'Battambang', system-ui, sans-serif;
+  --font-khmer: 'Kantumruy Pro', 'Noto Sans Khmer', 'Battambang', system-ui, sans-serif;
+  font-size: calc(100% * var(--font-scale, 1));
 }
 
 html[lang="km"] body,
@@ -361,13 +387,14 @@ html[lang="km"] textarea,
 html[lang="km"] select,
 html[lang="km"] .khmer-font {
   font-family: var(--font-khmer) !important;
-  line-height: 1.85 !important;
+  font-weight: 500;
+  line-height: 1.8 !important;
   letter-spacing: 0.015em;
 }
 
 html[lang="en"] {
-  --font-sans: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-title: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-sans: 'SN Pro', 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-title: 'SN Pro', 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
 html[lang="en"] body,
@@ -388,21 +415,27 @@ html[lang="en"] .khmer-font {
   box-shadow: 0 0 12px var(--focus-ring-glow) !important;
 }
 
-/* Scrollbars */
+/* Scrollbars: Clean, modern, unobtrusive */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-surface);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-medium);
-  border-radius: var(--radius-full);
-  border: 2px solid var(--bg-surface);
+  background: #CBD5E1;
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--color-accent);
+  background: #94A3B8;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 /* Khmer Font utility (defaults based on html[lang]) */
@@ -441,7 +474,7 @@ html[lang="en"] .khmer-font {
   font-style: normal;
 }
 
-/* Typography Hierarchy & Headings */
+/* Typography Hierarchy & Headings (Scale text only) */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-title);
   font-weight: 700;
@@ -449,6 +482,12 @@ h1, h2, h3, h4, h5, h6 {
   line-height: 1.35;
   letter-spacing: 0.02em;
 }
+
+h1 { font-size: 2rem; }
+h2 { font-size: 1.6rem; }
+h3 { font-size: 1.3rem; }
+h4 { font-size: 1.15rem; }
+h5, h6 { font-size: 1rem; }
 
 html[lang="km"] h1, html[lang="km"] h2, html[lang="km"] h3,
 html[lang="km"] h4, html[lang="km"] h5, html[lang="km"] h6 {
@@ -515,7 +554,7 @@ p {
    Tier 5: Component Primitives & Standard Variants
    ========================================================================== */
 
-/* Tactile Neo-Brutalist Accessible Button System (Braille Institute Style) */
+/* Google Material 3 Pill Buttons & Smooth Elevation */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -523,111 +562,113 @@ p {
   gap: var(--space-sm);
   min-height: var(--btn-height);
   min-width: var(--btn-min-width);
-  padding: 10px 20px;
-  border-radius: 4px;
+  padding: 10px 22px;
+  border-radius: var(--radius-button);
   font-family: var(--font-sans);
   font-size: var(--btn-font-size);
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-  border: 2px solid #0F172A;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  border: 1.5px solid transparent;
   outline: none;
   text-decoration: none;
   user-select: none;
   white-space: nowrap;
-  box-shadow: -3px 3px 0px #1D4ED8;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
   background: #FFFFFF;
   color: #0F172A;
 }
 
 .btn:hover:not(:disabled) {
-  transform: translate(-1px, 1px);
-  box-shadow: -2px 2px 0px #1D4ED8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
 }
 
 .btn:active:not(:disabled) {
-  transform: translate(-3px, 3px);
-  box-shadow: 0px 0px 0px #1D4ED8;
+  transform: translateY(1px);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
 }
 
 .btn-primary {
-  background: #1D4ED8;
-  color: #FFFFFF;
-  border: 2px solid #0F172A;
-  box-shadow: -4px 4px 0px #0F172A;
+  background: var(--primary);
+  color: var(--on-primary, #FFFFFF);
+  border: 1.5px solid var(--primary);
+  box-shadow: 0 4px 14px rgba(68, 102, 246, 0.28);
 }
 .btn-primary:hover:not(:disabled) {
-  background: #1E40AF;
-  color: #FFFFFF;
-  transform: translate(-2px, 2px);
-  box-shadow: -2px 2px 0px #0F172A;
+  background: var(--primary-pressed);
+  color: var(--on-primary, #FFFFFF);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(68, 102, 246, 0.38);
 }
 .btn-primary:active:not(:disabled) {
-  transform: translate(-4px, 4px);
-  box-shadow: 0px 0px 0px #0F172A;
+  transform: translateY(1px);
+  box-shadow: 0 2px 6px rgba(68, 102, 246, 0.24);
 }
 
 .btn-secondary {
-  background: #FFFFFF;
+  background: #F8FAFC;
   color: #0F172A;
-  border: 2px solid #0F172A;
-  box-shadow: -3px 3px 0px #1D4ED8;
+  border: 1.5px solid #CBD5E1;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
 }
 .btn-secondary:hover:not(:disabled) {
   background: #F8FAFC;
-  transform: translate(-1px, 1px);
-  box-shadow: -2px 2px 0px #1D4ED8;
+  color: var(--primary);
+  border-color: #93C5FD;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(68, 102, 246, 0.12);
 }
 .btn-secondary:active:not(:disabled) {
-  transform: translate(-3px, 3px);
-  box-shadow: 0px 0px 0px #1D4ED8;
+  transform: translateY(1px);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
 }
 
 .btn-outline {
   background: transparent;
-  color: #0F172A;
-  border: 2px solid #0F172A;
-  box-shadow: -3px 3px 0px #1D4ED8;
+  color: var(--primary);
+  border: 1.5px solid var(--primary);
+  box-shadow: none;
 }
 .btn-outline:hover:not(:disabled) {
-  background: #EFF6FF;
-  transform: translate(-1px, 1px);
-  box-shadow: -2px 2px 0px #1D4ED8;
+  background: var(--color-accent-subtle);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(68, 102, 246, 0.15);
 }
 .btn-outline:active:not(:disabled) {
-  transform: translate(-3px, 3px);
-  box-shadow: 0px 0px 0px #1D4ED8;
+  transform: translateY(1px);
+  box-shadow: none;
 }
 
 .btn-danger {
   background: #FEE2E2;
   color: #DC2626;
-  border: 2px solid #DC2626;
-  box-shadow: -3px 3px 0px #DC2626;
+  border: 1.5px solid #F87171;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15);
 }
 .btn-danger:hover:not(:disabled) {
   background: #DC2626;
   color: #FFFFFF;
-  transform: translate(-1px, 1px);
-  box-shadow: -2px 2px 0px #7F1D1D;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);
 }
 .btn-danger:active:not(:disabled) {
-  transform: translate(-3px, 3px);
-  box-shadow: 0px 0px 0px #7F1D1D;
+  transform: translateY(1px);
+  box-shadow: 0 1px 4px rgba(220, 38, 38, 0.2);
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
-  box-shadow: -1px 1px 0px rgba(0, 0, 0, 0.25) !important;
+  box-shadow: none !important;
 }
 
 /* Dark mode button adaptations */
 [data-theme="dark"] .btn,
 .theme-dark .btn {
-  border-color: #E2E8F0;
-  box-shadow: -3px 3px 0px #3B82F6;
+  border-color: #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   background: #111B2E;
   color: #FFFFFF;
 }
@@ -635,17 +676,17 @@ p {
 [data-theme="dark"] .btn-primary,
 .theme-dark .btn-primary {
   background: #3B82F6;
-  color: #0F172A;
-  border-color: #FFFFFF;
-  box-shadow: -4px 4px 0px #FFFFFF;
+  color: #0B1220;
+  border-color: #60A5FA;
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
 }
 
 [data-theme="dark"] .btn-secondary,
 .theme-dark .btn-secondary {
   background: #1E293B;
   color: #FFFFFF;
-  border-color: #94A3B8;
-  box-shadow: -3px 3px 0px #60A5FA;
+  border-color: #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 /* Card Foundation */
@@ -737,9 +778,9 @@ body.bold-text,
   font-weight: 700 !important;
 }
 
-/* Reduced Motion Override (WCAG 2.3.3) */
+/* Reduced Motion Override (WCAG 2.3.3) - preserves intentional spring/haptic UI feedback */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *:not(.reader-speed-dial-anchor, .reader-speed-dial-anchor *, .reader-fab-trigger, .action-pill-btn) {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
