@@ -27,3 +27,5 @@ dist-ssr
 *.sw?
 FEATURES.md
 .agents/AGENT_BEHAVOR.MD
+*.traineddata
+*.traineddata.gz

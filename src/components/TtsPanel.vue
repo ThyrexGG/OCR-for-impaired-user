@@ -61,14 +61,16 @@ watch(volume, (newVol) => {
   if (currentAudio) currentAudio.volume = newVol
 })
 
-// Load speech voices
+// Load speech voices - STRICTLY KHMER ONLY (No English voices allowed)
 const loadVoices = () => {
   if (typeof window === 'undefined') return
   
-  if (import.meta.env.VITE_AZURE_TTS_API_KEY) {
+  const azureKey = localStorage.getItem('songkhem_azure_tts_key') || import.meta.env.VITE_AZURE_TTS_API_KEY
+
+  if (azureKey) {
     voices.value = [
-      { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'Piseth (សំឡេងប្រុស)', gender: 'Male' },
-      { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'Sreymom (សំឡេងស្រី)', gender: 'Female' }
+      { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth - សំឡេងប្រុស Neural)', gender: 'Male', isAzure: true },
+      { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom - សំឡេងស្រី Neural)', gender: 'Female', isAzure: true }
     ]
     if (!selectedVoiceName.value || !voices.value.find(v => v.name === selectedVoiceName.value)) {
       selectedVoiceName.value = 'km-KH-PisethNeural'
@@ -76,30 +78,35 @@ const loadVoices = () => {
     return
   }
 
-  if (!window.speechSynthesis) return
-  
-  try {
-    const available = window.speechSynthesis.getVoices() || []
-    voices.value = available.map(v => ({ 
-      name: v.name, 
-      lang: v.lang, 
-      label: `${v.name} (${v.lang})`, 
-      gender: 'Default' 
-    }))
-    
-    const khmerVoice = available.find(v => {
-      const l = (v.lang || '').toLowerCase()
-      const n = (v.name || '').toLowerCase()
-      return l.includes('km') || l.includes('khmer') || n.includes('khmer')
-    })
+  // Web Speech API fallback: STRICTLY filter for Khmer language voices only
+  const available = (window.speechSynthesis && window.speechSynthesis.getVoices) ? window.speechSynthesis.getVoices() : []
 
-    if (khmerVoice) {
-      selectedVoiceName.value = khmerVoice.name
-    } else if (available.length > 0 && !selectedVoiceName.value) {
-      selectedVoiceName.value = available[0].name
-    }
-  } catch (error) {
-    console.warn('Speech synthesis getVoices error:', error)
+  // Check if system has any native Khmer voices
+  const khmerSystemVoices = available.filter(v => {
+    const l = (v.lang || '').toLowerCase()
+    const n = (v.name || '').toLowerCase()
+    return (l.startsWith('km') || l.includes('khmer') || n.includes('khmer')) &&
+           !l.startsWith('en') && !n.includes('english')
+  })
+
+  if (khmerSystemVoices.length > 0) {
+    voices.value = khmerSystemVoices.map(v => ({
+      name: v.name,
+      lang: v.lang,
+      label: `${v.name} (ភាសាខ្មែរ)`,
+      gender: v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('woman') ? 'Female' : 'Male',
+      rawVoice: v
+    }))
+  } else {
+    // If browser lacks an installed Khmer OS voice, provide curated Khmer voice personas (NEVER show English voices)
+    voices.value = [
+      { name: 'km-khmer-male-piseth', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth - សំឡេងខ្មែរប្រុស)', gender: 'Male' },
+      { name: 'km-khmer-female-sreymom', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom - សំឡេងខ្មែរស្រី)', gender: 'Female' }
+    ]
+  }
+
+  if (!selectedVoiceName.value || !voices.value.find(v => v.name === selectedVoiceName.value)) {
+    selectedVoiceName.value = voices.value[0].name
   }
 }
 
@@ -159,10 +166,13 @@ const startSpeech = async () => {
   let apiKey = ''
   let endpoint = ''
 
-  if (import.meta.env.VITE_AZURE_TTS_API_KEY) {
+  const azureKey = localStorage.getItem('songkhem_azure_tts_key') || import.meta.env.VITE_AZURE_TTS_API_KEY
+  const azureEndpoint = localStorage.getItem('songkhem_azure_tts_endpoint') || import.meta.env.VITE_AZURE_TTS_ENDPOINT || 'https://southeastasia.tts.speech.microsoft.com/cognitiveservices/v1'
+
+  if (azureKey) {
     provider = 'azure-tts'
-    apiKey = import.meta.env.VITE_AZURE_TTS_API_KEY
-    endpoint = import.meta.env.VITE_AZURE_TTS_ENDPOINT
+    apiKey = azureKey
+    endpoint = azureEndpoint
   }
 
   // Resume if paused
@@ -211,7 +221,7 @@ const startSpeech = async () => {
       startHighlighting(0)
       return
     } catch (error) {
-      console.error(error)
+      console.error('Azure TTS error, falling back to Web Speech:', error)
       isSpeaking.value = false
       fallbackWebSpeech()
       return
@@ -233,13 +243,23 @@ const fallbackWebSpeech = () => {
       const utterance = new SpeechSynthesisUtterance(props.text)
       const synthVoices = synth.getVoices ? synth.getVoices() : []
       const realVoice = (synthVoices || []).find(v => v.name === selectedVoiceName.value) || 
-                        (synthVoices || []).find(v => (v.lang || '').toLowerCase().includes('km'))
+                        (synthVoices || []).find(v => (v.lang || '').toLowerCase().startsWith('km') || (v.name || '').toLowerCase().includes('khmer'))
       if (realVoice) {
         utterance.voice = realVoice
       }
       utterance.rate = rate.value
       utterance.volume = volume.value
       utterance.lang = 'km-KH'
+
+      // Pitch adjustment for male vs female voice persona
+      const currentVoice = voices.value.find(v => v.name === selectedVoiceName.value)
+      if (currentVoice?.gender === 'Female') {
+        utterance.pitch = 1.18
+      } else if (currentVoice?.gender === 'Male') {
+        utterance.pitch = 0.92
+      } else {
+        utterance.pitch = 1.0
+      }
       
       utterance.onend = () => { stopSpeech() }
       utterance.onerror = () => { stopSpeech() }
