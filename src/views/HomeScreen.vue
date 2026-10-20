@@ -37,6 +37,8 @@ const pageCounter = ref(1)
 // Component Refs
 const documentReaderRef = ref(null)
 const ttsPanelRef = ref(null)
+// The active audio player: dedicated DocumentReader (reader mode) or legacy TtsPanel
+const getPlayer = () => documentReaderRef.value || ttsPanelRef.value
 const ocrPanelRef = ref(null)
 const scanAgainErrorBtnRef = ref(null)
 const originMode = ref('scan')
@@ -137,13 +139,9 @@ onMounted(() => {
       }
     } else if (e.code === 'Space' && !isInput) {
       e.preventDefault()
-      if (ttsPanelRef.value) {
-        ttsPanelRef.value.togglePlayback()
-      }
+      getPlayer()?.togglePlayback()
     } else if (e.key === 'Escape') {
-      if (ttsPanelRef.value) {
-        ttsPanelRef.value.stopPlayback()
-      }
+      getPlayer()?.stopPlayback()
     }
   }
 
@@ -156,10 +154,10 @@ onMounted(() => {
     if (cmd.action === 'play') {
       if (activeMode.value !== 'reader') setMode('reader')
       setTimeout(() => {
-        if (ttsPanelRef.value) ttsPanelRef.value.togglePlayback()
+        getPlayer()?.togglePlayback()
       }, 200)
     } else if (cmd.action === 'stop') {
-      if (ttsPanelRef.value) ttsPanelRef.value.stopPlayback()
+      getPlayer()?.stopPlayback()
     } else if (cmd.action === 'scan') {
       if (selectedFile.value && !isProcessing.value) {
         handleTriggerOcr()
@@ -167,9 +165,9 @@ onMounted(() => {
         setMode('scan')
       }
     } else if (cmd.action === 'faster') {
-      if (ttsPanelRef.value?.cycleSpeed) ttsPanelRef.value.cycleSpeed(1)
+      getPlayer()?.cycleSpeed?.(1)
     } else if (cmd.action === 'slower') {
-      if (ttsPanelRef.value?.cycleSpeed) ttsPanelRef.value.cycleSpeed(-1)
+      getPlayer()?.cycleSpeed?.(-1)
     }
   })
 })
