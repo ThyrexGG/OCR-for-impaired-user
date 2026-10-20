@@ -9,16 +9,17 @@ import { haptics } from '../services/haptics'
 import { announcer } from '../services/announcer'
 import { currentLang, t } from '../services/i18n'
 
+// Singleton state shared across all components and navigation views
+const currentTheme = ref('light')
+const fontScale = ref(1.0)
+const lineSpacing = ref(1.85)
+const isBoldText = ref(false)
+
+const isUiVoiceEnabled = ref(false)
+const isAutoReadEnabled = ref(true)
+const isHapticsEnabled = ref(true)
+
 export function useA11yPreferences() {
-  const currentTheme = ref('light')
-  const fontScale = ref(1.0)
-  const lineSpacing = ref(1.85)
-  const isBoldText = ref(false)
-
-  const isUiVoiceEnabled = ref(false)
-  const isAutoReadEnabled = ref(true)
-  const isHapticsEnabled = ref(true)
-
   /**
    * Set and apply color theme silently without polluting screen text
    * @param {'light'|'dark'|'contrast'} theme
@@ -33,19 +34,21 @@ export function useA11yPreferences() {
   }
 
   /**
-   * Change font size scale
+   * Change font size scale (range: 0.7x to 2.0x, in 0.1 increments)
    * @param {number} delta
    */
   const changeFontScale = (delta) => {
-    let next = Math.round((fontScale.value + delta) * 100) / 100
-    if (next < 0.9) next = 0.9
-    if (next > 1.6) next = 1.6
+    let current = Number(fontScale.value) || 1.0
+    let next = Math.round((current + delta) * 10) / 10
+    if (next < 0.7) next = 0.7
+    if (next > 2.0) next = 2.0
     fontScale.value = next
 
     if (typeof document !== 'undefined') {
-      document.documentElement.style.setProperty('--font-scale', next)
+      document.documentElement.style.setProperty('--font-scale', String(next))
+      document.documentElement.style.fontSize = `${Math.round(next * 100)}%`
     }
-    storage.setItem(STORAGE_KEYS.FONT_SCALE, next)
+    storage.setItem(STORAGE_KEYS.FONT_SCALE, String(next))
     haptics.pulse('tap')
     announcer.speak(`${t('fontSize')} ${Math.round(next * 100)}%`)
   }
@@ -53,9 +56,10 @@ export function useA11yPreferences() {
   const resetFontScale = () => {
     fontScale.value = 1.0
     if (typeof document !== 'undefined') {
-      document.documentElement.style.setProperty('--font-scale', 1.0)
+      document.documentElement.style.setProperty('--font-scale', '1')
+      document.documentElement.style.fontSize = '100%'
     }
-    storage.setItem(STORAGE_KEYS.FONT_SCALE, 1.0)
+    storage.setItem(STORAGE_KEYS.FONT_SCALE, '1.0')
     haptics.pulse('selection')
     announcer.speak(t('resetFont'))
   }
@@ -133,10 +137,15 @@ export function useA11yPreferences() {
     if (!savedTheme || savedTheme === 'dark') savedTheme = 'light'
     setTheme(savedTheme)
 
-    const savedScale = parseFloat(storage.getItem(STORAGE_KEYS.FONT_SCALE, '1.0'))
-    if (!isNaN(savedScale)) {
-      fontScale.value = savedScale
-      document.documentElement.style.setProperty('--font-scale', savedScale)
+    const rawSavedScale = storage.getItem(STORAGE_KEYS.FONT_SCALE, '1.0')
+    let savedScale = parseFloat(rawSavedScale)
+    if (isNaN(savedScale) || savedScale < 0.7 || savedScale > 2.0) {
+      savedScale = 1.0
+    }
+    fontScale.value = savedScale
+    if (typeof document !== 'undefined') {
+      document.documentElement.style.setProperty('--font-scale', String(savedScale))
+      document.documentElement.style.fontSize = `${Math.round(savedScale * 100)}%`
     }
 
     const savedSpacing = parseFloat(storage.getItem(STORAGE_KEYS.LINE_SPACING, '1.85'))

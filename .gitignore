@@ -25,5 +25,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+FEATURES.md
+.agents/AGENT_BEHAVOR.MD
 *.traineddata
 *.traineddata.gz

@@ -12,7 +12,7 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  samples: {
+  recentDocs: {
     type: Array,
     default: () => []
   },
@@ -23,7 +23,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['file-selected', 'clear-file', 'trigger-ocr', 'load-sample', 'switch-mode'])
+const emit = defineEmits(['file-selected', 'clear-file', 'trigger-ocr', 'open-recent', 'switch-mode'])
 
 const speakAccessibility = inject('speakAccessibility', () => {})
 const triggerHaptic = inject('triggerHaptic', () => {})
@@ -55,6 +55,14 @@ let guidanceTimer = null
 const selectedFile = ref(null)
 const previewUrl = ref(null)
 const isDragActive = ref(false)
+
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
 
 // Start Camera Stream
 const startCamera = async () => {
@@ -168,13 +176,6 @@ const processFile = (file) => {
     return
   }
 
-  selectedFile.value = file
-  if (isPdf) {
-    previewUrl.value = 'pdf'
-  } else {
-    previewUrl.value = URL.createObjectURL(file)
-  }
-
   triggerHaptic('success')
   speakAccessibility(`${t('fileUploaded')} ${file.name}`)
   emit('file-selected', file)
@@ -228,7 +229,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="uploader-deck glass-card" :class="{ 'deck-camera-fullscreen': activeInputTab === 'camera' }" role="region" :aria-label="t('navScan')">
     <!-- VIEW A: LIVE GUIDED CAMERA SCANNER -->
-    <div v-if="activeInputTab === 'camera' && !selectedFile" class="camera-assistant-view">
+    <div v-if="activeInputTab === 'camera'" class="camera-assistant-view">
       <!-- Camera Permission Error Recovery Box -->
       <div v-if="cameraError" class="camera-error-box khmer-font" role="alert">
         <div class="error-icon-col">
@@ -297,7 +298,11 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- VIEW B: FILE UPLOAD DROPZONE (SURFACES.md 8: Tinted zone, solid button, no border) -->
-    <div v-else-if="activeInputTab === 'upload' && !selectedFile" class="upload-assistant-view">
+    <div 
+      v-else-if="activeInputTab === 'upload'" 
+      class="upload-assistant-view"
+      :class="{ 'is-empty-state': !props.recentDocs || props.recentDocs.length === 0 }"
+    >
       <div 
         class="tactile-dropzone" 
         @dragenter.prevent="isDragActive = true" 
@@ -336,16 +341,18 @@ onBeforeUnmount(() => {
         <p class="dropzone-helper-text khmer-font">{{ t('dropzoneBadge') }}</p>
       </div>
 
-      <!-- Quick Use-Case Sample Documents: unboxed list with chevron, underlined title on hover, hairlines (SURFACES.md 8 & 11) -->
-      <section v-if="props.samples && props.samples.length > 0" class="sample-documents-section" :aria-label="t('sampleHeading')">
+      <!-- Real Uploaded Documents: Only real user-uploaded documents (No dummy data) -->
+      <section v-if="props.recentDocs && props.recentDocs.length > 0" class="sample-documents-section" :aria-label="t('recentReadsTitle')">
         <div class="sample-sec-header">
-          <Sparkles :size="24" class="text-heading" />
-          <h2 class="sample-sec-title khmer-font">{{ t('sampleHeading') }}</h2>
+          <FileText :size="20" class="text-heading" />
+          <h2 class="sample-sec-title khmer-font">
+            {{ currentLang === 'km' ? 'ឯកសារដែលបានផ្ទុកឡើងថ្មីៗ' : 'Recent Uploads' }}
+          </h2>
         </div>
         <div class="sample-unboxed-list" role="list">
           <div 
-            v-for="(sample, idx) in props.samples" 
-            :key="sample.id"
+            v-for="(doc, idx) in props.recentDocs.slice(0, 4)" 
+            :key="doc.id"
             class="sample-row-wrapper"
             role="listitem"
           >
@@ -353,60 +360,18 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="sample-list-item khmer-font"
-              @click="$emit('load-sample', sample)"
-              :aria-label="`${t('openAction')} ${sample.title}`"
+              @click="$emit('open-recent', doc)"
+              :aria-label="`${t('openAction')} ${doc.name}`"
             >
               <div class="sample-item-text">
-                <span class="sample-item-category">{{ sample.category }}</span>
-                <span class="sample-item-title">{{ sample.title }}</span>
+                <span class="sample-item-category">{{ doc.date || doc.timestamp }}</span>
+                <span class="sample-item-title">{{ doc.name }}</span>
               </div>
-              <ArrowRight :size="26" class="sample-item-chevron" aria-hidden="true" />
+              <ArrowRight :size="24" class="sample-item-chevron" aria-hidden="true" />
             </button>
           </div>
         </div>
       </section>
-    </div>
-
-    <!-- VIEW C: PREVIEW & ACTION (When a file/photo is captured) -->
-    <div v-else-if="selectedFile" class="preview-assistant-view">
-      <div class="preview-media-container">
-        <!-- PDF Badge Preview -->
-        <div v-if="previewUrl === 'pdf'" class="pdf-card-preview">
-          <FileText :size="60" class="text-accent" />
-          <span class="pdf-name khmer-font">{{ selectedFile?.name }}</span>
-        </div>
-        <!-- Image Preview -->
-        <div v-else class="image-box-preview">
-          <img :src="previewUrl" alt="Preview" class="preview-image" />
-        </div>
-      </div>
-
-      <!-- Action Bar -->
-      <div class="preview-action-row">
-        <button 
-          type="button" 
-          class="btn-retake-action khmer-font" 
-          @click="clearSelection" 
-          :disabled="props.isProcessing"
-          :aria-label="t('retake')"
-        >
-          <RefreshCw :size="18" />
-          <span>{{ t('retake') }}</span>
-        </button>
-
-        <button 
-          type="button" 
-          class="btn-hero-scan btn-scan-now khmer-font" 
-          @click="triggerManualOcr"
-          :disabled="props.isProcessing"
-          :aria-label="t('extractText')"
-        >
-          <div class="btn-hero-content">
-            <Sparkles :size="24" />
-            <span>{{ props.isProcessing ? t('extractingText') : t('extractText') }}</span>
-          </div>
-        </button>
-      </div>
     </div>
   </div>
 </template>

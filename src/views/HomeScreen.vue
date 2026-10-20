@@ -7,6 +7,7 @@ import {
   Upload, RefreshCw, AlertCircle, CheckCircle2, FileText
 } from 'lucide-vue-next'
 import DocumentUploader from '../components/DocumentUploader.vue'
+import DocumentReader from '../components/DocumentReader.vue'
 import OcrPanel from '../components/OcrPanel.vue'
 import TtsPanel from '../components/TtsPanel.vue'
 import UserHistory from '../components/UserHistory.vue'
@@ -29,9 +30,11 @@ const openHelp = inject('openHelp', () => {})
 const isAutoReadEnabled = inject('isAutoReadEnabled', ref(true))
 
 // Component Refs
+const documentReaderRef = ref(null)
 const ttsPanelRef = ref(null)
 const ocrPanelRef = ref(null)
 const scanAgainErrorBtnRef = ref(null)
+const originMode = ref('scan')
 
 // Core Application State
 const isProcessing = ref(false)
@@ -67,52 +70,6 @@ const dismissToast = (id) => {
   toasts.value = toasts.value.filter(t => t.id !== id)
 }
 
-// Realistic Khmer Sample Library
-const rawSamples = [
-  {
-    id: 'announcement',
-    titleKm: 'សេចក្តីជូនដំណឹង',
-    titleEn: 'Official Notice',
-    categoryKm: 'ឯកសាររដ្ឋបាល',
-    categoryEn: 'Official Notice',
-    text: `ព្រះរាជាណាចក្រកម្ពុជា\nជាតិ សាសនា ព្រះមហាក្សត្រ\n---\nក្រសួងអប់រំ យុវជន និងកីឡា\nសេចក្តីជូនដំណឹង\nស្តីពីការប្រើប្រាស់ប្រព័ន្ធបច្ចេកវិទ្យាជំនួយសម្រាប់សិស្ស-និស្សិតដែលមានពិការភាពគំហើញ។ ក្រសួងសូមលើកទឹកចិត្តឱ្យគ្រឹះស្ថានសិក្សាទាំងអស់ពង្រឹងការប្រើប្រាស់ឧបករណ៍អានឯកសារជាសំឡេង (Screen Reader & OCR) ដើម្បីបង្កើនសមភាពក្នុងការទទួលបានចំណេះដឹង។`
-  },
-  {
-    id: 'story',
-    titleKm: 'រឿងព្រេង: ធនញ្ជ័យ',
-    titleEn: 'Folk Story: Thon Chey',
-    categoryKm: 'អក្សរសិល្ប៍',
-    categoryEn: 'Literature',
-    text: `កាលពីព្រេងនាយ មានកុមារម្នាក់ឈ្មោះធនញ្ជ័យ ជាក្មេងឆ្លាតវៃនិងមានប្រាជ្ញាលើសក្មេងដទៃ។ ធនញ្ជ័យតែងតែយកចំណេះដឹងនិងប្រាជ្ញាស្មារតីរបស់ខ្លួនមកដោះស្រាយបញ្ហាលំបាកៗក្នុងភូមិ និងជួយដល់ប្រជាជនស្លូតត្រង់។`
-  },
-  {
-    id: 'poem',
-    titleKm: 'កំណាព្យ: ភុជង្គលីលា',
-    titleEn: 'Poem: Bhuchang Leela',
-    categoryKm: 'កំណាព្យខ្មែរ',
-    categoryEn: 'Poetry',
-    text: `សូមថ្វាយបង្គំ ព្រះពុទ្ធឧត្តម ប្រសើរថ្លៃថ្លា\nព្រះធម៌វរគុណ នាំចិត្តជ្រះថ្លា ព្រះសង្ឃសច្ចា រក្សាធម៌ពិត។\nកម្ពុជាថ្កុំថ្កើង រុងរឿងគង់វង្ស ដោយគុណកុសល សីលធម៌ប្រណិត។`
-  },
-  {
-    id: 'receipt',
-    titleKm: 'វិក័យប័ត្រទូទាត់',
-    titleEn: 'Medical Receipt',
-    categoryKm: 'ជីវភាពរស់នៅ',
-    categoryEn: 'Daily Life',
-    text: `ឱសថស្ថាន សុខភាពល្អ\nវិក័យប័ត្រទូទាត់ប្រាក់\nកាលបរិច្ឆេទ: ១៦ កញ្ញា ២០២៦\n---\n១. ថ្នាំបន្តក់ភ្នែក (Eye Drops): ២ ដប = $៦.០០\n២. វីតាមីន A (Vitamin A): ១ ប្រអប់ = $៤.៥០\nសរុបទាំងអស់: $១០.៥០\nសូមអរគុណ និងសូមជូនពរឱ្យឆាប់ជាសះស្បើយ!`
-  }
-]
-
-const sampleLibrary = computed(() => {
-  const isKm = currentLang.value === 'km'
-  return rawSamples.map(s => ({
-    id: s.id,
-    title: isKm ? s.titleKm : s.titleEn,
-    category: isKm ? s.categoryKm : s.categoryEn,
-    text: s.text
-  }))
-})
-
 // History Helpers (Repository pattern via storage service)
 const saveHistory = () => {
   storage.setJson(STORAGE_KEYS.HISTORY, historyList.value)
@@ -144,31 +101,24 @@ const addToHistory = (name, text, cached = false) => {
 }
 
 onMounted(() => {
-  // Load history from storage repository
-  const saved = storage.getJson(STORAGE_KEYS.HISTORY, null)
-  if (saved && Array.isArray(saved) && saved.length > 0) {
-    historyList.value = saved
+  // Load real user history from storage (Clean production state — no mock data)
+  const saved = storage.getJson(STORAGE_KEYS.HISTORY, [])
+  if (saved && Array.isArray(saved)) {
+    // Purge any legacy sample mock items or invalid blank items from earlier testing
+    historyList.value = saved.filter(item => 
+      item && 
+      item.name &&
+      item.name.trim() !== '' &&
+      !item.pending &&
+      item.id !== 1 && 
+      item.id !== 2 && 
+      !item.name?.includes('សេចក្តីជូនដំណឹង_ក្រសួង') && 
+      !item.name?.includes('រឿងព្រេង_ធនញ្ជ័យ')
+    )
   } else {
-    historyList.value = [
-      {
-        id: 1,
-        name: 'សេចក្តីជូនដំណឹង_ក្រសួង.pdf',
-        text: rawSamples[0].text,
-        timestamp: '10:30 AM',
-        date: currentLang.value === 'km' ? 'ថ្ងៃនេះ' : 'Today',
-        wordsCount: 42
-      },
-      {
-        id: 2,
-        name: 'រឿងព្រេង_ធនញ្ជ័យ.jpg',
-        text: rawSamples[1].text,
-        timestamp: currentLang.value === 'km' ? 'ម្សិលមិញ' : 'Yesterday',
-        date: currentLang.value === 'km' ? 'ម្សិលមិញ' : 'Yesterday',
-        wordsCount: 38
-      }
-    ]
-    saveHistory()
+    historyList.value = []
   }
+  saveHistory()
 
   // Global Keyboard Shortcuts
   const handleGlobalKeydown = (e) => {
@@ -197,13 +147,15 @@ onMounted(() => {
 })
 
 // File Events
-const onFileSelected = (file) => {
+const onFileSelected = async (file) => {
+  if (!file) return
   selectedFileName.value = file.name
   selectedFile.value = file
   extractedText.value = ''
   ocrError.value = null
   isCached.value = false
   addToast({ message: `បានជ្រើសរើស ${file.name}`, type: 'info' })
+  await handleTriggerOcr()
 }
 
 const onClearFile = () => {
@@ -213,26 +165,6 @@ const onClearFile = () => {
   ocrError.value = null
   isCached.value = false
   isProcessing.value = false
-}
-
-// Sample Loader
-const loadSample = (sample) => {
-  selectedFileName.value = `${sample.title}.txt`
-  selectedFile.value = new File([sample.text], `${sample.id}.txt`, { type: 'text/plain' })
-  extractedText.value = sample.text
-  ocrError.value = null
-  isCached.value = true
-  addToHistory(sample.title, sample.text, true)
-  haptics.pulse('selection')
-  addToast({ message: `${t('toastLoadedDoc')} "${sample.title}"`, type: 'info' })
-  speakAccessibility(t('readingSampleSuccess'))
-  setMode('reader')
-  
-  if (isAutoReadEnabled.value && ttsPanelRef.value) {
-    setTimeout(() => {
-      ttsPanelRef.value.startSpeech()
-    }, 400)
-  }
 }
 
 // Trigger OCR Execution (SOLID: Strategy & Port via ocrService)
@@ -305,10 +237,15 @@ const handleTriggerOcr = async () => {
     speakAccessibility(`${t('toastScannedSuccess')} ${wordsCount} ${t('wordsCount')}`)
 
     // Transition to Reader mode and start speech if auto-read is enabled
+    originMode.value = activeMode.value
     setMode('reader')
-    if (isAutoReadEnabled.value && ttsPanelRef.value) {
+    if (isAutoReadEnabled.value) {
       setTimeout(() => {
-        ttsPanelRef.value.startSpeech()
+        if (documentReaderRef.value) {
+          documentReaderRef.value.startSpeech()
+        } else if (ttsPanelRef.value) {
+          ttsPanelRef.value.startSpeech()
+        }
       }, 400)
     }
   } else {
@@ -326,6 +263,14 @@ const handleTriggerOcr = async () => {
   }
 }
 
+// In-place File Selection directly from History (minimal steps for user)
+const onFileSelectedFromHistory = async (file) => {
+  if (!file) return
+  onFileSelected(file)
+  originMode.value = 'recent'
+  await handleTriggerOcr()
+}
+
 // History Actions
 const onLoadHistoryItem = (item) => {
   selectedFileName.value = item.name
@@ -333,6 +278,7 @@ const onLoadHistoryItem = (item) => {
   ocrError.value = null
   isCached.value = !!item.cached
   addToast({ message: `បានផ្ទុក "${item.name}"`, type: 'info' })
+  originMode.value = 'recent'
   setMode('reader')
 }
 
@@ -342,10 +288,15 @@ const onQuickPlayHistoryItem = (item) => {
   ocrError.value = null
   isCached.value = !!item.cached
   addToast({ message: `ចាប់ផ្តើមអាន "${item.name}"`, type: 'info' })
+  originMode.value = 'recent'
   setMode('reader')
-  if (ttsPanelRef.value) {
-    setTimeout(() => { ttsPanelRef.value.startSpeech() }, 300)
-  }
+  setTimeout(() => {
+    if (documentReaderRef.value) {
+      documentReaderRef.value.startSpeech()
+    } else if (ttsPanelRef.value) {
+      ttsPanelRef.value.startSpeech()
+    }
+  }, 300)
 }
 
 const onDeleteHistoryItem = (id) => {
@@ -411,11 +362,15 @@ const handleScanAgain = () => {
   selectedFile.value = null
   selectedFileName.value = ''
   extractedText.value = ''
+  if (documentReaderRef.value) {
+    documentReaderRef.value.stopPlayback()
+  }
   if (ttsPanelRef.value) {
     ttsPanelRef.value.stopPlayback()
   }
-  setMode('scan')
-  speakAccessibility('ត្រឡប់ទៅការស្កេនឯកសារ')
+  const returnTarget = originMode.value || 'scan'
+  setMode(returnTarget)
+  speakAccessibility(currentLang.value === 'km' ? 'ត្រឡប់ទៅទំព័រដើម' : 'Returned back')
 }
 
 // Swipe gesture navigation between Camera and Upload (Instagram-style)
@@ -485,21 +440,9 @@ const onPointerUp = (e) => {
 
 <template>
   <div class="assistant-workspace-wrapper">
-    <!-- MODE 1 & 2: CAMERA (full-screen) + UPLOAD (dropzone & samples) with Instagram-style swipe navigation -->
-    <div 
-      v-if="activeMode === 'scan' || activeMode === 'upload'" 
-      class="mode-container scan-mode-container" 
-      :class="{ 'camera-fullscreen': activeMode === 'scan' }"
-      @touchstart.passive="onTouchStart"
-      @touchend="onTouchEnd"
-      @pointerdown="onPointerDown"
-      @pointerup="onPointerUp"
-    >
-      <!-- OCR PROCESSING STATE (Clear, timeout-aware screen) -->
-      <div v-if="isProcessing" class="ocr-processing-card glass-card" role="status" aria-live="assertive">
-        <div class="processing-glow-icon bg-brand">
-          <Sparkles :size="36" />
-        </div>
+    <!-- OCR PROGRESSION OVERLAY: Centered in the middle of the screen, minimal, no logo -->
+    <div v-if="isProcessing" class="ocr-progression-overlay" role="status" aria-live="assertive">
+      <div class="ocr-processing-card">
         <h2 class="processing-title khmer-font">{{ t('scanningTitle') }}</h2>
         <p class="processing-desc khmer-font">
           {{ t('scanningDesc') }}
@@ -519,9 +462,11 @@ const onPointerUp = (e) => {
           <span>{{ t('longProcessingNotice') }}</span>
         </div>
       </div>
+    </div>
 
-      <!-- OCR ERROR STATE (Human-readable tips + SCAN AGAIN button) -->
-      <div v-else-if="ocrError" class="ocr-error-card glass-card" role="alert">
+    <!-- OCR ERROR STATE (Human-readable tips + SCAN AGAIN button) -->
+    <div v-if="ocrError && !isProcessing" class="mode-container scan-mode-container" role="alert">
+      <div class="ocr-error-card glass-card">
         <div class="error-glow-icon bg-danger">
           <AlertCircle :size="40" />
         </div>
@@ -549,62 +494,54 @@ const onPointerUp = (e) => {
           <span>{{ t('scanAgainBtn') }}</span>
         </button>
       </div>
+    </div>
 
-      <!-- Camera Viewfinder (scan tab) or Upload Dropzone + Samples (upload tab) -->
+    <!-- MODE 1 & 2: CAMERA (full-screen) + UPLOAD (dropzone & samples) with Instagram-style swipe navigation -->
+    <div 
+      v-else-if="activeMode === 'scan' || activeMode === 'upload'" 
+      class="mode-container scan-mode-container" 
+      :class="{ 'camera-fullscreen': activeMode === 'scan' }"
+      @touchstart.passive="onTouchStart"
+      @touchend="onTouchEnd"
+      @pointerdown="onPointerDown"
+      @pointerup="onPointerUp"
+    >
       <DocumentUploader
-        v-else
         :mode="activeMode === 'upload' ? 'upload' : 'camera'"
         :is-processing="isProcessing"
-        :samples="sampleLibrary"
+        :recent-docs="historyList"
         @file-selected="onFileSelected"
         @clear-file="onClearFile"
         @trigger-ocr="handleTriggerOcr"
-        @load-sample="loadSample"
+        @open-recent="onLoadHistoryItem"
         @switch-mode="setMode"
       />
     </div>
 
-    <!-- MODE 3: READING MODE (Unified Khmer Document Reader & Karaoke Deck) -->
-    <div v-show="activeMode === 'reader'" class="mode-container reader-mode-container">
-      <div class="reader-layout-grid" :class="{ 'reader-grid-empty': !extractedText }">
-        <!-- Reading Canvas or Upload-style Empty State -->
-        <OcrPanel 
-          ref="ocrPanelRef"
-          v-model:text="extractedText"
-          :is-processing="isProcessing"
-          :file-name="selectedFileName"
-          :is-cached="isCached"
-          :active-word-index="activeWordIndex"
-          v-model:highlight-mode="highlightMode"
-          :is-speaking="ttsPanelRef?.isSpeaking"
-          :samples="sampleLibrary"
-          @seek-word="onSeekWord"
-          @read-aloud="handleReadAloud"
-          @scan-again="handleScanAgain"
-          @load-sample="loadSample"
-          @switch-mode="setMode"
-          @toast="addToast"
-        />
-
-        <!-- Tactile Audio Player Deck (Persistent Sticky at Bottom of View) ONLY when text is present -->
-        <TtsPanel 
-          v-if="extractedText"
-          ref="ttsPanelRef"
-          :text="extractedText"
-          v-model:active-word-index="activeWordIndex"
-          @scan-again="handleScanAgain"
-        />
-      </div>
+    <!-- MODE 3: READING MODE (Dedicated Clean Document Reader per Screenshot) -->
+    <div v-show="!isProcessing && !ocrError && activeMode === 'reader'" class="mode-container reader-mode-container">
+      <DocumentReader 
+        ref="documentReaderRef"
+        :text="extractedText"
+        :file-name="selectedFileName"
+        :is-processing="isProcessing"
+        @back="handleScanAgain"
+        @switch-mode="setMode"
+        @toast="addToast"
+      />
     </div>
 
-    <!-- MODE 4: RECENT READS MODE (Accessible History Shelf) -->
-    <div v-show="activeMode === 'recent'" class="mode-container recent-mode-container">
+    <!-- MODE 4: RECENT READS MODE (Accessible History Shelf with in-place upload) -->
+    <div v-show="!isProcessing && !ocrError && activeMode === 'recent'" class="mode-container recent-mode-container">
       <UserHistory 
         :history="historyList"
+        :is-processing="isProcessing"
         @load-item="onLoadHistoryItem"
         @quick-play="onQuickPlayHistoryItem"
         @delete-item="onDeleteHistoryItem"
         @clear-history="onClearHistory"
+        @switch-mode="setMode"
+        @file-selected="onFileSelectedFromHistory"
       />
     </div>
 

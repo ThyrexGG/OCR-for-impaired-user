@@ -1,30 +1,48 @@
 <script setup>
-import { inject } from 'vue'
-import { History, BookOpen, Play, Trash2, Clock, Check, Zap, ArrowRight, Share2, Edit2 } from 'lucide-vue-next'
+import { ref, computed, inject } from 'vue'
+import { BookOpen, Trash2, Upload } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 
 const props = defineProps({
   history: {
     type: Array,
     default: () => []
+  },
+  isProcessing: {
+    type: Boolean,
+    default: false
   }
 })
 
-const emit = defineEmits(['load-item', 'quick-play', 'delete-item', 'clear-history'])
+const emit = defineEmits(['load-item', 'delete-item', 'clear-history', 'switch-mode', 'file-selected'])
 
 const speakAccessibility = inject('speakAccessibility', () => {})
 const triggerHaptic = inject('triggerHaptic', () => {})
+
+const fileInputRef = ref(null)
+
+const validHistory = computed(() => {
+  return (props.history || []).filter(item => item && item.name && item.name.trim())
+})
+
+const triggerFileInput = () => {
+  triggerHaptic(30)
+  fileInputRef.value?.click()
+}
+
+const handleFileSelect = (e) => {
+  const file = e.target?.files?.[0]
+  if (!file) return
+  triggerHaptic('success')
+  speakAccessibility(`${t('fileUploaded')} ${file.name}`)
+  emit('file-selected', file)
+  e.target.value = ''
+}
 
 const handleOpenInReader = (item) => {
   triggerHaptic(40)
   speakAccessibility(currentLang.value === 'km' ? `បានបើកឯកសារ ${item.name} ក្នុងផ្ទាំងអាន` : `Opened ${item.name} in reader`)
   emit('load-item', item)
-}
-
-const handleQuickPlay = (item) => {
-  triggerHaptic([60, 40])
-  speakAccessibility(currentLang.value === 'km' ? `ចាប់ផ្តើមអានឯកសារ ${item.name} ជាសំឡេង` : `Playing ${item.name}`)
-  emit('quick-play', item)
 }
 
 const handleDelete = (item) => {
@@ -41,33 +59,6 @@ const handleClearAll = () => {
   }
 }
 
-const handleShare = async (item) => {
-  triggerHaptic(30)
-  if (navigator.share && item.text) {
-    try {
-      await navigator.share({ title: item.name, text: item.text })
-      speakAccessibility(currentLang.value === 'km' ? `បានចែករំលែកឯកសារ ${item.name}` : `Shared ${item.name}`)
-      return
-    } catch (e) {}
-  }
-  if (navigator.clipboard && item.text) {
-    await navigator.clipboard.writeText(item.text)
-    speakAccessibility(currentLang.value === 'km' ? `បានចម្លងអត្ថបទ ${item.name} ទៅកាន់ Clipboard រួចរាល់` : `Copied ${item.name} text`)
-  }
-}
-
-const handleRename = (item) => {
-  triggerHaptic(30)
-  const newName = prompt(t('renamePrompt'), item.name)
-  if (newName && newName.trim()) {
-    item.name = newName.trim()
-    try {
-      localStorage.setItem('songkhem_history', JSON.stringify(props.history))
-    } catch (e) {}
-    speakAccessibility(currentLang.value === 'km' ? `បានប្តូរឈ្មោះឯកសារទៅជា ${item.name}` : `Renamed to ${item.name}`)
-  }
-}
-
 // Estimate listening duration based on word count (~120 words/min)
 const estimateDuration = (wordsCount) => {
   if (!wordsCount) return `~30 ${t('secondsApprox')}`
@@ -77,49 +68,52 @@ const estimateDuration = (wordsCount) => {
 </script>
 
 <template>
-  <div class="recent-reads-shelf glass-card" role="region" :aria-label="t('recentReadsTitle')">
-    <!-- Shelf Header -->
-    <div class="shelf-header">
-      <div class="header-left">
-        <div class="shelf-icon-circle bg-brand">
-          <History :size="20" />
-        </div>
-        <div class="shelf-titles">
-          <h2 class="shelf-title khmer-font">{{ t('recentReadsTitle') }}</h2>
-          <span class="shelf-subtitle khmer-font">{{ history.length }} {{ t('recordedDocsCount') }}</span>
-        </div>
-      </div>
-
-      <div class="header-right" v-if="history.length > 0">
-        <button 
-          type="button" 
-          class="btn-clear-shelf khmer-font"
-          @click="handleClearAll"
-          :aria-label="t('clearAll')"
-          :title="t('clearAll')"
-        >
-          <Trash2 :size="15" />
-          <span>{{ t('clearAll') }}</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Shelf Content -->
-    <div class="shelf-body">
-      <!-- Empty State -->
-      <div v-if="history.length === 0" class="shelf-empty">
-        <Clock :size="44" class="text-accent" />
+  <div 
+    class="recent-reads-shelf" 
+    :class="{ 'is-empty-state': validHistory.length === 0 }"
+    role="region" 
+    :aria-label="t('recentReadsTitle')"
+  >
+    <!-- Empty State: Seamlessly centered on page background without enclosing card -->
+    <div v-if="validHistory.length === 0" class="shelf-empty-state">
+      <div class="empty-state-card">
         <h3 class="empty-title khmer-font">{{ t('historyEmptyHeading') }}</h3>
         <p class="empty-desc khmer-font">
           {{ t('historyEmptySub') }}
         </p>
-      </div>
 
+        <!-- Hidden native file input for direct in-place uploading -->
+        <input 
+          type="file" 
+          ref="fileInputRef" 
+          class="sr-only" 
+          accept="image/*,application/pdf"
+          @change="handleFileSelect"
+        />
+
+        <!-- What to do next: Direct upload button -->
+        <div class="empty-actions-row">
+          <button 
+            type="button" 
+            class="btn-choose-file btn-empty-upload khmer-font"
+            @click="triggerFileInput"
+            :disabled="props.isProcessing"
+            :aria-label="t('chooseFileBtn')"
+          >
+            <Upload :size="20" />
+            <span>{{ t('chooseFileBtn') }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shelf Content: Shown when history has items -->
+    <div v-else class="shelf-body">
       <!-- Recent Reads Accessible List -->
-      <div v-else class="reads-cards-list">
+      <div class="reads-cards-list">
         <ul class="history-accessible-list" role="list">
           <li 
-            v-for="item in history" 
+            v-for="item in validHistory" 
             :key="item.id"
             class="history-list-row"
             :class="{ 'card-pending': item.pending }"
@@ -137,22 +131,9 @@ const estimateDuration = (wordsCount) => {
               </div>
             </div>
 
-            <!-- Right: Predictable Actions (Play, Open, Delete) -->
+            <!-- Actions (Open and Delete only) -->
             <div class="row-actions-group">
-              <!-- Quick Play -->
-              <button 
-                type="button" 
-                class="btn-row-action btn-row-play khmer-font" 
-                @click="handleQuickPlay(item)"
-                :disabled="item.pending"
-                :aria-label="`${t('playAction')} ${item.name}`"
-                :title="t('playAction')"
-              >
-                <Play :size="16" fill="currentColor" />
-                <span>{{ t('playAction') }}</span>
-              </button>
-
-              <!-- Open in Reader -->
+              <!-- Open in Reader (Primary) -->
               <button 
                 type="button" 
                 class="btn-row-action btn-row-open khmer-font" 
@@ -165,44 +146,33 @@ const estimateDuration = (wordsCount) => {
                 <span>{{ t('openAction') }}</span>
               </button>
 
-              <!-- Share / Copy -->
+              <!-- Delete (Alongside Open) -->
               <button 
                 type="button" 
-                class="btn-row-tool" 
-                @click="handleShare(item)"
-                :disabled="item.pending"
-                :aria-label="`${t('shareAction')} ${item.name}`"
-                :title="t('shareAction')"
-              >
-                <Share2 :size="16" />
-              </button>
-
-              <!-- Rename -->
-              <button 
-                type="button" 
-                class="btn-row-tool" 
-                @click="handleRename(item)"
-                :disabled="item.pending"
-                :aria-label="`${t('renameAction')} ${item.name}`"
-                :title="t('renameAction')"
-              >
-                <Edit2 :size="16" />
-              </button>
-
-              <!-- Delete -->
-              <button 
-                type="button" 
-                class="btn-row-tool btn-row-delete" 
+                class="btn-row-action btn-row-delete-action khmer-font" 
                 @click="handleDelete(item)"
                 :disabled="item.pending"
                 :aria-label="`${t('deleteAction')} ${item.name}`"
                 :title="t('deleteAction')"
               >
                 <Trash2 :size="16" />
+                <span>{{ t('deleteAction') }}</span>
               </button>
             </div>
           </li>
         </ul>
+      </div>
+
+      <!-- Shelf Footer: Clear All button at the bottom (large, full container width, text only) -->
+      <div class="shelf-footer">
+        <button 
+          type="button" 
+          class="btn-clear-all-bottom khmer-font"
+          @click="handleClearAll"
+          :aria-label="t('clearAll')"
+        >
+          {{ t('clearAll') }}
+        </button>
       </div>
     </div>
   </div>
