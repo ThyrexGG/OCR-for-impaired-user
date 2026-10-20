@@ -87,6 +87,7 @@ const estimateDuration = (wordsCount) => {
           type="file" 
           ref="fileInputRef" 
           class="sr-only" 
+          :aria-label="t('chooseFileBtn')"
           accept="image/*,application/pdf"
           @change="handleFileSelect"
         />

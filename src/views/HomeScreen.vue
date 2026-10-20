@@ -154,7 +154,7 @@ const onFileSelected = async (file) => {
   extractedText.value = ''
   ocrError.value = null
   isCached.value = false
-  addToast({ message: `បានជ្រើសរើស ${file.name}`, type: 'info' })
+  addToast({ message: currentLang.value === 'km' ? 'បានជ្រើសរើសឯកសារ' : 'File selected', type: 'info' })
   await handleTriggerOcr()
 }
 
@@ -277,7 +277,7 @@ const onLoadHistoryItem = (item) => {
   extractedText.value = item.text
   ocrError.value = null
   isCached.value = !!item.cached
-  addToast({ message: `បានផ្ទុក "${item.name}"`, type: 'info' })
+  addToast({ message: currentLang.value === 'km' ? 'បានបើកឯកសារ' : 'Opened', type: 'info' })
   originMode.value = 'recent'
   setMode('reader')
 }
@@ -287,7 +287,7 @@ const onQuickPlayHistoryItem = (item) => {
   extractedText.value = item.text
   ocrError.value = null
   isCached.value = !!item.cached
-  addToast({ message: `ចាប់ផ្តើមអាន "${item.name}"`, type: 'info' })
+  addToast({ message: currentLang.value === 'km' ? 'កំពុងអាន' : 'Playing', type: 'info' })
   originMode.value = 'recent'
   setMode('reader')
   setTimeout(() => {
@@ -308,16 +308,15 @@ const onDeleteHistoryItem = (id) => {
   saveHistory()
 
   addToast({
-    message: `បានលុប "${deletedItem.name}"`,
+    message: currentLang.value === 'km' ? 'បានលុប' : 'Deleted',
     type: 'warning',
-    actionLabel: 'មិនធ្វើវិញ (Undo)',
-    duration: 6000,
+    actionLabel: currentLang.value === 'km' ? 'មិនធ្វើវិញ' : 'Undo',
+    duration: 5000,
     onAction: () => {
       historyList.value.splice(idx, 0, deletedItem)
       saveHistory()
       triggerHaptic(40)
-      speakAccessibility(`បានស្តារឡើងវិញនូវឯកសារ ${deletedItem.name}`)
-      addToast({ message: `បានស្តារ "${deletedItem.name}" ឡើងវិញ`, type: 'success' })
+      addToast({ message: currentLang.value === 'km' ? 'បានស្តារឡើងវិញ' : 'Restored', type: 'success' })
     }
   })
 }
@@ -328,14 +327,14 @@ const onClearHistory = () => {
   saveHistory()
   
   addToast({
-    message: 'បានសម្អាតប្រវត្តិអានទាំងអស់',
+    message: currentLang.value === 'km' ? 'បានសម្អាត' : 'Cleared',
     type: 'warning',
-    actionLabel: 'មិនធ្វើវិញ (Undo)',
-    duration: 6000,
+    actionLabel: currentLang.value === 'km' ? 'មិនធ្វើវិញ' : 'Undo',
+    duration: 5000,
     onAction: () => {
       historyList.value = previousHistory
       saveHistory()
-      addToast({ message: 'បានស្តារប្រវត្តិឡើងវិញ', type: 'success' })
+      addToast({ message: currentLang.value === 'km' ? 'បានស្តារឡើងវិញ' : 'Restored', type: 'success' })
     }
   })
 }
