@@ -784,7 +784,7 @@ onMounted(() => {
           <div class="setting-item">
             <div class="setting-label-col">
               <span class="setting-title khmer-font">{{ t('haptics') }}</span>
-              <span class="setting-desc khmer-font">{{ t('hapticsDesc') }}</span>
+              <span class="setting-desc khmer-font">{{ haptics.isSupported() ? t('hapticsDesc') : t('hapticsUnsupported') }}</span>
             </div>
             <button 
               type="button" 

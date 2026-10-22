@@ -646,6 +646,7 @@ defineExpose({
   pauseSpeech,
   stopPlayback: stopSpeech,
   seekToWord,
+  skipWords: jumpWords,
   cycleSpeed,
   isSpeaking,
   isPaused

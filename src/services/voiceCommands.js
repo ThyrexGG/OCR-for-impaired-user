@@ -89,6 +89,29 @@ class VoiceCommandService {
   processTranscript(transcript) {
     if (!this.onCommandCallback || !transcript) return
 
+    // 0. SKIP FORWARD / BACK (checked first so "skip" / "back" never fall through to play/stop)
+    if (
+      transcript.includes('ទៅមុខ') ||
+      transcript.includes('រំលង') ||
+      transcript.includes('forward') ||
+      transcript.includes('skip') ||
+      transcript.includes('next')
+    ) {
+      this.onCommandCallback({ action: 'skip-forward', transcript })
+      return
+    }
+    if (
+      transcript.includes('ថយក្រោយ') ||
+      transcript.includes('ត្រឡប់ក្រោយ') ||
+      transcript.includes('rewind') ||
+      transcript.includes('go back') ||
+      transcript.includes('previous') ||
+      transcript === 'back'
+    ) {
+      this.onCommandCallback({ action: 'skip-back', transcript })
+      return
+    }
+
     // 1. PLAY / READ ALOUD
     if (
       transcript.includes('អាន') || 

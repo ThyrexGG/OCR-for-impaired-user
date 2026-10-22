@@ -1,4 +1,4 @@
-const CACHE_NAME = 'songkhem-cache-v1'
+const CACHE_NAME = 'songkhem-cache-v2'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -33,6 +33,23 @@ self.addEventListener('fetch', (event) => {
 
   // Don't intercept API requests or POST requests
   if (event.request.method !== 'GET' || url.pathname.startsWith('/api/')) {
+    return
+  }
+
+  // Page loads: network-first. A cached index.html points at the previous deploy's
+  // hashed JS/CSS, so serving it first kept users on an old version after every release.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', copy))
+          }
+          return networkResponse
+        })
+        .catch(() => caches.match('/index.html'))
+    )
     return
   }
 

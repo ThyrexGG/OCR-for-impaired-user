@@ -57,6 +57,7 @@ export default function SettingsModal() {
     toggleAutoRead,
     isHapticsEnabled,
     toggleHaptics,
+    testHaptics,
     ocrConfig,
     saveOcrConfig,
     triggerHaptic,
@@ -307,9 +308,25 @@ export default function SettingsModal() {
             )}
 
             {activeTab === 'interaction' && (
+              <>
               <SettingItem title="ការញ័រផ្តល់ដំណឹង (Haptic Feedback)" desc="ញ័រទូរស័ព្ទពេលចាប់បានឯកសារ និងពេលចុចប៊ូតុង" fonts={fonts} row>
                 <AccessibleSwitch value={isHapticsEnabled} onValueChange={toggleHaptics} accessibilityLabel="បើកបិទការញ័រផ្តល់ដំណឹង" />
               </SettingItem>
+              <SettingItem title="សាកល្បងការញ័រ (Test Vibration)" desc="ចុចដើម្បីពិនិត្យថាទូរស័ព្ទញ័រឬអត់" fonts={fonts}>
+                <NeoButton
+                  bg="#FFFFFF"
+                  borderColor="#0F172A"
+                  shadowColor="#1D4ED8"
+                  contentStyle={styles.clearCacheBtn}
+                  accessibilityLabel="សាកល្បងការញ័រ"
+                  onPress={testHaptics}
+                  speakOnPress={false}
+                >
+                  <Sliders size={16} color="#0F172A" />
+                  <Text style={[styles.clearCacheText, { fontFamily: fonts.khmer }]}>សាកល្បងការញ័រ</Text>
+                </NeoButton>
+              </SettingItem>
+              </>
             )}
           </ScrollView>
 

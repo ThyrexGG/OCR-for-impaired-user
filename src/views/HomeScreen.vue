@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, inject, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, inject, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
   ArrowLeft, Sparkles, BookOpen, FileCheck2, Cpu, Zap, 
@@ -164,6 +164,10 @@ onMounted(() => {
       } else {
         setMode('scan')
       }
+    } else if (cmd.action === 'skip-forward') {
+      getPlayer()?.skipWords?.(5)
+    } else if (cmd.action === 'skip-back') {
+      getPlayer()?.skipWords?.(-5)
     } else if (cmd.action === 'faster') {
       getPlayer()?.cycleSpeed?.(1)
     } else if (cmd.action === 'slower') {
@@ -312,9 +316,9 @@ const handleTriggerOcr = async () => {
 // In-place File Selection directly from History (minimal steps for user)
 const onFileSelectedFromHistory = async (file) => {
   if (!file) return
-  onFileSelected(file)
   originMode.value = 'recent'
-  await handleTriggerOcr()
+  // onFileSelected already runs the OCR
+  await onFileSelected(file)
 }
 
 // History Actions

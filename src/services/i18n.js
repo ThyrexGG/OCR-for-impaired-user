@@ -119,6 +119,9 @@ export const translations = {
 
     // Document Uploader & Camera
     cameraReady: 'កាមេរ៉ាត្រៀមរួចជាស្រេច។ សូមតម្រង់ទៅកាន់ឯកសារ។',
+    capturePhotoAria: 'ថតរូបភាពឯកសារ',
+    formatUnsupported: 'ប្រភេទឯកសារនេះមិនត្រូវបានគាំទ្រទេ។ សូមជ្រើសរើសរូបភាព ឬ PDF',
+    fileUploaded: 'បានជ្រើសរើសឯកសារ',
     cameraStarting: 'កាមេរ៉ាត្រៀមរួចជាស្រេច។ កំពុងបើក...',
     cameraPermissionDenied: 'មិនអាចបើកកាមេរ៉ាបានទេ។',
     cameraPermissionRequired: 'មិនអាចបើកកាមេរ៉ាបានទេ',
@@ -210,6 +213,7 @@ export const translations = {
     autoReadDesc: 'អានភ្លាមៗក្រោយពេលស្កេនចប់',
     haptics: 'រំញ័រពេលចុច',
     hapticsDesc: 'ញ័រឧបករណ៍ពេលប្រតិបត្តិការសំខាន់',
+    hapticsUnsupported: 'កម្មវិធីរុករកនេះមិនគាំទ្រការញ័រទេ (iPhone Safari មិនអាចញ័រតាមគេហទំព័របានទេ) សូមប្រើកម្មវិធី songKHEM លើទូរស័ព្ទ',
     keyboardShortcuts: 'ផ្លូវកាត់ក្តារចុច',
     spaceKeyDesc: 'ចាប់ផ្តើម / ផ្អាកការអាន',
     ctrlEnterKeyDesc: 'ស្កេន និងអានឯកសារ',
@@ -347,6 +351,10 @@ export const translations = {
 
     // Document Uploader & Camera
     cameraReady: 'Camera ready. Please align with document.',
+    capturePhotoAria: 'Capture document photo',
+    formatUnsupported: 'This file type is not supported. Please choose an image or PDF',
+    fileUploaded: 'File selected:',
+    docPages: 'pages',
     cameraStarting: 'Camera ready. Starting video feed...',
     cameraPermissionDenied: 'Camera permission denied or camera not found.',
     cameraPermissionRequired: 'Camera Permission Required',
@@ -438,6 +446,7 @@ export const translations = {
     autoReadDesc: 'Begin speaking immediately after document scan',
     haptics: 'Haptic Feedback',
     hapticsDesc: 'Vibrate on important actions and capture',
+    hapticsUnsupported: 'This browser cannot vibrate (iPhone Safari blocks vibration on websites). Use the songKHEM phone app for haptics.',
     keyboardShortcuts: 'Keyboard Shortcuts',
     spaceKeyDesc: 'Play / Pause Reading',
     ctrlEnterKeyDesc: 'Scan & Read Document',

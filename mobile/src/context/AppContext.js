@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, useEffect, useMemo, useRef, use
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
 import * as Speech from 'expo-speech'
+import { AccessibilityInfo, Platform, Vibration } from 'react-native'
 
 const STORAGE_KEYS = {
   voice: 'songkhem_voice',
@@ -32,9 +33,25 @@ const HAPTIC_MAP = {
   light: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
   medium: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium),
   heavy: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy),
+  selection: () => Haptics.selectionAsync(),
   success: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
   warning: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
   error: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+}
+
+// Android: drive the vibrator directly (VIBRATE permission is declared by expo-haptics).
+// Many Android devices silently ignore the predefined-effect API expo-haptics uses for
+// impacts, whereas a plain millisecond vibration always fires. Same patterns as the web
+// app's haptics service (src/services/haptics.js). iOS keeps expo-haptics: RN's
+// Vibration is a fixed ~400ms buzz there.
+const ANDROID_PATTERNS = {
+  light: [0, 20],
+  medium: [0, 35],
+  heavy: [0, 60],
+  selection: [0, 15],
+  success: [0, 80, 40, 100],
+  warning: [0, 100, 50, 100],
+  error: [0, 100, 60, 100],
 }
 
 let toastIdCounter = 0
@@ -106,8 +123,28 @@ export function AppProvider({ children }) {
 
   const triggerHaptic = useCallback((intensity = 'light') => {
     if (!isHapticsEnabledRef.current) return
-    const run = HAPTIC_MAP[intensity] || HAPTIC_MAP.light
-    run().catch(() => {})
+    try {
+      if (Platform.OS === 'android') {
+        Vibration.vibrate(ANDROID_PATTERNS[intensity] || ANDROID_PATTERNS.light)
+        return
+      }
+      const run = HAPTIC_MAP[intensity] || HAPTIC_MAP.light
+      Promise.resolve(run()).catch(() => {})
+    } catch (e) {
+      // Devices without a vibrator / haptic engine: silently skip
+    }
+  }, [])
+
+  // Test button in Settings: ignores the on/off switch's stored value so users can
+  // confirm the hardware responds, and reports which backend fired.
+  const testHaptics = useCallback(() => {
+    try {
+      if (Platform.OS === 'android') {
+        Vibration.vibrate(ANDROID_PATTERNS.success)
+      } else {
+        Promise.resolve(HAPTIC_MAP.success()).catch(() => {})
+      }
+    } catch (e) {}
   }, [])
 
   const speakAccessibility = useCallback((text, interrupt = true) => {
@@ -116,6 +153,16 @@ export function AppProvider({ children }) {
     if (!isUiVoiceEnabledRef.current) return
     if (interrupt) Speech.stop()
     Speech.speak(text, { language: 'km-KH', rate: 1.0 })
+  }, [])
+
+  // Screen-reader announcement only (TalkBack / VoiceOver). Never touches the speech
+  // queue, so it is safe to call while the document is being read aloud.
+  const announce = useCallback((text) => {
+    if (!text) return
+    setSpokenStatusText(text)
+    try {
+      AccessibilityInfo.announceForAccessibility(text)
+    } catch (e) {}
   }, [])
 
   const toggleUiVoice = useCallback(() => {
@@ -142,11 +189,11 @@ export function AppProvider({ children }) {
     setIsHapticsEnabled((prev) => {
       const next = !prev
       AsyncStorage.setItem(STORAGE_KEYS.haptics, next ? 'true' : 'false').catch(() => {})
-      if (next) HAPTIC_MAP.success().catch(() => {})
+      if (next) testHaptics()
       speakAccessibility(next ? 'បានបើកការញ័រផ្តល់ដំណឹង (Haptics ON)' : 'បានបិទការញ័រ')
       return next
     })
-  }, [speakAccessibility])
+  }, [speakAccessibility, testHaptics])
 
   const saveOcrConfig = useCallback(
     (next) => {
@@ -216,7 +263,9 @@ export function AppProvider({ children }) {
       isHelpOpen,
       ocrConfig,
       triggerHaptic,
+      testHaptics,
       speakAccessibility,
+      announce,
       toggleUiVoice,
       toggleAutoRead,
       toggleHaptics,
@@ -238,7 +287,9 @@ export function AppProvider({ children }) {
       isHelpOpen,
       ocrConfig,
       triggerHaptic,
+      testHaptics,
       speakAccessibility,
+      announce,
       toggleUiVoice,
       toggleAutoRead,
       toggleHaptics,

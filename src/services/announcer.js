@@ -17,6 +17,7 @@ class AnnouncerService {
     this._throttleMs = 1500
     this._audioCache = new Map()
     this._activeAudio = null
+    this._usedSynth = false
   }
 
   setVoiceEnabled(enabled) {
@@ -126,6 +127,8 @@ class AnnouncerService {
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.rate = 1.0
       utterance.lang = currentLang.value === 'km' ? 'km-KH' : 'en-US'
+      utterance.onend = utterance.onerror = () => { this._usedSynth = false }
+      this._usedSynth = true
       window.speechSynthesis.speak(utterance)
     }
   }
@@ -136,8 +139,11 @@ class AnnouncerService {
       this._activeAudio.currentTime = 0
       this._activeAudio = null
     }
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
+    // Only cancel speech this announcer started — the reader's Web Speech
+    // fallback shares the same global queue and must not be killed by UI prompts.
+    if (this._usedSynth && typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel()
+      this._usedSynth = false
     }
   }
 }

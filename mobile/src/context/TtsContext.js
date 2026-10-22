@@ -1,3 +1,4 @@
+import { Platform } from 'react-native'
 import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Speech from 'expo-speech'
 import { createAudioPlayer } from 'expo-audio'
@@ -12,7 +13,7 @@ export const SPEED_PRESETS = [0.75, 1.0, 1.25, 1.5, 2.0]
 const TtsContext = createContext(null)
 
 export function TtsProvider({ children }) {
-  const { triggerHaptic, speakAccessibility, ocrConfig } = useApp()
+  const { triggerHaptic, speakAccessibility, announce, ocrConfig } = useApp()
   const { extractedText, setAutoReadHandler } = useOcr()
 
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -29,10 +30,19 @@ export function TtsProvider({ children }) {
   const rateRef = useRef(1.0)
   const voicesRef = useRef([])
   const selectedVoiceNameRef = useRef('')
+  const tokenFracsRef = useRef([])
+  const activeWordRef = useRef(-1)
+  const isPausedRef = useRef(false)
+  const speechModeRef = useRef(false)
+  const speechSessionRef = useRef(0)
+  const pendingSeekRef = useRef(null)
+  const pendingSpeechStartRef = useRef(null)
 
   useEffect(() => { rateRef.current = rate }, [rate])
   useEffect(() => { voicesRef.current = voices }, [voices])
   useEffect(() => { selectedVoiceNameRef.current = selectedVoiceName }, [selectedVoiceName])
+  useEffect(() => { activeWordRef.current = activeWordIndex }, [activeWordIndex])
+  useEffect(() => { isPausedRef.current = isPaused }, [isPaused])
 
   // --- Load voices: Azure's two fixed neural voices if a key is configured,
   // otherwise the device's installed TTS voices (expo-speech's async
@@ -43,6 +53,8 @@ export function TtsProvider({ children }) {
         const azureVoices = [
           { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'Piseth (សំឡេងប្រុស)', gender: 'Male' },
           { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'Sreymom (សំឡេងស្រី)', gender: 'Female' },
+          { name: 'km-KH-SokhaMedical', lang: 'km-KH', label: 'Dr. Sokha (គ្រូពេទ្យ សុខា - វេជ្ជបញ្ជា)', gender: 'Male' },
+          { name: 'km-KH-VitsOffline', lang: 'km-KH', label: 'songKHEM-VITS (ម៉ូដែលរបស់យើង)', gender: 'Male' },
         ]
         setVoices(azureVoices)
         setSelectedVoiceName(azureVoices[0].name)
@@ -121,6 +133,24 @@ export function TtsProvider({ children }) {
     }
   }, [])
 
+  const setPaused = useCallback((value) => {
+    isPausedRef.current = value
+    setIsPaused(value)
+  }, [])
+
+  // Word index for a playback fraction (0..1), weighted by word length so the
+  // highlight follows the audio clock instead of a fixed per-word timer.
+  const indexForFraction = useCallback((fraction) => {
+    const fracs = tokenFracsRef.current
+    if (!fracs.length) return -1
+    let idx = 0
+    for (let i = 0; i < fracs.length; i++) {
+      if (fracs[i] <= fraction) idx = i
+      else break
+    }
+    return idx
+  }, [])
+
   const stopSpeech = useCallback(() => {
     if (audioPlayerRef.current) {
       try {
@@ -128,31 +158,42 @@ export function TtsProvider({ children }) {
       } catch (e) {}
       releaseAudioPlayer()
     }
+    speechSessionRef.current += 1
+    speechModeRef.current = false
+    pendingSeekRef.current = null
+    pendingSpeechStartRef.current = null
     Speech.stop()
     setIsSpeaking(false)
-    setIsPaused(false)
+    setPaused(false)
     setActiveWordIndex(-1)
     clearHighlightInterval()
-  }, [releaseAudioPlayer, clearHighlightInterval])
+  }, [releaseAudioPlayer, clearHighlightInterval, setPaused])
 
+  // Device voice (expo-speech). It cannot seek, so a skip restarts the utterance
+  // from the chosen word: only the remaining words are spoken.
   const fallbackWebSpeech = useCallback(
-    (text) => {
+    (text, startIndex = 0) => {
+      stopSpeech()
       setIsSpeaking(true)
-      setIsPaused(false)
+      setPaused(false)
+      speechModeRef.current = true
+      const session = speechSessionRef.current
+      const spokenText = startIndex > 0 && tokensRef.current.length ? tokensRef.current.slice(startIndex).join(' ') : text
       const voice = voicesRef.current.find((v) => v.name === selectedVoiceNameRef.current)
       const isSreymom = voice?.gender === 'Female' || (voice?.label || '').includes('ស្រី')
-      Speech.speak(text, {
+      Speech.speak(spokenText, {
         voice: voice?.name,
         rate: rateRef.current,
         pitch: isSreymom ? 1.15 : 0.95,
         language: 'km-KH',
-        onDone: () => stopSpeech(),
+        // Ignore events from an utterance a skip has already replaced
+        onDone: () => { if (speechSessionRef.current === session) stopSpeech() },
         onStopped: () => {},
-        onError: () => stopSpeech(),
+        onError: () => { if (speechSessionRef.current === session) stopSpeech() },
       })
-      startHighlighting(0)
+      startHighlighting(startIndex)
     },
-    [stopSpeech, startHighlighting]
+    [stopSpeech, startHighlighting, setPaused]
   )
 
   const startSpeech = useCallback(async () => {
@@ -161,24 +202,31 @@ export function TtsProvider({ children }) {
       return
     }
 
-    // Resume if paused
-    if (isPaused) {
+    // Resume if paused (ref, not state: restartSpeech calls stop + start in the same tick)
+    if (isPausedRef.current) {
       if (audioPlayerRef.current) {
         audioPlayerRef.current.play()
+        // The audio clock drives the highlight again via playbackStatusUpdate
+      } else if (speechModeRef.current && (Platform.OS === 'android' || pendingSpeechStartRef.current !== null)) {
+        // expo-speech can't resume on Android and can't seek: restart from the paused/skipped word
+        const from = pendingSpeechStartRef.current ?? Math.max(0, activeWordRef.current)
+        fallbackWebSpeech(extractedText, from)
+        triggerHaptic('light')
+        return
       } else {
         Speech.resume()
+        startHighlighting(Math.max(0, activeWordRef.current))
       }
-      setIsPaused(false)
+      setPaused(false)
       setIsSpeaking(true)
-      startHighlighting(activeWordIndex === -1 ? 0 : activeWordIndex)
       triggerHaptic('light')
-      speakAccessibility('បន្តការអាន')
       return
     }
 
     stopSpeech()
+    const session = speechSessionRef.current
     setIsSpeaking(true)
-    setIsPaused(false)
+    setPaused(false)
     triggerHaptic('medium')
     speakAccessibility('ចាប់ផ្តើមអាន...')
 
@@ -191,16 +239,22 @@ export function TtsProvider({ children }) {
         const selectedVoice = voicesRef.current.find((v) => v.name === selectedVoiceNameRef.current)
         const voiceName = selectedVoice ? selectedVoice.name : 'km-KH-PisethNeural'
         const gender = selectedVoice?.gender || 'Male'
+        // Sokha / songKHEM-VITS are songKHEM personas served by api/tts, not real Azure voice names
+        const isPersona = voiceName === 'km-KH-VitsOffline' || voiceName === 'km-KH-SokhaMedical'
+        const useAzureDirect = Boolean(azureKey) && !isPersona
 
         let audioUri = getTtsCache(extractedText, voiceName, 1.0)
         if (!audioUri) {
-          audioUri = azureKey
+          audioUri = useAzureDirect
             ? await synthesizeTextAzureTTS(extractedText, azureKey, azureEndpoint, 1.0, 1.0, voiceName, gender)
             : await synthesizeTextCloudTTS(extractedText, voiceName)
           setTtsCache(extractedText, voiceName, 1.0, audioUri)
         }
 
-        const player = createAudioPlayer({ uri: audioUri })
+        // Stopped (or restarted) while the audio was being synthesized
+        if (speechSessionRef.current !== session) return
+
+        const player = createAudioPlayer({ uri: audioUri }, { updateInterval: 100 })
         audioPlayerRef.current = player
         player.volume = 1.0
         player.playbackRate = rateRef.current
@@ -208,37 +262,57 @@ export function TtsProvider({ children }) {
           if (status.didJustFinish) {
             stopSpeech()
             speakAccessibility('ការអានអត្ថបទបានបញ្ចប់')
+            return
+          }
+          const duration = status.duration
+          if (!(duration > 0)) return
+          // A skip tapped before the duration was known is applied as soon as it is
+          if (pendingSeekRef.current !== null) {
+            const pending = pendingSeekRef.current
+            pendingSeekRef.current = null
+            player.seekTo(duration * (tokenFracsRef.current[pending] ?? 0) + 0.02).catch(() => {})
+            return
+          }
+          // Highlight locked to the real audio playhead
+          if (status.playing) {
+            const idx = indexForFraction(status.currentTime / duration)
+            if (idx >= 0) setActiveWordIndex((prev) => (prev === idx ? prev : idx))
           }
         })
         player.play()
-        startHighlighting(0)
+        // A skip tapped while the voice was still being synthesized wins over word 0
+        setActiveWordIndex(pendingSeekRef.current !== null ? pendingSeekRef.current : 0)
         return
       } catch (error) {
         console.error(error)
-        setIsSpeaking(false)
-        fallbackWebSpeech(extractedText)
+        if (speechSessionRef.current !== session) return
+        fallbackWebSpeech(extractedText, Math.max(0, activeWordRef.current))
         return
       }
     }
 
     fallbackWebSpeech(extractedText)
-  }, [extractedText, isPaused, activeWordIndex, stopSpeech, startHighlighting, triggerHaptic, speakAccessibility, fallbackWebSpeech, ocrConfig])
+  }, [extractedText, stopSpeech, startHighlighting, triggerHaptic, speakAccessibility, fallbackWebSpeech, indexForFraction, setPaused, ocrConfig])
 
   const pauseSpeech = useCallback(() => {
     if (!isSpeaking) return
     if (audioPlayerRef.current) {
       audioPlayerRef.current.pause()
+    } else if (Platform.OS === 'android') {
+      // expo-speech has no pause on Android: stop and resume from the current word instead
+      Speech.stop()
+      pendingSpeechStartRef.current = Math.max(0, activeWordRef.current)
     } else {
       try {
         Speech.pause()
       } catch (e) {}
     }
-    setIsPaused(true)
+    setPaused(true)
     setIsSpeaking(false)
     clearHighlightInterval()
     triggerHaptic('light')
     speakAccessibility('បានផ្អាកការអាន')
-  }, [isSpeaking, clearHighlightInterval, triggerHaptic, speakAccessibility])
+  }, [isSpeaking, clearHighlightInterval, triggerHaptic, speakAccessibility, setPaused])
 
   const togglePlayback = useCallback(() => {
     if (isSpeaking) pauseSpeech()
@@ -249,26 +323,54 @@ export function TtsProvider({ children }) {
     stopSpeech()
     startSpeech()
     triggerHaptic('medium')
-    speakAccessibility('អានឡើងវិញតាំងពីដើម')
   }, [stopSpeech, startSpeech, triggerHaptic, speakAccessibility])
 
   const seekToWord = useCallback(
     (wordIndex) => {
       if (wordIndex < 0 || wordIndex >= tokensRef.current.length) return
       setActiveWordIndex(wordIndex)
-      if (isSpeaking) startHighlighting(wordIndex)
+      activeWordRef.current = wordIndex
+
+      // Neural voice: seek the real audio playhead (or queue it until the duration is known)
+      const player = audioPlayerRef.current
+      if (player) {
+        const duration = player.duration
+        if (duration > 0) {
+          pendingSeekRef.current = null
+          player.seekTo(duration * (tokenFracsRef.current[wordIndex] ?? 0) + 0.02).catch(() => {})
+        } else {
+          pendingSeekRef.current = wordIndex
+        }
+        return
+      }
+
+      // Device voice: restart the utterance from this word (or remember it while paused)
+      if (speechModeRef.current) {
+        if (isPausedRef.current) pendingSpeechStartRef.current = wordIndex
+        else fallbackWebSpeech(extractedText, wordIndex)
+        return
+      }
+
+      // Neural audio still being fetched: honour the skip once playback starts
+      if (isSpeaking) {
+        pendingSeekRef.current = wordIndex
+        return
+      }
     },
-    [isSpeaking, startHighlighting]
+    [isSpeaking, fallbackWebSpeech, extractedText]
   )
 
   const jumpWords = useCallback(
     (delta) => {
-      const next = Math.max(0, Math.min(tokensRef.current.length - 1, activeWordIndex + delta))
+      if (!tokensRef.current.length) return
+      const current = activeWordRef.current >= 0 ? activeWordRef.current : 0
+      const next = Math.max(0, Math.min(tokensRef.current.length - 1, current + delta))
       seekToWord(next)
       triggerHaptic('light')
-      speakAccessibility(delta > 0 ? 'រំលងទៅមុខ' : 'ថយក្រោយ')
+      // Screen-reader announcement only: speaking over (or Speech.stop()-ing) the reading made skip unusable
+      announce(delta > 0 ? 'រំលងទៅមុខ' : 'ថយក្រោយ')
     },
-    [activeWordIndex, seekToWord, triggerHaptic, speakAccessibility]
+    [seekToWord, triggerHaptic, announce]
   )
 
   const setSpeedPreset = useCallback(
@@ -287,6 +389,14 @@ export function TtsProvider({ children }) {
   // mirrors the web app's `watch(() => props.text, ..., { immediate: true })`.
   useEffect(() => {
     tokensRef.current = extractedText ? extractedText.trim().split(/\s+/).filter((w) => w.length > 0) : []
+    // Start-of-word fractions weighted by length, to map the audio playhead <-> word index
+    const totalChars = tokensRef.current.reduce((sum, w) => sum + w.length, 0) || 1
+    let consumed = 0
+    tokenFracsRef.current = tokensRef.current.map((w) => {
+      const start = consumed / totalChars
+      consumed += w.length
+      return start
+    })
     stopSpeech()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extractedText])

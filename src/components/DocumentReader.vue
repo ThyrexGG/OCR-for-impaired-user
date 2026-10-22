@@ -6,6 +6,7 @@ import {
 } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 import { haptics } from '../services/haptics'
+import { announcer } from '../services/announcer'
 import { useKhmerTts, SPEED_PRESETS } from '../composables/useKhmerTts'
 import signalIconUrl from '../assets/signalIcon.svg'
 import './DocumentReader.css'
@@ -246,10 +247,12 @@ const seekToWord = (index) => {
 // Rewind / Fast-forward by 5 words
 const jumpRelative = (delta) => {
   tts.jumpWords(delta)
+  if (!isSpeaking.value) scrollToActiveWord()
   const dirMsg = delta > 0
     ? (currentLang.value === 'km' ? 'ទៅមុខ ៥ ពាក្យ' : 'Fast forward 5 words')
     : (currentLang.value === 'km' ? 'ថយក្រោយ ៥ ពាក្យ' : 'Rewind 5 words')
-  speakAccessibility(dirMsg)
+  // Screen-reader live region only: spoken guidance would talk over the reading itself
+  announcer.announce(dirMsg)
 }
 
 // --- Voice & Speed Picker (4 Khmer personas incl. trained songKHEM-VITS) ---
@@ -292,6 +295,7 @@ defineExpose({
   stopPlayback: stopAudio,
   togglePlayback: toggleAudio,
   cycleSpeed: tts.cycleSpeed,
+  skipWords: jumpRelative,
   seekToWord,
   isSpeaking,
   isPaused
@@ -412,6 +416,7 @@ onBeforeUnmount(() => {
           class="action-pill-btn pill-summarize khmer-font"
           @click="handleOpenSummary"
           @mouseenter="onPillHover"
+          :tabindex="isActionsOpen ? 0 : -1"
           role="menuitem"
           :aria-label="currentLang === 'km' ? 'សង្ខេបខ្លឹមសារ' : 'Summarize document'"
         >
@@ -425,6 +430,7 @@ onBeforeUnmount(() => {
           class="action-pill-btn pill-copy khmer-font"
           @click="handleCopy"
           @mouseenter="onPillHover"
+          :tabindex="isActionsOpen ? 0 : -1"
           role="menuitem"
           :aria-label="currentLang === 'km' ? 'ចម្លងអត្ថបទ' : 'Copy text'"
         >

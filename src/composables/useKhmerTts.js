@@ -130,6 +130,10 @@ export function useKhmerTts({ getText, activeWordIndex }) {
   let highlightInterval = null
   let fallbackStartTime = 0
   let fallbackStartOffsetFrac = 0
+  let usingSynth = false
+  let activeUtterance = null
+  let pendingSeekIndex = null
+  let pendingSynthStart = null
 
   const isAssistivePacingActive = computed(() =>
     assistivePacing.value || selectedVoiceName.value === 'km-KH-SokhaMedical'
@@ -187,6 +191,17 @@ export function useKhmerTts({ getText, activeWordIndex }) {
     return matchedIdx
   }
 
+  // Playhead position (seconds) for a word, or null while the audio duration is still unknown
+  const audioTimeForWord = (audio, wordIndex) => {
+    const entry = tokenTimeline.value[wordIndex]
+    if (!entry || !audio || !Number.isFinite(audio.duration) || audio.duration <= 0.15) return null
+    const leadPad = Math.min(0.08, audio.duration * 0.03)
+    const trailPad = Math.min(0.14, audio.duration * 0.04)
+    const effectiveDur = Math.max(0.15, audio.duration - leadPad - trailPad)
+    // Land just inside the word so float rounding never maps the playhead back to the previous token
+    return leadPad + Math.min(1, entry.startFrac + 0.002) * effectiveDur
+  }
+
   // Real-time audio-locked word highlighting (33 FPS, synced to the audio element's clock)
   const startHighlighting = (startIndex = 0) => {
     if (!tokens.value.length) return
@@ -200,6 +215,15 @@ export function useKhmerTts({ getText, activeWordIndex }) {
 
     highlightInterval = setInterval(() => {
       if (!tokens.value.length || !tokenTimeline.value.length) return
+
+      // A skip requested before the audio metadata was ready is applied as soon as it is
+      if (pendingSeekIndex !== null && currentAudio) {
+        const t = audioTimeForWord(currentAudio, pendingSeekIndex)
+        if (t !== null) {
+          currentAudio.currentTime = t
+          pendingSeekIndex = null
+        }
+      }
 
       // Mode A: locked to the HTML5 Audio playhead
       if (currentAudio && Number.isFinite(currentAudio.duration) && currentAudio.duration > 0.15) {
@@ -225,6 +249,10 @@ export function useKhmerTts({ getText, activeWordIndex }) {
   }
 
   const stop = () => {
+    usingSynth = false
+    activeUtterance = null
+    pendingSeekIndex = null
+    pendingSynthStart = null
     if (currentAudio) {
       currentAudio.pause()
       currentAudio.currentTime = 0
@@ -261,7 +289,13 @@ export function useKhmerTts({ getText, activeWordIndex }) {
     const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
     if (synth) {
       try {
-        const utterance = new SpeechSynthesisUtterance(getText())
+        usingSynth = true
+        // Starting mid-text (skip / tap-to-seek): speak only the remaining words
+        const spokenText = startIndex > 0 && tokens.value.length
+          ? tokens.value.slice(startIndex).join(' ')
+          : getText()
+        const utterance = new SpeechSynthesisUtterance(spokenText)
+        activeUtterance = utterance
         const synthVoices = synth.getVoices ? synth.getVoices() : []
         const realVoice = (synthVoices || []).find(v => (v.lang || '').toLowerCase().startsWith('km') || (v.name || '').toLowerCase().includes('khmer'))
         if (realVoice) utterance.voice = realVoice
@@ -270,8 +304,9 @@ export function useKhmerTts({ getText, activeWordIndex }) {
         utterance.lang = 'km-KH'
         const currentVoice = KHMER_VOICES.find(v => v.name === selectedVoiceName.value)
         utterance.pitch = currentVoice?.gender === 'Female' ? 1.18 : currentVoice?.gender === 'Male' ? 0.92 : 1.0
-        utterance.onend = () => { stop() }
-        utterance.onerror = () => { stop() }
+        // Ignore events from an utterance that a skip has already replaced
+        utterance.onend = () => { if (activeUtterance === utterance) stop() }
+        utterance.onerror = () => { if (activeUtterance === utterance) stop() }
         synth.speak(utterance)
       } catch (e) {
         console.warn('SpeechSynthesis error:', e)
@@ -292,6 +327,12 @@ export function useKhmerTts({ getText, activeWordIndex }) {
     const azureEndpoint = safeGet('songkhem_azure_tts_endpoint') || 'https://southeastasia.tts.speech.microsoft.com/cognitiveservices/v1'
 
     // Resume if paused
+    if (isPaused.value && usingSynth && pendingSynthStart !== null) {
+      // Skipped while paused on the Web Speech fallback: restart from the chosen word
+      fallbackWebSpeech(pendingSynthStart)
+      triggerHaptic(40)
+      return
+    }
     if (isPaused.value) {
       if (currentAudio) {
         currentAudio.play()
@@ -354,10 +395,12 @@ export function useKhmerTts({ getText, activeWordIndex }) {
         speakAccessibility('ការអានអត្ថបទបានបញ្ចប់')
       }
       await unlockedAudio.play()
-      startHighlighting(0)
+      // A skip tapped while the voice was still being synthesized wins over the original start
+      const target = pendingSeekIndex !== null ? pendingSeekIndex : startIndex
+      startHighlighting(target)
 
       // Jump to the requested word once the audio clock is running
-      if (startIndex > 0) seekToWord(startIndex)
+      if (target > 0) seekToWord(target)
     } catch (error) {
       console.error('Neural Khmer TTS error, falling back to Web Speech:', error)
       isSpeaking.value = false
@@ -368,12 +411,23 @@ export function useKhmerTts({ getText, activeWordIndex }) {
   const seekToWord = (wordIndex) => {
     if (wordIndex < 0 || wordIndex >= tokens.value.length) return
     activeWordIndex.value = wordIndex
-    const entry = tokenTimeline.value[wordIndex]
-    if (entry && currentAudio && Number.isFinite(currentAudio.duration) && currentAudio.duration > 0.15) {
-      const leadPad = Math.min(0.08, currentAudio.duration * 0.03)
-      const trailPad = Math.min(0.14, currentAudio.duration * 0.04)
-      const effectiveDur = Math.max(0.15, currentAudio.duration - leadPad - trailPad)
-      currentAudio.currentTime = leadPad + entry.startFrac * effectiveDur
+
+    // Web Speech fallback can't seek: restart the utterance from the target word
+    if (usingSynth) {
+      if (isSpeaking.value) fallbackWebSpeech(wordIndex)
+      else if (isPaused.value) pendingSynthStart = wordIndex
+      return
+    }
+
+    if (currentAudio) {
+      const t = audioTimeForWord(currentAudio, wordIndex)
+      if (t !== null) {
+        currentAudio.currentTime = t
+        pendingSeekIndex = null
+      } else {
+        // Audio still synthesizing / loading: apply once its duration is known
+        pendingSeekIndex = wordIndex
+      }
     }
     if (isSpeaking.value) startHighlighting(wordIndex)
   }
