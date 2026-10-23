@@ -36,9 +36,7 @@ export default function UploadDropzone() {
       <Text style={[styles.desc, { fontFamily: fonts.khmer }]}>គាំទ្ររូបភាព (JPG, PNG, WEBP) និងឯកសារ PDF</Text>
 
       <NeoButton
-        bg="#1D4ED8"
-        borderColor="#0F172A"
-        shadowColor="#0F172A"
+        bg="#4466F6"
         contentStyle={styles.chooseBtn}
         accessibilityLabel="ជ្រើសរើសឯកសាររូបភាព ឬ PDF ដើម្បីស្កេន"
         onPress={handlePress}
@@ -63,8 +61,13 @@ const createStyles = (s) =>
       gap: 8,
       paddingVertical: 16,
       paddingHorizontal: 14,
-      borderRadius: 4,
-      backgroundColor: s.bg,
+      borderRadius: 24,
+      backgroundColor: '#FFFFFF',
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 14,
+      elevation: 3,
     },
     iconCircle: {
       width: 52,
@@ -81,9 +84,9 @@ const createStyles = (s) =>
       alignItems: 'center',
       justifyContent: 'center',
       gap: 8,
-      minHeight: 50,
-      paddingHorizontal: 24,
-      marginTop: 8,
+      minHeight: 52,
+      paddingHorizontal: 26,
+      marginTop: 10,
     },
     chooseBtnText: { color: '#FFFFFF', fontWeight: '800', fontSize: 19 },
     helperText: { fontSize: 16, color: s.onSurfaceMuted, fontWeight: '500', marginTop: 6 },

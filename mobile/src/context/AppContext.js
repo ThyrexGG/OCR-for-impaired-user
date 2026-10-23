@@ -1,13 +1,17 @@
 import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
-import * as Speech from 'expo-speech'
 import { AccessibilityInfo, Platform, Vibration } from 'react-native'
+import { setSpeechRate, speakNow, stopSpeaking } from '../services/talkback'
+import { TP } from '../services/talkPhrases'
 
 const STORAGE_KEYS = {
   voice: 'songkhem_voice',
   autoRead: 'songkhem_auto_read',
   haptics: 'songkhem_haptics',
+  explore: 'songkhem_explore_touch',
+  voiceRate: 'songkhem_voice_rate',
+  welcomed: 'songkhem_welcomed',
   ocrProvider: 'songkhem_ocr_engine',
   googleApiKey: 'songkhem_google_api_key',
   googleEndpoint: 'songkhem_google_endpoint',
@@ -59,10 +63,15 @@ let toastIdCounter = 0
 const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
-  const [isUiVoiceEnabled, setIsUiVoiceEnabled] = useState(false)
+  // Talk-back is on by default: this app is built for people who may not see the screen,
+  // so it must speak before anyone has had the chance to find a setting.
+  const [isUiVoiceEnabled, setIsUiVoiceEnabled] = useState(true)
+  const [isExploreEnabled, setIsExploreEnabled] = useState(true)
+  const [voiceRate, setVoiceRateState] = useState(1.25)
+  const [isScreenReaderOn, setIsScreenReaderOn] = useState(false)
+  const [prefsLoaded, setPrefsLoaded] = useState(false)
   const [isAutoReadEnabled, setIsAutoReadEnabled] = useState(true)
   const [isHapticsEnabled, setIsHapticsEnabled] = useState(true)
-  const [spokenStatusText, setSpokenStatusText] = useState('ជំនួយការត្រៀមរួចជាស្រេច')
   const [toasts, setToasts] = useState([])
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
@@ -76,15 +85,31 @@ export function AppProvider({ children }) {
   const isHapticsEnabledRef = useRef(isHapticsEnabled)
   const isUiVoiceEnabledRef = useRef(isUiVoiceEnabled)
   useEffect(() => { isHapticsEnabledRef.current = isHapticsEnabled }, [isHapticsEnabled])
+  const isScreenReaderOnRef = useRef(false)
   useEffect(() => { isUiVoiceEnabledRef.current = isUiVoiceEnabled }, [isUiVoiceEnabled])
+  useEffect(() => { isScreenReaderOnRef.current = isScreenReaderOn }, [isScreenReaderOn])
+
+  // The OS screen reader (TalkBack / VoiceOver) already speaks every control and does
+  // its own touch exploration; running ours as well would double every sentence.
+  useEffect(() => {
+    let alive = true
+    AccessibilityInfo.isScreenReaderEnabled().then((on) => alive && setIsScreenReaderOn(!!on)).catch(() => {})
+    const sub = AccessibilityInfo.addEventListener('screenReaderChanged', (on) => setIsScreenReaderOn(!!on))
+    return () => {
+      alive = false
+      sub?.remove?.()
+    }
+  }, [])
 
   useEffect(() => {
     ;(async () => {
-      const [voice, autoRead, haptics, provider, googleApiKey, googleEndpoint, azureVisionKey, azureVisionEndpoint, azureTtsKey, azureTtsEndpoint] =
+      const [voice, autoRead, haptics, explore, savedRate, provider, googleApiKey, googleEndpoint, azureVisionKey, azureVisionEndpoint, azureTtsKey, azureTtsEndpoint] =
         await Promise.all([
           AsyncStorage.getItem(STORAGE_KEYS.voice),
           AsyncStorage.getItem(STORAGE_KEYS.autoRead),
           AsyncStorage.getItem(STORAGE_KEYS.haptics),
+          AsyncStorage.getItem(STORAGE_KEYS.explore),
+          AsyncStorage.getItem(STORAGE_KEYS.voiceRate),
           AsyncStorage.getItem(STORAGE_KEYS.ocrProvider),
           AsyncStorage.getItem(STORAGE_KEYS.googleApiKey),
           AsyncStorage.getItem(STORAGE_KEYS.googleEndpoint),
@@ -93,7 +118,15 @@ export function AppProvider({ children }) {
           AsyncStorage.getItem(STORAGE_KEYS.azureTtsKey),
           AsyncStorage.getItem(STORAGE_KEYS.azureTtsEndpoint),
         ])
-      setIsUiVoiceEnabled(voice === 'true')
+      setIsUiVoiceEnabled(voice !== 'false')
+      setIsExploreEnabled(explore !== 'false')
+      const rateNum = parseFloat(savedRate)
+      if (rateNum >= 0.75 && rateNum <= 2.5) {
+        setVoiceRateState(rateNum)
+        setSpeechRate(rateNum)
+      } else {
+        setSpeechRate(1.25)
+      }
       setIsAutoReadEnabled(autoRead !== 'false')
       setIsHapticsEnabled(haptics !== 'false')
 
@@ -118,6 +151,7 @@ export function AppProvider({ children }) {
         azureTtsKey: azureTtsKey || '',
         azureTtsEndpoint: azureTtsEndpoint || '',
       })
+      setPrefsLoaded(true)
     })()
   }, [])
 
@@ -147,33 +181,90 @@ export function AppProvider({ children }) {
     } catch (e) {}
   }, [])
 
-  const speakAccessibility = useCallback((text, interrupt = true) => {
-    if (!text) return
-    setSpokenStatusText(text)
-    if (!isUiVoiceEnabledRef.current) return
-    if (interrupt) Speech.stop()
-    Speech.speak(text, { language: 'km-KH', rate: 1.0 })
-  }, [])
-
-  // Screen-reader announcement only (TalkBack / VoiceOver). Never touches the speech
-  // queue, so it is safe to call while the document is being read aloud.
-  const announce = useCallback((text) => {
-    if (!text) return
-    setSpokenStatusText(text)
+  // Screen-reader announcement only (TalkBack / VoiceOver).
+  const announceToScreenReader = useCallback((text) => {
     try {
       AccessibilityInfo.announceForAccessibility(text)
     } catch (e) {}
   }, [])
 
+  // Spoken feedback. Starts immediately (no state update first, so no re-render sits between
+  // the touch and the sound). The OS screen reader takes over when one is running.
+  const speakAccessibility = useCallback(
+    (text, interrupt = true) => {
+      if (!text) return
+      if (isScreenReaderOnRef.current) {
+        announceToScreenReader(Array.isArray(text) ? text.join('. ') : text)
+        return
+      }
+      if (!isUiVoiceEnabledRef.current) return
+      speakNow(text, { interrupt })
+    },
+    [announceToScreenReader]
+  )
+
+  // Quiet status messages (skip, seek): never cut the current sentence off.
+  const announce = useCallback(
+    (text) => {
+      if (!text) return
+      if (isScreenReaderOnRef.current || !isUiVoiceEnabledRef.current) {
+        announceToScreenReader(text)
+        return
+      }
+      speakNow(text, { interrupt: false })
+    },
+    [announceToScreenReader]
+  )
+
   const toggleUiVoice = useCallback(() => {
-    setIsUiVoiceEnabled((prev) => {
-      const next = !prev
-      AsyncStorage.setItem(STORAGE_KEYS.voice, next ? 'true' : 'false').catch(() => {})
-      triggerHaptic('success')
-      if (next) speakAccessibility('បានបើកសំឡេងជំនួយបញ្ជា (Spoken Guidance Enabled)')
-      return next
-    })
-  }, [triggerHaptic, speakAccessibility])
+    const next = !isUiVoiceEnabledRef.current
+    triggerHaptic('success')
+    if (next) {
+      isUiVoiceEnabledRef.current = true
+      setIsUiVoiceEnabled(true)
+      if (isScreenReaderOnRef.current) announceToScreenReader(TP.voiceOn.km)
+      else speakNow(TP.voiceOn.km)
+    } else {
+      // Say it before going quiet, otherwise the user never learns it worked
+      if (isScreenReaderOnRef.current) announceToScreenReader(TP.voiceOff.km)
+      else speakNow(TP.voiceOff.km)
+      isUiVoiceEnabledRef.current = false
+      setIsUiVoiceEnabled(false)
+    }
+    AsyncStorage.setItem(STORAGE_KEYS.voice, next ? 'true' : 'false').catch(() => {})
+  }, [triggerHaptic, announceToScreenReader])
+
+  const toggleExplore = useCallback(() => {
+    const next = !isExploreEnabled
+    setIsExploreEnabled(next)
+    AsyncStorage.setItem(STORAGE_KEYS.explore, next ? 'true' : 'false').catch(() => {})
+    triggerHaptic('light')
+    speakAccessibility(next ? TP.exploreOn.km : TP.exploreOff.km)
+  }, [isExploreEnabled, triggerHaptic, speakAccessibility])
+
+  const setVoiceRate = useCallback(
+    (value) => {
+      setVoiceRateState(value)
+      setSpeechRate(value)
+      AsyncStorage.setItem(STORAGE_KEYS.voiceRate, String(value)).catch(() => {})
+      triggerHaptic('light')
+      speakAccessibility(TP.exploreOn.km)
+    },
+    [triggerHaptic, speakAccessibility]
+  )
+
+  // Said once when the app opens: the first time in full, afterwards just a short reminder.
+  const speakWelcome = useCallback(async () => {
+    let seen = false
+    try {
+      seen = (await AsyncStorage.getItem(STORAGE_KEYS.welcomed)) === 'true'
+      if (!seen) await AsyncStorage.setItem(STORAGE_KEYS.welcomed, 'true')
+    } catch (e) {}
+    if (!seen) speakAccessibility([TP.welcomeIntro.km, TP.welcomeHow.km, TP.welcomeOff.km])
+    else speakAccessibility([TP.welcomeIntro.km, TP.exploreOn.km])
+  }, [speakAccessibility])
+
+  useEffect(() => () => stopSpeaking(), [])
 
   const toggleAutoRead = useCallback(() => {
     setIsAutoReadEnabled((prev) => {
@@ -252,12 +343,20 @@ export function AppProvider({ children }) {
     return id
   }, [dismissToast])
 
+  const isTalkbackActive = isUiVoiceEnabled && !isScreenReaderOn
+  const isExploreActive = isTalkbackActive && isExploreEnabled
+
   const value = useMemo(
     () => ({
+      isTalkbackActive,
+      isExploreActive,
       isUiVoiceEnabled,
+      isExploreEnabled,
+      voiceRate,
+      isScreenReaderOn,
+      prefsLoaded,
       isAutoReadEnabled,
       isHapticsEnabled,
-      spokenStatusText,
       toasts,
       isSettingsOpen,
       isHelpOpen,
@@ -267,6 +366,9 @@ export function AppProvider({ children }) {
       speakAccessibility,
       announce,
       toggleUiVoice,
+      toggleExplore,
+      setVoiceRate,
+      speakWelcome,
       toggleAutoRead,
       toggleHaptics,
       addToast,
@@ -278,10 +380,15 @@ export function AppProvider({ children }) {
       saveOcrConfig,
     }),
     [
+      isTalkbackActive,
+      isExploreActive,
       isUiVoiceEnabled,
+      isExploreEnabled,
+      voiceRate,
+      isScreenReaderOn,
+      prefsLoaded,
       isAutoReadEnabled,
       isHapticsEnabled,
-      spokenStatusText,
       toasts,
       isSettingsOpen,
       isHelpOpen,
@@ -291,6 +398,9 @@ export function AppProvider({ children }) {
       speakAccessibility,
       announce,
       toggleUiVoice,
+      toggleExplore,
+      setVoiceRate,
+      speakWelcome,
       toggleAutoRead,
       toggleHaptics,
       addToast,

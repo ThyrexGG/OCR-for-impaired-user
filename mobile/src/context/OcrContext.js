@@ -6,6 +6,7 @@ import { getFileFingerprint, getOcrCache, setOcrCache } from '../services/cache'
 import { CLOUD_API_AVAILABLE } from '../services/cloudApi'
 import { sampleLibrary } from '../services/sampleLibrary'
 import { navigateToReader } from '../navigation/navigationRef'
+import { TP } from '../services/talkPhrases'
 
 const HISTORY_STORAGE_KEY = 'songkhem_history'
 const MAX_HISTORY_ITEMS = 25
@@ -29,6 +30,16 @@ export function OcrProvider({ children }) {
   const [ocrProgress, setOcrProgress] = useState(0)
 
   const processingTimeoutRef = useRef(null)
+  const processingTickRef = useRef(null)
+
+  // While a scan runs, say so now and then: a user who cannot see the spinner has no other way
+  // to tell "working" from "stuck".
+  const clearProcessingTimers = useCallback(() => {
+    if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current)
+    if (processingTickRef.current) clearInterval(processingTickRef.current)
+    processingTimeoutRef.current = null
+    processingTickRef.current = null
+  }, [])
   const autoReadHandlerRef = useRef(null)
 
   const setAutoReadHandler = useCallback((fn) => {
@@ -139,12 +150,16 @@ export function OcrProvider({ children }) {
       setOcrError(null)
       setOcrProgress(0)
       triggerHaptic('medium')
-      speakAccessibility('កំពុងស្រង់អត្ថបទខ្មែរ... សូមរង់ចាំបន្តិច។')
+      speakAccessibility(TP.scanning.km)
 
-      if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current)
+      clearProcessingTimers()
       processingTimeoutRef.current = setTimeout(() => {
         setIsLongProcessing(true)
-        speakAccessibility('ដំណើរការនេះអាចចំណាយពេលបន្តិច សូមកុំបិទទំព័រ។')
+        speakAccessibility(TP.stillWorking.km, false)
+        processingTickRef.current = setInterval(() => {
+          triggerHaptic('light')
+          speakAccessibility(TP.scanning.km, false)
+        }, 9000)
       }, 5000)
 
       const pendingId = 'pending_' + Date.now()
@@ -154,7 +169,7 @@ export function OcrProvider({ children }) {
       ])
 
       const finalizeOcr = (resultText) => {
-        if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current)
+        clearProcessingTimers()
         setIsLongProcessing(false)
         setExtractedText(resultText)
         if (fingerprint) setOcrCache(fingerprint, resultText, fileName)
@@ -178,7 +193,7 @@ export function OcrProvider({ children }) {
         setOcrProgress(100)
         triggerHaptic('success')
         addToast('ស្កេនស្រង់អត្ថបទជោគជ័យ', 'success')
-        speakAccessibility(`ស្កេនស្រង់អត្ថបទជោគជ័យ ${wordCount(resultText)} ពាក្យ`)
+        speakAccessibility(['ស្កេនស្រង់អត្ថបទជោគជ័យ', `${wordCount(resultText)} ${TP.wordUnit.km}`])
         navigateToReader()
         maybeAutoRead()
       }
@@ -212,7 +227,7 @@ export function OcrProvider({ children }) {
         finalizeOcr(text)
       } catch (error) {
         console.error('OCR Extraction Error:', error)
-        if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current)
+        clearProcessingTimers()
         setIsProcessing(false)
         setIsLongProcessing(false)
         setOcrProgress(0)
@@ -223,7 +238,7 @@ export function OcrProvider({ children }) {
         speakAccessibility(`មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ - ${msg}`)
       }
     },
-    [addToHistory, addToast, triggerHaptic, speakAccessibility, saveHistory, maybeAutoRead, ocrConfig]
+    [addToHistory, addToast, triggerHaptic, speakAccessibility, saveHistory, maybeAutoRead, ocrConfig, clearProcessingTimers]
   )
 
   // --- File selection (Upload tab) ---
@@ -275,7 +290,7 @@ export function OcrProvider({ children }) {
       setIsCached(false)
       setOcrError(null)
       triggerHaptic('success')
-      speakAccessibility('បានថតរូបភាពឯកសារ។ កំពុងចាប់ផ្តើមស្កេន...')
+      speakAccessibility(TP.scanning.km)
       return runOcrFlow({ ...file, name }, name)
     },
     [runOcrFlow, triggerHaptic, speakAccessibility]

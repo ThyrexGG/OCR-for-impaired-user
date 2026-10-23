@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { Image, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ArrowRight, Sparkles, ShieldCheck, Zap } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import AccessiblePressable from '../components/AccessiblePressable'
+import { useApp } from '../context/AppContext'
 
 // LoginScreen.vue's Khmer copy (t('featureInstant') etc.).
 const FEATURES = [
@@ -15,6 +17,11 @@ const FEATURES = [
 export default function WelcomeScreen({ navigation }) {
   const { colors, fonts } = useTheme()
   const styles = createStyles(colors)
+  const { prefsLoaded, speakWelcome } = useApp()
+
+  useEffect(() => {
+    if (prefsLoaded) speakWelcome()
+  }, [prefsLoaded, speakWelcome])
 
   return (
     <SafeAreaView style={[styles.wrapper, { backgroundColor: colors.bgPage }]}>
@@ -23,7 +30,7 @@ export default function WelcomeScreen({ navigation }) {
           <View style={styles.logoGem}>
             <Image source={require('../assets/logo.png')} style={styles.logoImg} resizeMode="contain" accessibilityLabel="songKHEM Logo" />
           </View>
-          <Text style={[styles.title, { fontFamily: fonts.title }]}>songKHEM</Text>
+          <Text style={[styles.title, { fontFamily: fonts.title }]}>SongKhem</Text>
           <Text style={[styles.subtitle, { fontFamily: fonts.khmer }]}>ជំនួយការមើលឃើញ និងអានឯកសារជាសំឡេង</Text>
         </View>
 
@@ -54,62 +61,72 @@ export default function WelcomeScreen({ navigation }) {
 
 const createStyles = (colors) =>
   StyleSheet.create({
-    wrapper: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 12 },
+    wrapper: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
     card: {
       width: '100%',
       maxWidth: 500,
       paddingVertical: 28,
       paddingHorizontal: 20,
-      borderWidth: 2,
-      borderColor: colors.borderMedium,
-      borderRadius: 4,
+      borderWidth: 1,
+      borderColor: colors.surfaces.divider,
+      borderRadius: 24,
       backgroundColor: colors.bgSurface,
-      gap: 16,
-      ...colors.shadows.lg,
+      gap: 18,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 18,
+      elevation: 4,
     },
     header: { alignItems: 'center', gap: 12 },
     logoGem: {
-      width: 80,
-      height: 80,
-      borderRadius: 4,
-      backgroundColor: colors.bgSurfaceElevated,
-      borderWidth: 2,
-      borderColor: colors.borderMedium,
+      width: 76,
+      height: 76,
+      borderRadius: 20,
+      backgroundColor: '#FFFFFF',
+      borderWidth: 1,
+      borderColor: colors.surfaces.divider,
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
-      marginBottom: 4,
-      ...colors.shadows.glow,
+      marginBottom: 2,
+      shadowColor: '#4466F6',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      elevation: 5,
     },
-    logoImg: { width: 60, height: 60 },
-    title: { fontSize: 33, fontWeight: '800', color: colors.accent, lineHeight: 40, letterSpacing: -0.3 },
-    subtitle: { fontSize: 17.5, color: colors.textSecondary, lineHeight: 31, textAlign: 'center' },
+    logoImg: { width: 56, height: 56 },
+    title: { fontSize: 30, fontWeight: '700', color: colors.accent, lineHeight: 38, letterSpacing: -0.2 },
+    subtitle: { fontSize: 17, color: colors.textPrimary, lineHeight: 30, textAlign: 'center' },
     featuresList: {
       gap: 12,
-      paddingVertical: 18,
-      paddingHorizontal: 20,
-      backgroundColor: colors.bgSurfaceElevated,
-      borderWidth: 1.5,
-      borderColor: colors.borderSubtle,
-      borderRadius: 4,
+      paddingVertical: 16,
+      paddingHorizontal: 18,
+      backgroundColor: colors.bgPage,
+      borderWidth: 1,
+      borderColor: colors.surfaces.divider,
+      borderRadius: 16,
     },
     featureItem: { flexDirection: 'row', alignItems: 'center', gap: 14 },
     featureIcon: { flexShrink: 0 },
-    featureText: { flex: 1, fontSize: 18, fontWeight: '600', color: colors.textPrimary, lineHeight: 30 },
+    featureText: { flex: 1, fontSize: 17, fontWeight: '600', color: colors.textPrimary, lineHeight: 28 },
     ctaButton: {
       width: '100%',
       minHeight: 58,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      paddingHorizontal: 20,
+      paddingHorizontal: 22,
       paddingVertical: 14,
       backgroundColor: colors.accent,
-      borderWidth: 2,
-      borderColor: colors.accentHover,
-      borderRadius: 4,
-      ...colors.shadows.glow,
+      borderRadius: 29,
+      shadowColor: '#4466F6',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.35,
+      shadowRadius: 14,
+      elevation: 6,
     },
-    ctaLabel: { fontSize: 20.5, fontWeight: '700', color: colors.accentText },
-    footerNote: { textAlign: 'center', fontSize: 16, color: colors.textMuted, lineHeight: 26 },
+    ctaLabel: { fontSize: 19, fontWeight: '700', color: colors.accentText },
+    footerNote: { textAlign: 'center', fontSize: 15, color: colors.textMuted, lineHeight: 24 },
   })

@@ -71,7 +71,7 @@ const createStyles = (colors) =>
       marginVertical: 10,
       borderWidth: 2,
       borderColor: colors.borderMedium,
-      borderRadius: 4,
+      borderRadius: 16,
       backgroundColor: colors.surfaces.surface1,
     },
     glowIcon: {

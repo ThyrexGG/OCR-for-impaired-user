@@ -1,54 +1,54 @@
 import { View } from 'react-native'
+import { useTheme } from '../theme/ThemeContext'
 import AccessiblePressable from './AccessiblePressable'
 
 /**
- * The web app's "neobrutalist" hard-offset-shadow button (`box-shadow: -4px
- * 4px 0px #0F172A`, translate-to-flush on `:active`) — used almost
- * everywhere (App.css header buttons, DocumentUploader/OcrPanel/TtsPanel's
- * hero + choose-file buttons). RN's shadow* props always blur, so this is a
- * literal second rectangle behind the button, nudged by (offsetX, offsetY)
- * and revealed because the wrapping View doesn't clip by default. On press,
- * the front button slides onto the shadow (offset -> 0) to read as "pushed in".
+ * Pill button in the web app's current design (src/style.css `--radius-button:
+ * 9999px`): fully rounded, soft elevation instead of the old hard offset
+ * shadow, and a gentle press (scale + dim). The prop names (offsetX/offsetY,
+ * borderColor, shadowColor...) are kept so existing call sites keep working;
+ * the hard-shadow ones are simply ignored now.
  */
 export default function NeoButton({
   children,
   style,
   contentStyle,
   bg = '#FFFFFF',
-  borderColor = '#0F172A',
-  shadowColor = '#1D4ED8',
-  offsetX = -4,
-  offsetY = 4,
-  borderWidth = 2,
-  radius = 4,
+  radius = 9999,
   disabled = false,
+  // legacy neobrutalist props, accepted and ignored
+  // eslint-disable-next-line no-unused-vars
+  borderColor,
+  // eslint-disable-next-line no-unused-vars
+  shadowColor,
+  // eslint-disable-next-line no-unused-vars
+  offsetX,
+  // eslint-disable-next-line no-unused-vars
+  offsetY,
+  // eslint-disable-next-line no-unused-vars
+  borderWidth,
   ...rest
 }) {
+  const { currentTheme } = useTheme()
+  const edge = currentTheme === 'dark' ? 'rgba(255,255,255,0.14)' : 'rgba(15,23,42,0.10)'
+
   return (
-    <View style={[{ position: 'relative' }, style]}>
-      <View
-        pointerEvents="none"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: disabled ? borderColor + '55' : shadowColor,
-          borderRadius: radius,
-          transform: [{ translateX: offsetX }, { translateY: offsetY }],
-        }}
-      />
+    <View style={style}>
       <AccessiblePressable
         disabled={disabled}
         style={({ pressed }) => [
           {
-            backgroundColor: bg,
-            borderWidth,
-            borderColor,
+            backgroundColor: disabled ? '#94A3B8' : bg,
+            borderWidth: 1,
+            borderColor: edge,
             borderRadius: radius,
-            opacity: disabled ? 0.6 : 1,
-            transform: pressed && !disabled ? [{ translateX: offsetX }, { translateY: offsetY }] : [{ translateX: 0 }, { translateY: 0 }],
+            opacity: pressed && !disabled ? 0.88 : 1,
+            transform: [{ scale: pressed && !disabled ? 0.98 : 1 }],
+            shadowColor: '#0F172A',
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: currentTheme === 'dark' ? 0 : 0.12,
+            shadowRadius: 8,
+            elevation: currentTheme === 'dark' ? 0 : 3,
           },
           contentStyle,
         ]}

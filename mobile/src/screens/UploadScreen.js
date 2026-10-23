@@ -6,6 +6,8 @@ import DocumentPreview from '../components/DocumentPreview'
 import SampleDocsGrid from '../components/SampleDocsGrid'
 import ProcessingCard from '../components/ProcessingCard'
 import OcrErrorCard from '../components/OcrErrorCard'
+import useScreenIntro from '../utils/useScreenIntro'
+import { TP } from '../services/talkPhrases'
 
 // Ports HomeScreen.vue's activeMode==='upload' branch at phone width: the
 // workspace's 20px gutter, then DocumentUploader's tinted `.uploader-deck`
@@ -16,6 +18,7 @@ export default function UploadScreen() {
   const { colors } = useTheme()
   const { isProcessing, selectedFile, ocrError } = useOcr()
   const s = colors.surfaces
+  useScreenIntro(() => TP.screenUpload.km)
 
   if (isProcessing || ocrError) {
     return (
@@ -42,6 +45,6 @@ export default function UploadScreen() {
 }
 
 const styles = StyleSheet.create({
-  page: { flexGrow: 1, paddingTop: 20, paddingHorizontal: 20, paddingBottom: 44 },
-  deck: { borderRadius: 4, paddingTop: 12, paddingHorizontal: 14, paddingBottom: 28, gap: 16 },
+  page: { flexGrow: 1, paddingTop: 16, paddingHorizontal: 16, paddingBottom: 44 },
+  deck: { borderRadius: 16, paddingTop: 4, paddingBottom: 28, gap: 16 },
 })

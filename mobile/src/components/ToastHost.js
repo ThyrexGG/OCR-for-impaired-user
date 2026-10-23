@@ -26,7 +26,7 @@ export default function ToastHost() {
         const Icon = ICONS[t.type] || Info
         const iconColor = t.type === 'warning' ? '#F59E0B' : t.type === 'info' ? '#60A5FA' : t.type === 'success' ? colors.success : colors.accent
         return (
-          <View key={t.id} style={styles.pill}>
+          <View key={t.id} style={styles.pill} accessibilityLiveRegion="polite">
             <Icon size={18} color={iconColor} />
             <Text style={[styles.message, { fontFamily: fonts.khmer }]}>{t.message}</Text>
             {!!t.actionLabel && (

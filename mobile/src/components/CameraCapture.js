@@ -9,6 +9,7 @@ import { useOcr } from '../context/OcrContext'
 import { navigateToUpload } from '../navigation/navigationRef'
 import AccessiblePressable from './AccessiblePressable'
 import NeoButton from './NeoButton'
+import { TP } from '../services/talkPhrases'
 
 /**
  * Ports DocumentUploader.vue's "camera-assistant-view" (View A): permission
@@ -40,7 +41,6 @@ export default function CameraCapture() {
 
     setGuidanceMessage('សូមតម្រង់កាមេរ៉ាទៅកាន់ឯកសារ...')
     setIsCornerLocked(false)
-    speakAccessibility('កាមេរ៉ាត្រៀមរួចជាស្រេច សូមតម្រង់ទូរស័ព្ទទៅកាន់ឯកសារ')
 
     let ticks = 0
     guidanceTimerRef.current = setInterval(() => {
@@ -49,7 +49,6 @@ export default function CameraCapture() {
       if (ticks === 2) {
         setIsCornerLocked(true)
         setGuidanceMessage('កាមេរ៉ាត្រៀមរួចរាល់ សូមចុចថត')
-        speakAccessibility('កាមេរ៉ាត្រៀមរួចរាល់ សូមចុចប៊ូតុងថតរូបភាព')
         triggerHaptic('light')
       }
     }, 1200)
@@ -69,6 +68,14 @@ export default function CameraCapture() {
       requestPermission()
     }
   }, [isFocused, permission, requestPermission])
+
+  // Without the camera there is nothing to see: say so, and say what to do
+  useEffect(() => {
+    if (isFocused && permission && !permission.granted && permission.status !== 'undetermined') {
+      speakAccessibility(TP.cameraDenied.km)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFocused, permission?.granted, permission?.status])
 
   // Once Android stops showing the prompt ("Don't allow" twice), the only
   // way back is the app's system settings page.
@@ -121,7 +128,7 @@ export default function CameraCapture() {
         </View>
         <View style={styles.errorActions}>
           <NeoButton
-            bg="#1D4ED8"
+            bg="#4466F6"
             borderColor="#0F172A"
             shadowColor="#0F172A"
             contentStyle={styles.errorBtn}
@@ -136,7 +143,7 @@ export default function CameraCapture() {
             offsetY={3}
             bg="#FFFFFF"
             borderColor="#0F172A"
-            shadowColor="#1D4ED8"
+            shadowColor="#4466F6"
             contentStyle={styles.errorBtn}
             accessibilityLabel="ផ្ទុករូបភាព ឬ PDF ជំនួសវិញ (Upload File Instead)"
             onPress={navigateToUpload}
@@ -153,21 +160,7 @@ export default function CameraCapture() {
     <View style={styles.frame}>
       <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
 
-      {/* HUD corner brackets */}
-      <View style={styles.hud} pointerEvents="none">
-        {['tl', 'tr', 'bl', 'br'].map((corner) => (
-          <View
-            key={corner}
-            style={[
-              styles.hudCorner,
-              hudCornerPosition[corner],
-              { borderColor: isCornerLocked ? colors.success : colors.accent },
-            ]}
-          />
-        ))}
-      </View>
-
-      {/* Guidance banner */}
+      {/* Guidance banner (no scan border: the whole viewfinder is captured) */}
       <View style={styles.guidanceBanner} accessibilityLiveRegion="assertive">
         <View style={[styles.guidancePulseIcon, { backgroundColor: colors.accentSubtle }]}>
           <Scan size={20} color={colors.accent} />
@@ -192,47 +185,24 @@ export default function CameraCapture() {
   )
 }
 
-const hudCornerPosition = {
-  tl: { top: 0, left: 0, borderTopWidth: 5, borderLeftWidth: 5, borderTopLeftRadius: 12 },
-  tr: { top: 0, right: 0, borderTopWidth: 5, borderRightWidth: 5, borderTopRightRadius: 12 },
-  bl: { bottom: 0, left: 0, borderBottomWidth: 5, borderLeftWidth: 5, borderBottomLeftRadius: 12 },
-  br: { bottom: 0, right: 0, borderBottomWidth: 5, borderRightWidth: 5, borderBottomRightRadius: 12 },
-}
-
 const createStyles = (colors) =>
   StyleSheet.create({
     frame: {
       flex: 1,
-      borderRadius: colors.radii.lg,
+      borderRadius: colors.radii.xl,
       overflow: 'hidden',
       backgroundColor: '#000000',
-      borderWidth: 2,
-      borderColor: colors.borderSubtle,
     },
     centered: { alignItems: 'center', justifyContent: 'center' },
-    hud: {
-      position: 'absolute',
-      top: 24,
-      bottom: 24,
-      left: 24,
-      right: 24,
-    },
-    // DocumentUploader.css's ≤640px viewfinder overrides.
-    hudCorner: {
-      position: 'absolute',
-      width: 36,
-      height: 36,
-      borderStyle: 'solid',
-    },
     guidanceBanner: {
       position: 'absolute',
       top: 14,
       left: 14,
       right: 14,
       backgroundColor: '#0B111E',
-      borderWidth: 2,
-      borderColor: colors.accent,
-      borderRadius: 4,
+      borderWidth: 1.5,
+      borderColor: '#4466F6',
+      borderRadius: 999,
       paddingVertical: 10,
       paddingHorizontal: 16,
       flexDirection: 'row',
@@ -285,7 +255,7 @@ const createStyles = (colors) =>
       backgroundColor: colors.bgSurfaceElevated,
       borderWidth: 2,
       borderColor: colors.danger,
-      borderRadius: 4,
+      borderRadius: 16,
     },
     errorIcon: { alignSelf: 'flex-start' },
     errorHeading: {

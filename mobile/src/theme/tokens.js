@@ -51,18 +51,18 @@ const noShadow = { shadowColor: 'transparent', shadowOffset: { width: 0, height:
 // upload zone, sample list, history shelf — still read these :root values.
 const lightSurfaces = {
   bg: '#F8FAFC',
-  surface1: '#EEF3FB',
+  surface1: '#F8FAFC',
   surface2: '#DBE7FF',
   onSurface: '#0F172A',
   onSurfaceMuted: '#334155',
   onTonal: '#1E3A8A',
-  primary: '#1D4ED8',
-  primaryPressed: '#1E40AF',
+  primary: '#4466F6',
+  primaryPressed: '#3353E2',
   onPrimary: '#FFFFFF',
   divider: '#CBD5E1',
   navy: '#0B1B4D',
   onNavy: '#FFFFFF',
-  heading: '#1D4ED8',
+  heading: '#4466F6',
 }
 
 const darkSurfaces = {
@@ -98,30 +98,30 @@ const contrastSurfaces = {
 }
 
 const lightBase = {
-  bgPage: '#F4F7FC',
+  bgPage: '#F8FAFC',
   bgSurface: '#FFFFFF',
-  bgSurfaceElevated: '#EBF2FA',
-  bgSurfaceHover: '#E1ECF8',
+  bgSurfaceElevated: '#EEF2FF',
+  bgSurfaceHover: '#F1F5F9',
 
-  borderSubtle: '#94A3B8',
-  borderMedium: '#0052CC',
-  borderProminent: '#003D99',
-  borderFocus: '#0052CC',
+  borderSubtle: '#E2E8F0',
+  borderMedium: '#E2E8F0',
+  borderProminent: '#64748B',
+  borderFocus: '#4466F6',
 
   textPrimary: '#0A1628',
   textSecondary: '#1E293B',
   textMuted: '#475569',
   textInverse: '#FFFFFF',
 
-  accent: '#0052CC',
-  accentHover: '#0040A1',
+  accent: '#4466F6',
+  accentHover: '#3353E2',
   accentText: '#FFFFFF',
-  accentSubtle: 'rgba(0, 82, 204, 0.10)',
-  accentGlow: 'rgba(0, 82, 204, 0.22)',
+  accentSubtle: 'rgba(68, 102, 246, 0.10)',
+  accentGlow: 'rgba(68, 102, 246, 0.22)',
 
-  brand: '#0052CC',
-  brandLight: '#0065FF',
-  brandSubtle: 'rgba(0, 82, 204, 0.10)',
+  brand: '#4466F6',
+  brandLight: '#4466F6',
+  brandSubtle: 'rgba(68, 102, 246, 0.10)',
 
   success: '#059669',
   successHover: '#047857',
@@ -131,12 +131,12 @@ const lightBase = {
   dangerSubtle: 'rgba(220, 38, 38, 0.12)',
 
   surfaces: lightSurfaces,
-  radii: { xs: 4, sm: 4, md: 4, lg: 4, xl: 4, full: 4 },
+  radii: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, full: 9999 },
   shadows: {
     sm: shadow('#0C1A30', 2, 0.06, 6, 2),
     md: shadow('#0C1A30', 6, 0.10, 20, 6),
     lg: shadow('#0C1A30', 12, 0.14, 36, 12),
-    glow: shadow('#0052CC', 0, 0.25, 24, 0),
+    glow: shadow('#4466F6', 4, 0.30, 14, 4),
   },
 }
 
@@ -176,7 +176,7 @@ const darkBase = {
   dangerSubtle: 'rgba(252, 165, 165, 0.15)',
 
   surfaces: darkSurfaces,
-  radii: { xs: 4, sm: 4, md: 4, lg: 4, xl: 4, full: 4 },
+  radii: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, full: 9999 },
   shadows: {
     sm: shadow('#000000', 1, 0.4, 3, 1),
     md: shadow('#000000', 4, 0.5, 14, 4),
@@ -218,7 +218,7 @@ const contrastBase = {
   dangerSubtle: 'rgba(255, 85, 85, 0.15)',
 
   surfaces: contrastSurfaces,
-  radii: { xs: 4, sm: 4, md: 4, lg: 4, xl: 4, full: 4 },
+  radii: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, full: 9999 },
   shadows: { sm: noShadow, md: noShadow, lg: noShadow, glow: noShadow },
 }
 

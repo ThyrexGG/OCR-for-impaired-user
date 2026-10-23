@@ -7,6 +7,11 @@ import { useOcr } from './OcrContext'
 import { synthesizeTextAzureTTS, synthesizeTextCloudTTS } from '../services/tts'
 import { CLOUD_API_AVAILABLE } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
+import { subscribeSpeaking } from '../services/talkback'
+import { TP } from '../services/talkPhrases'
+
+// While talk-back speaks, the document audio dips so the guidance is clearly heard.
+const DUCKED_VOLUME = 0.2
 
 export const SPEED_PRESETS = [0.75, 1.0, 1.25, 1.5, 2.0]
 
@@ -37,12 +42,22 @@ export function TtsProvider({ children }) {
   const speechSessionRef = useRef(0)
   const pendingSeekRef = useRef(null)
   const pendingSpeechStartRef = useRef(null)
+  const duckedRef = useRef(false)
 
   useEffect(() => { rateRef.current = rate }, [rate])
   useEffect(() => { voicesRef.current = voices }, [voices])
   useEffect(() => { selectedVoiceNameRef.current = selectedVoiceName }, [selectedVoiceName])
   useEffect(() => { activeWordRef.current = activeWordIndex }, [activeWordIndex])
   useEffect(() => { isPausedRef.current = isPaused }, [isPaused])
+
+  useEffect(
+    () =>
+      subscribeSpeaking((speaking) => {
+        duckedRef.current = speaking
+        if (audioPlayerRef.current) audioPlayerRef.current.volume = speaking ? DUCKED_VOLUME : 1
+      }),
+    []
+  )
 
   // --- Load voices: Azure's two fixed neural voices if a key is configured,
   // otherwise the device's installed TTS voices (expo-speech's async
@@ -228,7 +243,7 @@ export function TtsProvider({ children }) {
     setIsSpeaking(true)
     setPaused(false)
     triggerHaptic('medium')
-    speakAccessibility('ចាប់ផ្តើមអាន...')
+    speakAccessibility(TP.readingStarted.km, false)
 
     // The user's own Azure key if they entered one, else the api/tts proxy.
     const azureKey = ocrConfig.azureTtsKey
@@ -256,7 +271,7 @@ export function TtsProvider({ children }) {
 
         const player = createAudioPlayer({ uri: audioUri }, { updateInterval: 100 })
         audioPlayerRef.current = player
-        player.volume = 1.0
+        player.volume = duckedRef.current ? DUCKED_VOLUME : 1.0
         player.playbackRate = rateRef.current
         audioSubRef.current = player.addListener('playbackStatusUpdate', (status) => {
           if (status.didJustFinish) {

@@ -39,7 +39,7 @@ export default function OcrErrorCard() {
 
       <NeoButton
         style={styles.retryWrap}
-        bg="#1D4ED8"
+        bg="#4466F6"
         borderColor="#0F172A"
         shadowColor="#0F172A"
         contentStyle={styles.retryBtn}
@@ -63,7 +63,7 @@ const createStyles = (colors) =>
       marginVertical: 10,
       borderWidth: 2,
       borderColor: colors.danger,
-      borderRadius: 4,
+      borderRadius: 16,
       backgroundColor: colors.surfaces.surface1,
     },
     glowIcon: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.danger },
@@ -77,7 +77,7 @@ const createStyles = (colors) =>
       backgroundColor: colors.bgSurfaceElevated,
       borderWidth: 1.5,
       borderColor: colors.borderSubtle,
-      borderRadius: 4,
+      borderRadius: 16,
     },
     tipsHeading: { fontSize: 17.5, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
     tipRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', paddingLeft: 6 },

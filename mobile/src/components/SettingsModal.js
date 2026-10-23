@@ -40,6 +40,13 @@ const OCR_ENGINES = [
   },
 ]
 
+const VOICE_RATE_OPTIONS = [
+  { value: 1, label: '1x' },
+  { value: 1.25, label: '1.25x' },
+  { value: 1.5, label: '1.5x' },
+  { value: 2, label: '2x' },
+]
+
 const LINE_SPACING_OPTIONS = [
   { value: 1.6, label: '1.6x' },
   { value: 1.85, label: '1.85x' },
@@ -53,6 +60,11 @@ export default function SettingsModal() {
     closeSettings,
     isUiVoiceEnabled,
     toggleUiVoice,
+    isExploreEnabled,
+    toggleExplore,
+    voiceRate,
+    setVoiceRate,
+    isScreenReaderOn,
     isAutoReadEnabled,
     toggleAutoRead,
     isHapticsEnabled,
@@ -173,8 +185,19 @@ export default function SettingsModal() {
 
             {activeTab === 'audio' && (
               <>
-                <SettingItem title="សំឡេងជំនួយបញ្ជា (Spoken UI Guidance)" desc="ប្រព័ន្ធនឹងអានឈ្មោះប៊ូតុងនៅពេលចុច" fonts={fonts} row>
-                  <AccessibleSwitch value={isUiVoiceEnabled} onValueChange={toggleUiVoice} accessibilityLabel="បើកបិទសំឡេងជំនួយបញ្ជា UI" />
+                <SettingItem
+                  title="សំឡេងណែនាំ (TalkBack)"
+                  desc={isScreenReaderOn ? 'កំពុងប្រើ TalkBack របស់ទូរស័ព្ទ ដូច្នេះសំឡេងណែនាំក្នុងកម្មវិធីនឹងសម្ងំ' : 'អានឈ្មោះប៊ូតុង ទំព័រ និងលទ្ធផលជាសំឡេងភ្លាមៗ'}
+                  fonts={fonts}
+                  row
+                >
+                  <AccessibleSwitch value={isUiVoiceEnabled} onValueChange={toggleUiVoice} accessibilityLabel="សំឡេងណែនាំ" />
+                </SettingItem>
+                <SettingItem title="ចុចម្តងស្តាប់ ចុចពីរដងបើក (Explore by Touch)" desc="ចុចលើប៊ូតុងម្តងដើម្បីស្តាប់ថាវាជាអ្វី ចុចម្តងទៀតដើម្បីបើក ការពារកុំឱ្យចុចខុស" fonts={fonts} row>
+                  <AccessibleSwitch value={isExploreEnabled} onValueChange={toggleExplore} accessibilityLabel="ចុចម្តងស្តាប់ ចុចពីរដងបើក" />
+                </SettingItem>
+                <SettingItem title="ល្បឿនសំឡេងណែនាំ (Guidance Speed)" desc="ល្បឿននិយាយរបស់សំឡេងណែនាំ មិនប៉ះពាល់ល្បឿនអានឯកសារទេ" fonts={fonts}>
+                  <PillSegmented options={VOICE_RATE_OPTIONS} value={voiceRate} onChange={setVoiceRate} />
                 </SettingItem>
                 <SettingItem title="អានស្វ័យប្រវត្តិ (Auto-Read After Scan)" desc="ចាប់ផ្តើមអានជាសំឡេងភ្លាមៗបន្ទាប់ពីស្កេនឯកសាររួច" fonts={fonts} row>
                   <AccessibleSwitch value={isAutoReadEnabled} onValueChange={toggleAutoRead} accessibilityLabel="បើកបិទការអានស្វ័យប្រវត្តិ" />
@@ -295,7 +318,7 @@ export default function SettingsModal() {
                     offsetY={3}
                     bg="#FFFFFF"
                     borderColor="#0F172A"
-                    shadowColor="#1D4ED8"
+                    shadowColor="#4466F6"
                     contentStyle={styles.clearCacheBtn}
                     accessibilityLabel="សម្អាត Cache ឯកសារស្កេនទាំងអស់"
                     onPress={handleClearCache}
@@ -316,7 +339,7 @@ export default function SettingsModal() {
                 <NeoButton
                   bg="#FFFFFF"
                   borderColor="#0F172A"
-                  shadowColor="#1D4ED8"
+                  shadowColor="#4466F6"
                   contentStyle={styles.clearCacheBtn}
                   accessibilityLabel="សាកល្បងការញ័រ"
                   onPress={testHaptics}
@@ -422,10 +445,10 @@ const createStyles = (colors) =>
       backgroundColor: colors.bgSurfaceElevated,
       borderWidth: 2,
       borderColor: colors.borderSubtle,
-      borderRadius: 4,
+      borderRadius: 16,
     },
     engineCardSelected: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
-    engineBadge: { alignSelf: 'flex-start', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 4 },
+    engineBadge: { alignSelf: 'flex-start', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 16 },
     engineBadgeFree: { backgroundColor: colors.successSubtle },
     engineBadgeCloud: { backgroundColor: colors.accentSubtle },
     engineBadgeText: { fontSize: 12, fontWeight: '800' },

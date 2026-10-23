@@ -36,7 +36,7 @@ export default function DocumentPreview() {
           offsetY={3}
           bg={dark ? '#1E293B' : '#FFFFFF'}
           borderColor={dark ? '#94A3B8' : '#0F172A'}
-          shadowColor={dark ? '#60A5FA' : '#1D4ED8'}
+          shadowColor={dark ? '#60A5FA' : '#4466F6'}
           disabled={isProcessing}
           contentStyle={styles.retakeButton}
           accessibilityLabel="ថតឡើងវិញ"
@@ -47,7 +47,7 @@ export default function DocumentPreview() {
         </NeoButton>
 
         <NeoButton
-          bg={dark ? '#3B82F6' : '#1D4ED8'}
+          bg={dark ? '#3B82F6' : '#4466F6'}
           borderColor={dark ? '#FFFFFF' : '#0F172A'}
           shadowColor={dark ? '#FFFFFF' : '#0F172A'}
           disabled={isProcessing}
@@ -74,7 +74,7 @@ const createStyles = (colors) =>
       minHeight: 240,
       maxHeight: 360,
       height: 300,
-      borderRadius: 4,
+      borderRadius: 16,
       overflow: 'hidden',
       backgroundColor: colors.bgSurfaceElevated,
       alignItems: 'center',

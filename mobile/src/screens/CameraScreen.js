@@ -5,6 +5,8 @@ import { useOcr } from '../context/OcrContext'
 import CameraCapture from '../components/CameraCapture'
 import ProcessingCard from '../components/ProcessingCard'
 import OcrErrorCard from '../components/OcrErrorCard'
+import useScreenIntro from '../utils/useScreenIntro'
+import { TP } from '../services/talkPhrases'
 
 // Chrome-free: the camera fills all remaining space, mirroring HomeScreen.vue's
 // "camera-fullscreen" workspace (8/10/10 gutter) around DocumentUploader's
@@ -13,6 +15,7 @@ export default function CameraScreen() {
   const { colors } = useTheme()
   const { isProcessing, ocrError } = useOcr()
   const s = colors.surfaces
+  useScreenIntro(() => TP.screenCamera.km)
 
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: s.bg }]} edges={['left', 'right']}>
@@ -34,5 +37,5 @@ export default function CameraScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   wrapper: { flex: 1, paddingTop: 8, paddingHorizontal: 10, paddingBottom: 10 },
-  deck: { flex: 1, borderRadius: 4, paddingVertical: 8, paddingHorizontal: 10 },
+  deck: { flex: 1, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 10 },
 })
