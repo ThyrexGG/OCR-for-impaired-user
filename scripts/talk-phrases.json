@@ -1,0 +1,146 @@
+{
+  "welcomeIntro": {
+    "km": "សូមស្វាគមន៍មកកាន់ songKHEM។ កម្មវិធីនេះជួយអានឯកសារឱ្យអ្នកស្តាប់។",
+    "en": "Welcome to songKHEM. This app reads documents aloud for you."
+  },
+  "welcomeHow": {
+    "km": "សំឡេងណែនាំបានបើក។ ចុចម្តងដើម្បីស្តាប់ថាជាអ្វី ហើយចុចម្តងទៀតដើម្បីបើកវា។",
+    "en": "Voice guidance is on. Tap once to hear what something is, then tap again to open it."
+  },
+  "welcomeOff": {
+    "km": "ដើម្បីបិទសំឡេងណែនាំ សូមចុចប៊ូតុងសំឡេងនៅផ្នែកខាងលើ។",
+    "en": "To turn voice guidance off, use the voice button at the top."
+  },
+  "voiceOn": {
+    "km": "បានបើកសំឡេងណែនាំ",
+    "en": "Voice guidance on"
+  },
+  "voiceOff": {
+    "km": "បានបិទសំឡេងណែនាំ",
+    "en": "Voice guidance off"
+  },
+  "voiceBtnOn": {
+    "km": "សំឡេងណែនាំ៖ បើក។ ចុចដើម្បីបិទ",
+    "en": "Voice guidance: on. Activate to turn off"
+  },
+  "voiceBtnOff": {
+    "km": "សំឡេងណែនាំ៖ បិទ។ ចុចដើម្បីបើក",
+    "en": "Voice guidance: off. Activate to turn on"
+  },
+  "exploreOn": {
+    "km": "ចុចម្តងដើម្បីស្តាប់ ចុចពីរដងដើម្បីបើក",
+    "en": "Tap once to hear, tap twice to open"
+  },
+  "exploreOff": {
+    "km": "ចុចម្តងគឺបើកភ្លាម",
+    "en": "A single tap now opens right away"
+  },
+  "tapAgain": {
+    "km": "ចុចម្តងទៀតដើម្បីបើក",
+    "en": "Tap again to open"
+  },
+  "stateOn": {
+    "km": "បើក",
+    "en": "on"
+  },
+  "stateOff": {
+    "km": "បិទ",
+    "en": "off"
+  },
+  "stateSelected": {
+    "km": "បានជ្រើសរើស",
+    "en": "selected"
+  },
+  "stateDisabled": {
+    "km": "មិនអាចប្រើបាន",
+    "en": "unavailable"
+  },
+  "screenCamera": {
+    "km": "កាមេរ៉ា។ តម្រង់ទូរស័ព្ទទៅកាន់ឯកសារ ហើយចុចប៊ូតុងថតនៅខាងក្រោម។",
+    "en": "Camera. Point the phone at the document and use the capture button below."
+  },
+  "screenUpload": {
+    "km": "ផ្ទុកឯកសារ។ ជ្រើសរើសរូបភាព ឬឯកសារ PDF ពីឧបករណ៍របស់អ្នក។",
+    "en": "Upload. Choose an image or a PDF from your device."
+  },
+  "screenRecent": {
+    "km": "ប្រវត្តិអាន។",
+    "en": "Recent reads."
+  },
+  "screenRecentEmpty": {
+    "km": "ប្រវត្តិអាន។ មិនទាន់មានឯកសារនៅឡើយទេ។",
+    "en": "Recent reads. There are no documents yet."
+  },
+  "screenReader": {
+    "km": "ទំព័រអានឯកសារ។",
+    "en": "Document reader."
+  },
+  "readerReady": {
+    "km": "ឯកសារត្រៀមរួចរាល់។ ចុចប៊ូតុងចាក់ដើម្បីចាប់ផ្តើមអាន។",
+    "en": "The document is ready. Use the play button to start reading."
+  },
+  "capturing": {
+    "km": "កំពុងថតរូប",
+    "en": "Taking the photo"
+  },
+  "scanning": {
+    "km": "កំពុងស្កេនឯកសារ សូមរង់ចាំ",
+    "en": "Scanning the document, please wait"
+  },
+  "stillWorking": {
+    "km": "នៅតែកំពុងដំណើរការ សូមរង់ចាំបន្តិចទៀត",
+    "en": "Still working, please wait a little longer"
+  },
+  "cameraDenied": {
+    "km": "មិនអាចបើកកាមេរ៉ាបានទេ សូមអនុញ្ញាតកាមេរ៉ាក្នុងការកំណត់",
+    "en": "The camera could not be opened. Please allow camera access in settings."
+  },
+  "genericError": {
+    "km": "មានបញ្ហា សូមព្យាយាមម្តងទៀត",
+    "en": "Something went wrong. Please try again."
+  },
+  "wentOffline": {
+    "km": "គ្មានអ៊ីនធឺណិត សូមពិនិត្យការតភ្ជាប់",
+    "en": "You are offline. Please check your connection."
+  },
+  "backOnline": {
+    "km": "អ៊ីនធឺណិតត្រឡប់មកវិញហើយ",
+    "en": "Back online"
+  },
+  "wordUnit": {
+    "km": "ពាក្យ",
+    "en": "words"
+  },
+  "documentsUnit": {
+    "km": "ឯកសារ",
+    "en": "documents"
+  },
+  "menuClosed": {
+    "km": "បានបិទម៉ឺនុយ",
+    "en": "Menu closed"
+  },
+  "scanDoneShort": {
+    "km": "ស្កេនរួចរាល់",
+    "en": "Scan complete"
+  },
+  "readingFinished": {
+    "km": "ការអានបានបញ្ចប់",
+    "en": "Reading finished"
+  },
+  "readingPaused": {
+    "km": "បានផ្អាកការអាន",
+    "en": "Reading paused"
+  },
+  "readingStarted": {
+    "km": "ចាប់ផ្តើមអាន",
+    "en": "Reading started"
+  },
+  "voiceCmdOn": {
+    "km": "បញ្ជាដោយសំឡេង៖ បើក",
+    "en": "Voice commands: on"
+  },
+  "voiceCmdOff": {
+    "km": "បញ្ជាដោយសំឡេង៖ បិទ",
+    "en": "Voice commands: off"
+  }
+}

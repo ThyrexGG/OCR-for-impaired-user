@@ -11,6 +11,8 @@ import HelpModal from './components/HelpModal.vue'
 import { currentLang, toggleLang, t } from './services/i18n'
 import { haptics } from './services/haptics'
 import { announcer } from './services/announcer'
+import { installTalkback, tp } from './services/talkback'
+import { TP } from './services/talkPhrases'
 import { useA11yPreferences } from './composables/useA11yPreferences'
 import { clearOcrCache } from './services/cache'
 import { CLOUD_API_AVAILABLE } from './services/cloudApi'
@@ -27,6 +29,8 @@ const {
   lineSpacing,
   isBoldText,
   isUiVoiceEnabled,
+  isExploreEnabled,
+  voiceRate,
   isAutoReadEnabled,
   isHapticsEnabled,
   setTheme,
@@ -35,6 +39,8 @@ const {
   toggleBoldText,
   setLineSpacing,
   toggleUiVoice,
+  toggleExplore,
+  setVoiceRate,
   toggleAutoRead,
   toggleHaptics,
   initPreferences
@@ -77,7 +83,7 @@ const spokenStatusText = ref(t('spokenStatusReady'))
 
 // Screen reader and audible guidance bridge
 const speakAccessibility = (text, interrupt = true) => {
-  spokenStatusText.value = text
+  spokenStatusText.value = Array.isArray(text) ? text.join(' ') : text
   announcer.speak(text, interrupt)
 }
 
@@ -89,13 +95,13 @@ const triggerHaptic = (pattern = 'selection') => {
 const setMode = (mode) => {
   activeMode.value = mode
   haptics.pulse('selection')
-  const modeNames = {
-    scan: t('navScan'),
-    upload: t('navUpload'),
+  const intros = {
+    scan: tp('screenCamera'),
+    upload: tp('screenUpload'),
     reader: t('navReader'),
-    recent: t('navHistory')
+    recent: tp('screenRecent')
   }
-  speakAccessibility(modeNames[mode] || mode)
+  speakAccessibility(intros[mode] || mode)
 }
 
 // --- Settings Modal ---
@@ -166,6 +172,7 @@ const toggleVoiceListening = () => {
 // --- Provide Global Context to Child Components ---
 provide('speakAccessibility', speakAccessibility)
 provide('isUiVoiceEnabled', isUiVoiceEnabled)
+provide('isExploreEnabled', isExploreEnabled)
 provide('isAutoReadEnabled', isAutoReadEnabled)
 provide('isHapticsEnabled', isHapticsEnabled)
 provide('triggerHaptic', triggerHaptic)
@@ -180,6 +187,16 @@ provide('t', t)
 provide('isVoiceListening', isVoiceListening)
 provide('toggleVoiceListening', toggleVoiceListening)
 provide('lastVoiceCommand', lastVoiceCommand)
+
+let stopTalkback = null
+const onOffline = () => speakAccessibility(tp('wentOffline'))
+const onOnline = () => speakAccessibility(tp('backOnline'), false)
+
+onBeforeUnmount(() => {
+  if (stopTalkback) stopTalkback()
+  window.removeEventListener('offline', onOffline)
+  window.removeEventListener('online', onOnline)
+})
 
 onMounted(() => {
   initPreferences()
@@ -227,25 +244,17 @@ onMounted(() => {
     }
   })
 
-  // Click-to-speak delegation: self-contained voice-guided model for users WITHOUT an OS screen reader.
-  // Strictly gated by isUiVoiceEnabled (default: false) to avoid talking over native screen readers (NVDA, VoiceOver, TalkBack).
-  document.addEventListener('click', (e) => {
-    if (!isUiVoiceEnabled.value) return
-    if (e.target.closest('.access-toolbar, .settings-modal-backdrop, .bottom-nav-bar')) return
-
-    const clickable = e.target.closest('button, .action-card, select, a, input, textarea, .mode-tab')
-    if (clickable) {
-      let textToSpeak = clickable.getAttribute('aria-label') || 
-                        clickable.getAttribute('title') || 
-                        clickable.innerText || 
-                        clickable.placeholder || 
-                        clickable.value || 
-                        'ប៊ូតុងបញ្ជា'
-      if (textToSpeak.trim()) {
-        speakAccessibility(textToSpeak.trim())
-      }
-    }
+  // Talk-back: touch explore (tap to hear, tap again to open), keyboard focus and mouse click speech
+  stopTalkback = installTalkback({
+    isVoiceOn: () => isUiVoiceEnabled.value,
+    isExploreOn: () => isExploreEnabled.value
   })
+
+  // Warm the browser cache with the fixed Khmer phrases so their first playback is instant
+  announcer.prefetch(Object.values(TP).map((p) => p.km))
+
+  window.addEventListener('offline', onOffline)
+  window.addEventListener('online', onOnline)
 })
 </script>
 
@@ -293,10 +302,10 @@ onMounted(() => {
           <!-- Voice Toggle Quick Button (Desktop / Tablet only) -->
           <button 
             type="button" 
-            class="header-btn voice-btn desktop-only"
+            class="header-btn voice-btn"
             :class="{ 'active-voice': isUiVoiceEnabled }"
             @click="toggleUiVoice"
-            :aria-label="isUiVoiceEnabled ? t('voiceGuidance') + ': ON' : t('voiceGuidance') + ': OFF'"
+            :aria-label="isUiVoiceEnabled ? tp('voiceBtnOn') : tp('voiceBtnOff')"
             :title="t('voiceGuidance')"
           >
             <Volume2 v-if="isUiVoiceEnabled" :size="20" />
@@ -322,7 +331,7 @@ onMounted(() => {
             class="header-btn mic-btn"
             :class="{ 'active-voice': isVoiceListening }"
             @click="toggleVoiceListening"
-            :aria-label="isVoiceListening ? (currentLang === 'km' ? 'បញ្ជាដោយសំឡេង៖ បើក' : 'Voice Commands: ON') : (currentLang === 'km' ? 'បញ្ជាដោយសំឡេង៖ បិទ' : 'Voice Commands: OFF')"
+            :aria-label="isVoiceListening ? tp('voiceCmdOn') : tp('voiceCmdOff')"
             :title="isVoiceListening ? 'Voice Commands: ON' : 'Voice Commands: OFF (Alt+V)'"
           >
             <Mic v-if="isVoiceListening" :size="20" class="text-accent animate-pulse" />
@@ -629,6 +638,43 @@ onMounted(() => {
             >
               <span class="switch-thumb"></span>
             </button>
+          </div>
+
+          <!-- Explore by touch: tap to hear, tap again to open -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">{{ currentLang === 'km' ? 'ចុចម្តងស្តាប់ ចុចពីរដងបើក' : 'Explore by touch' }}</span>
+              <span class="setting-desc khmer-font">{{ currentLang === 'km' ? 'លើអេក្រង់ប៉ះ ចុចប៊ូតុងម្តងដើម្បីស្តាប់ថាវាជាអ្វី ចុចម្តងទៀតដើម្បីបើក ការពារកុំឱ្យចុចខុស' : 'On touch screens, tap a control once to hear it and again to open it, so nothing is triggered by accident' }}</span>
+            </div>
+            <button
+              type="button"
+              class="accessible-switch"
+              :class="{ 'switch-on': isExploreEnabled }"
+              @click="toggleExplore"
+              :aria-checked="isExploreEnabled"
+              role="switch"
+              :aria-label="currentLang === 'km' ? 'ចុចម្តងស្តាប់ ចុចពីរដងបើក' : 'Explore by touch'"
+            >
+              <span class="switch-thumb"></span>
+            </button>
+          </div>
+
+          <!-- Guidance voice speed -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">{{ currentLang === 'km' ? 'ល្បឿនសំឡេងណែនាំ' : 'Guidance voice speed' }}</span>
+              <span class="setting-desc khmer-font">{{ currentLang === 'km' ? 'មិនប៉ះពាល់ល្បឿនអានឯកសារទេ' : 'Does not change the document reading speed' }}</span>
+            </div>
+            <div class="segment-buttons" role="group" :aria-label="currentLang === 'km' ? 'ល្បឿនសំឡេងណែនាំ' : 'Guidance voice speed'">
+              <button
+                v-for="r in [1, 1.25, 1.5, 2]"
+                :key="r"
+                type="button"
+                class="segment-btn"
+                :class="{ 'segment-active': voiceRate === r }"
+                @click="setVoiceRate(r)"
+              >{{ r }}x</button>
+            </div>
           </div>
 
           <!-- Auto Read After Scan -->

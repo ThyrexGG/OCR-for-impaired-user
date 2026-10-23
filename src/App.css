@@ -1076,3 +1076,10 @@
   box-shadow: 0 0 0 2px var(--color-accent-subtle);
 }
 
+
+/* Talk-back: the control that was just read out and is waiting for its second tap */
+.tb-armed {
+  outline: 3px solid #4466F6 !important;
+  outline-offset: 3px !important;
+  border-radius: inherit;
+}

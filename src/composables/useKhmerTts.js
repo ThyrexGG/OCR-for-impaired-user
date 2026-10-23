@@ -3,6 +3,7 @@ import { synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts
 import { normalizeKhmerForSpeech } from '../services/khmerNormalizer'
 import { CLOUD_API_AVAILABLE, cloudTts } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
+import { announcer } from '../services/announcer'
 
 // Khmer TTS engine shared by the reader screens: songKHEM-VITS / Neural personas,
 // Smart Assistive Pacing, and word highlighting locked to the real audio playhead.
@@ -110,6 +111,16 @@ export const tokenizeForReading = (rawText) => {
 
 export function useKhmerTts({ getText, activeWordIndex }) {
   const speakAccessibility = inject('speakAccessibility', () => {})
+
+  // While talk-back speaks, the document audio dips so the guidance is clearly heard
+  const DUCKED_FACTOR = 0.2
+  let ducked = false
+  const effectiveVolume = () => volume.value * (ducked ? DUCKED_FACTOR : 1)
+  const stopDucking = announcer.onSpeakingChange((speaking) => {
+    ducked = speaking
+    if (currentAudio) currentAudio.volume = effectiveVolume()
+  })
+  onBeforeUnmount(stopDucking)
   const triggerHaptic = inject('triggerHaptic', () => {})
 
   const savedVoice = safeGet(VOICE_STORAGE_KEY)
@@ -351,7 +362,7 @@ export function useKhmerTts({ getText, activeWordIndex }) {
     isSpeaking.value = true
     isPaused.value = false
     triggerHaptic([60, 40])
-    speakAccessibility('ចាប់ផ្តើមអាន...')
+    speakAccessibility('ចាប់ផ្តើមអាន...', false)
 
     try {
       const voiceName = selectedVoiceName.value
@@ -389,7 +400,7 @@ export function useKhmerTts({ getText, activeWordIndex }) {
 
       unlockedAudio.src = audioUrl
       unlockedAudio.playbackRate = rate.value
-      unlockedAudio.volume = volume.value
+      unlockedAudio.volume = effectiveVolume()
       unlockedAudio.onended = () => {
         stop()
         speakAccessibility('ការអានអត្ថបទបានបញ្ចប់')

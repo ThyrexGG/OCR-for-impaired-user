@@ -346,6 +346,7 @@ onBeforeUnmount(() => {
             v-for="word in paragraph.words" 
             :key="word.index"
             class="reader-word-token"
+            data-talkback="off"
             :class="{ 'reading-word-active': activeWordIndex === word.index }"
             @click.stop="seekToWord(word.index)"
             tabindex="0"

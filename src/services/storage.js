@@ -9,6 +9,8 @@ export const STORAGE_KEYS = {
   LINE_SPACING: 'songkhem_line_spacing',
   BOLD: 'songkhem_bold',
   VOICE: 'songkhem_voice',
+  EXPLORE: 'songkhem_explore_touch',
+  VOICE_RATE: 'songkhem_voice_rate',
   AUTO_READ: 'songkhem_auto_read',
   HAPTICS: 'songkhem_haptics',
   HISTORY: 'songkhem_history',

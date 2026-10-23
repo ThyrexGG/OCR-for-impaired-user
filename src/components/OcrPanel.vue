@@ -862,6 +862,7 @@ const speakVocabItem = (item) => {
               :title="`ចុចដើម្បីស្តាប់ពាក្យ '${word.text}'`"
               tabindex="0"
               role="button"
+              data-talkback="off"
             >{{ word.text }} </span>
           </span>
         </div>

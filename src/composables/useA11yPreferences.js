@@ -8,6 +8,7 @@ import { storage, STORAGE_KEYS } from '../services/storage'
 import { haptics } from '../services/haptics'
 import { announcer } from '../services/announcer'
 import { currentLang, t } from '../services/i18n'
+import { tp } from '../services/talkback'
 
 // Singleton state shared across all components and navigation views
 const currentTheme = ref('light')
@@ -15,7 +16,11 @@ const fontScale = ref(1.0)
 const lineSpacing = ref(1.85)
 const isBoldText = ref(false)
 
-const isUiVoiceEnabled = ref(false)
+// Talk-back is on unless someone turned it off: the app is built for people who may not see
+// the screen, so it must speak before anyone has had the chance to find a setting.
+const isUiVoiceEnabled = ref(true)
+const isExploreEnabled = ref(true)
+const voiceRate = ref(1.25)
 const isAutoReadEnabled = ref(true)
 const isHapticsEnabled = ref(true)
 
@@ -99,13 +104,35 @@ export function useA11yPreferences() {
    * Toggle self-contained audible guidance
    */
   const toggleUiVoice = () => {
-    isUiVoiceEnabled.value = !isUiVoiceEnabled.value
-    storage.setItem(STORAGE_KEYS.VOICE, isUiVoiceEnabled.value)
-    announcer.setVoiceEnabled(isUiVoiceEnabled.value)
+    const next = !isUiVoiceEnabled.value
     haptics.pulse('shutter')
-    if (isUiVoiceEnabled.value) {
-      announcer.speak(currentLang.value === 'km' ? 'បានបើកសំឡេងជំនួយបញ្ជា' : 'Voice guidance enabled')
+    if (next) {
+      isUiVoiceEnabled.value = true
+      announcer.setVoiceEnabled(true)
+      announcer.speak(tp('voiceOn'))
+    } else {
+      // Say it before going quiet, otherwise nobody learns that it worked
+      announcer.speak(tp('voiceOff'))
+      isUiVoiceEnabled.value = false
+      // Let the sentence finish before the engine is switched off
+      setTimeout(() => !isUiVoiceEnabled.value && announcer.setVoiceEnabled(false), 1800)
     }
+    storage.setItem(STORAGE_KEYS.VOICE, isUiVoiceEnabled.value)
+  }
+
+  const toggleExplore = () => {
+    isExploreEnabled.value = !isExploreEnabled.value
+    storage.setItem(STORAGE_KEYS.EXPLORE, isExploreEnabled.value)
+    haptics.pulse('tap')
+    announcer.speak(tp(isExploreEnabled.value ? 'exploreOn' : 'exploreOff'))
+  }
+
+  const setVoiceRate = (value) => {
+    voiceRate.value = value
+    announcer.setRate(value)
+    storage.setItem(STORAGE_KEYS.VOICE_RATE, String(value))
+    haptics.pulse('tap')
+    announcer.speak(tp('exploreOn'))
   }
 
   /**
@@ -160,8 +187,12 @@ export function useA11yPreferences() {
       document.body.classList.add('bold-text')
     }
 
-    isUiVoiceEnabled.value = storage.getItem(STORAGE_KEYS.VOICE, 'false') === 'true'
+    isUiVoiceEnabled.value = storage.getItem(STORAGE_KEYS.VOICE, 'true') !== 'false'
     announcer.setVoiceEnabled(isUiVoiceEnabled.value)
+    isExploreEnabled.value = storage.getItem(STORAGE_KEYS.EXPLORE, 'true') !== 'false'
+    const savedRate = parseFloat(storage.getItem(STORAGE_KEYS.VOICE_RATE, '1.25'))
+    voiceRate.value = savedRate >= 0.75 && savedRate <= 2.5 ? savedRate : 1.25
+    announcer.setRate(voiceRate.value)
 
     isAutoReadEnabled.value = storage.getItem(STORAGE_KEYS.AUTO_READ, 'true') !== 'false'
     isHapticsEnabled.value = storage.getItem(STORAGE_KEYS.HAPTICS, 'true') !== 'false'
@@ -174,6 +205,8 @@ export function useA11yPreferences() {
     lineSpacing,
     isBoldText,
     isUiVoiceEnabled,
+    isExploreEnabled,
+    voiceRate,
     isAutoReadEnabled,
     isHapticsEnabled,
     setTheme,
@@ -182,6 +215,8 @@ export function useA11yPreferences() {
     toggleBoldText,
     setLineSpacing,
     toggleUiVoice,
+    toggleExplore,
+    setVoiceRate,
     toggleAutoRead,
     toggleHaptics,
     initPreferences

@@ -1,13 +1,27 @@
 <script setup>
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowRight, Sparkles, ShieldCheck, Zap } from 'lucide-vue-next'
 import { t } from '../services/i18n'
+import { announcer } from '../services/announcer'
+import { tp } from '../services/talkback'
+import { storage } from '../services/storage'
 
 const router = useRouter()
 
 const handleStart = () => {
   router.push('/home')
 }
+
+// Said as soon as the browser allows audio (the first tap or key press): in full the first time,
+// a short reminder afterwards.
+onMounted(() => {
+  const seen = storage.getItem('songkhem_welcomed', 'false') === 'true'
+  storage.setItem('songkhem_welcomed', 'true')
+  announcer.speakWhenActive(
+    seen ? [tp('welcomeIntro'), tp('exploreOn')] : [tp('welcomeIntro'), tp('welcomeHow'), tp('welcomeOff')]
+  )
+})
 </script>
 
 <template>

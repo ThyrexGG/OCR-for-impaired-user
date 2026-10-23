@@ -16,6 +16,7 @@ import { ocrService } from '../services/ocrService'
 import { storage, STORAGE_KEYS } from '../services/storage'
 import { haptics } from '../services/haptics'
 import { t, currentLang } from '../services/i18n'
+import { tp } from '../services/talkback'
 
 
 const router = useRouter()
@@ -48,6 +49,16 @@ const isProcessing = ref(false)
 const isLongProcessing = ref(false)
 const ocrProgress = ref(0)
 let processingTimeoutId = null
+let processingTickId = null
+
+// While a scan runs, say so now and then: a user who cannot see the spinner has no other way
+// to tell "working" from "stuck".
+const clearProcessingTimers = () => {
+  clearTimeout(processingTimeoutId)
+  clearInterval(processingTickId)
+  processingTimeoutId = null
+  processingTickId = null
+}
 const ocrError = ref(null)
 
 const extractedText = ref('')
@@ -208,11 +219,15 @@ const handleTriggerOcr = async () => {
   speakAccessibility(t('scanningDesc'))
 
   // Timeout warning after 5 seconds per §6.4
-  if (processingTimeoutId) clearTimeout(processingTimeoutId)
+  clearProcessingTimers()
   processingTimeoutId = setTimeout(() => {
     if (isProcessing.value) {
       isLongProcessing.value = true
-      speakAccessibility(t('longProcessingNotice'))
+      speakAccessibility(t('longProcessingNotice'), false)
+      processingTickId = setInterval(() => {
+        haptics.pulse('tap')
+        speakAccessibility(tp('scanning'), false)
+      }, 9000)
     }
   }, 5000)
 
@@ -233,7 +248,7 @@ const handleTriggerOcr = async () => {
     }
   })
 
-  if (processingTimeoutId) clearTimeout(processingTimeoutId)
+  clearProcessingTimers()
   isProcessing.value = false
   isLongProcessing.value = false
 
@@ -283,7 +298,7 @@ const handleTriggerOcr = async () => {
       haptics.pulse('success')
       const toastMsg = cached ? t('instantCacheHit') : t('toastScannedSuccess')
       addToast({ message: toastMsg, type: cached ? 'cache' : 'success' })
-      speakAccessibility(`${t('toastScannedSuccess')} ${wordsCount} ${t('wordsCount')}`)
+      speakAccessibility([t('toastScannedSuccess'), `${wordsCount} ${t('wordsCount')}`])
     }
 
     // Transition to Reader mode and start speech if auto-read is enabled
