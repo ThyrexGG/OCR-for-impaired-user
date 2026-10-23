@@ -350,7 +350,7 @@
   background: transparent;
   border: none;
   border-radius: 12px;
-  color: var(--on-surface-muted, #64748B);
+  color: var(--on-surface-muted, #566579);
   cursor: pointer;
   transition: all 0.15s ease;
   -webkit-tap-highlight-color: transparent;
@@ -531,7 +531,7 @@
   background: transparent;
   border: none;
   border-radius: 8px;
-  color: #64748B;
+  color: #566579;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -1079,7 +1079,7 @@
 
 /* Talk-back: the control that was just read out and is waiting for its second tap */
 .tb-armed {
-  outline: 3px solid #4466F6 !important;
+  outline: 3px solid #3D5EEE !important;
   outline-offset: 3px !important;
   border-radius: inherit;
 }

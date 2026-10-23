@@ -84,7 +84,7 @@
 
 .tag-idle {
   background: #FFFFFF;
-  color: #64748B;
+  color: #566579;
 }
 
 [data-theme="dark"] .audio-state-tag,
@@ -133,7 +133,7 @@
 
 .deck-btn-hero:disabled {
   background: #94A3B8;
-  border-color: #64748B;
+  border-color: #566579;
   color: #F8FAFC;
   cursor: not-allowed;
   transform: none;

@@ -13,6 +13,7 @@ import { haptics } from './services/haptics'
 import { announcer } from './services/announcer'
 import { installTalkback, tp } from './services/talkback'
 import { TP } from './services/talkPhrases'
+import { vFocusTrap } from './services/focusTrap'
 import { useA11yPreferences } from './composables/useA11yPreferences'
 import { clearOcrCache } from './services/cache'
 import { CLOUD_API_AVAILABLE } from './services/cloudApi'
@@ -189,11 +190,13 @@ provide('toggleVoiceListening', toggleVoiceListening)
 provide('lastVoiceCommand', lastVoiceCommand)
 
 let stopTalkback = null
+let stopMuteLink = null
 const onOffline = () => speakAccessibility(tp('wentOffline'))
 const onOnline = () => speakAccessibility(tp('backOnline'), false)
 
 onBeforeUnmount(() => {
   if (stopTalkback) stopTalkback()
+  if (stopMuteLink) stopMuteLink()
   window.removeEventListener('offline', onOffline)
   window.removeEventListener('online', onOnline)
 })
@@ -250,8 +253,10 @@ onMounted(() => {
     isExploreOn: () => isExploreEnabled.value
   })
 
+  stopMuteLink = announcer.onSpeakingChange((speaking) => voiceCommands.setMuted(speaking))
+
   // Warm the browser cache with the fixed Khmer phrases so their first playback is instant
-  announcer.prefetch(Object.values(TP).map((p) => p.km))
+  if (isUiVoiceEnabled.value) announcer.prefetch(Object.values(TP).map((p) => p.km))
 
   window.addEventListener('offline', onOffline)
   window.addEventListener('online', onOnline)
@@ -356,6 +361,8 @@ onMounted(() => {
 
     <!-- Main Workspace Content -->
     <main id="main-content" class="app-main-content" role="main">
+      <h1 class="sr-only">{{ t('appName') }}</h1>
+      <h2 class="sr-only">{{ activeMode === 'upload' ? t('navUpload') : activeMode === 'recent' ? t('navHistory') : activeMode === 'reader' ? t('navReader') : t('navScan') }}</h2>
       <router-view />
     </main>
 
@@ -416,6 +423,7 @@ onMounted(() => {
     <div 
       v-if="isSettingsOpen" 
       class="settings-modal-backdrop" 
+      v-focus-trap
       @click.self="closeSettings" 
       role="dialog" 
       aria-modal="true" 

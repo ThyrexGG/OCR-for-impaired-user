@@ -309,7 +309,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="reader-screen-viewport" role="region" :aria-label="t('navReader')">
     <!-- 1. TOP HEADER (Back Arrow, Title, Settings Gear) -->
-    <header class="reader-top-bar" role="banner">
+    <div class="reader-top-bar" role="group" :aria-label="t('navReader')">
       <button 
         type="button" 
         class="reader-icon-btn reader-back-btn" 
@@ -331,10 +331,10 @@ onBeforeUnmount(() => {
       >
         <Settings :size="22" />
       </button>
-    </header>
+    </div>
 
     <!-- 2. MAIN READING AREA -->
-    <main class="reader-main-canvas" role="main" @click="closeActions">
+    <div class="reader-main-canvas" @click="closeActions">
       <!-- Text Reading Content -->
       <div v-if="text && text.trim()" class="reader-text-container khmer-font">
         <p 
@@ -387,7 +387,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
-    </main>
+    </div>
 
     <!-- Backdrop overlay to dismiss floating actions when tapping anywhere outside -->
     <div 
@@ -463,7 +463,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- 4. BOTTOM AUDIO PLAYBACK BAR (Rewind, Large Orange Play/Pause, Fast Forward) -->
-    <footer v-if="text && text.trim()" class="reader-bottom-player-bar" role="region" :aria-label="currentLang === 'km' ? 'ឧបករណ៍បញ្ជាសំឡេង' : 'Audio controls'">
+    <div v-if="text && text.trim()" class="reader-bottom-player-bar" role="group" :aria-label="currentLang === 'km' ? 'ឧបករណ៍បញ្ជាសំឡេង' : 'Audio controls'">
       <div class="player-controls-cluster">
         <!-- Rewind Button (<<) -->
         <button 
@@ -509,7 +509,7 @@ onBeforeUnmount(() => {
           <Volume2 :size="22" />
         </button>
       </div>
-    </footer>
+    </div>
 
     <!-- 5b. VOICE & SPEED MODAL DIALOG -->
     <div

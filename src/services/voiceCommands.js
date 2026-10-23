@@ -14,6 +14,7 @@ class VoiceCommandService {
     this.onCommandCallback = null
     this.onErrorCallback = null
     this.lang = 'km-KH'
+    this.mutedUntil = 0
 
     if (SpeechRecognition) {
       this.recognition = new SpeechRecognition()
@@ -22,6 +23,8 @@ class VoiceCommandService {
       this.recognition.lang = 'km-KH'
 
       this.recognition.onresult = (event) => {
+        // The microphone also hears the app's own guidance voice: never take that for a command
+        if (Date.now() < this.mutedUntil) return
         const lastResultIndex = event.results.length - 1
         const transcript = event.results[lastResultIndex][0].transcript.trim().toLowerCase()
         this.processTranscript(transcript)
@@ -42,6 +45,11 @@ class VoiceCommandService {
         }
       }
     }
+  }
+
+  /** Ignore recognition results while talk-back is speaking, and briefly after. */
+  setMuted(muted) {
+    this.mutedUntil = muted ? Infinity : Date.now() + 700
   }
 
   isSupported() {

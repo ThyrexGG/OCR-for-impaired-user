@@ -108,8 +108,8 @@ export default function SettingsModal() {
 
   return (
     <Modal visible={isSettingsOpen} transparent animationType="slide" onRequestClose={closeSettings}>
-      <Pressable style={styles.backdrop} onPress={closeSettings}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <Pressable accessible={false} style={styles.backdrop} onPress={closeSettings}>
+        <Pressable accessible={false} style={styles.sheet} onPress={() => {}}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <Sliders size={22} color={colors.accent} />

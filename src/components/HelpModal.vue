@@ -2,6 +2,7 @@
 import { onMounted, onBeforeUnmount, inject } from 'vue'
 import { HelpCircle, X, Check, Camera, Scan, Sparkles, Volume2, ShieldCheck } from 'lucide-vue-next'
 import { t } from '../services/i18n'
+import { vFocusTrap } from '../services/focusTrap'
 
 const emit = defineEmits(['close'])
 
@@ -33,6 +34,7 @@ onBeforeUnmount(() => {
 <template>
   <div 
     class="help-modal-backdrop" 
+    v-focus-trap
     @click.self="handleClose" 
     role="dialog" 
     aria-modal="true" 

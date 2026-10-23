@@ -91,6 +91,11 @@ export function installTalkback({ isVoiceOn, isExploreOn }) {
 
   const isTouchLike = () => (lastPointerType === 'touch' || lastPointerType === 'pen') && Date.now() - lastPointerAt < 1500
 
+  const onPointerUp = (e) => {
+    lastPointerType = e.pointerType
+    lastPointerAt = Date.now()
+  }
+
   const onPointerDown = (e) => {
     lastPointerType = e.pointerType
     lastPointerAt = Date.now()
@@ -154,6 +159,7 @@ export function installTalkback({ isVoiceOn, isExploreOn }) {
   }
 
   document.addEventListener('pointerdown', onPointerDown, true)
+  document.addEventListener('pointerup', onPointerUp, true)
   document.addEventListener('pointercancel', onPointerCancel, true)
   document.addEventListener('click', onClick, true)
   document.addEventListener('keydown', onKeyDown, true)
@@ -161,6 +167,7 @@ export function installTalkback({ isVoiceOn, isExploreOn }) {
 
   return () => {
     document.removeEventListener('pointerdown', onPointerDown, true)
+    document.removeEventListener('pointerup', onPointerUp, true)
     document.removeEventListener('pointercancel', onPointerCancel, true)
     document.removeEventListener('click', onClick, true)
     document.removeEventListener('keydown', onKeyDown, true)

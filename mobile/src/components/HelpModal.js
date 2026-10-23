@@ -34,8 +34,8 @@ export default function HelpModal() {
 
   return (
     <Modal visible={isHelpOpen} transparent animationType="fade" onRequestClose={closeHelp}>
-      <Pressable style={styles.backdrop} onPress={closeHelp}>
-        <Pressable style={styles.card} onPress={() => {}}>
+      <Pressable accessible={false} style={styles.backdrop} onPress={closeHelp}>
+        <Pressable accessible={false} style={styles.card} onPress={() => {}}>
           <View style={styles.header}>
             <View style={styles.titleGroup}>
               <View style={styles.iconBox}>

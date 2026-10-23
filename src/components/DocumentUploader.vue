@@ -71,7 +71,7 @@ const startCamera = async () => {
   cameraError.value = null
   guidanceState.value = 'ready'
   guidanceMessage.value = t('cameraStarting')
-  speakAccessibility(t('cameraStarting'))
+  speakAccessibility(t('cameraStarting'), false)
   
   await nextTick()
   try {
@@ -117,6 +117,18 @@ if (sampleCanvas) {
 }
 
 let lastSpokenGuidance = ''
+let lastSpokenGuidanceAt = 0
+// Lighting problems are repeated while they last (a user who cannot see the screen has no other
+// cue that nothing has changed); every guidance line queues behind whatever is being read out
+const GUIDANCE_REPEAT_MS = 9000
+const sayGuidance = (key, msg) => {
+  const now = Date.now()
+  if (lastSpokenGuidance === key && (key === 'ready' || now - lastSpokenGuidanceAt < GUIDANCE_REPEAT_MS)) return false
+  lastSpokenGuidance = key
+  lastSpokenGuidanceAt = now
+  speakAccessibility(msg, false)
+  return true
+}
 
 const startGuidanceSimulation = () => {
   if (guidanceTimer) clearInterval(guidanceTimer)
@@ -150,28 +162,18 @@ const startGuidanceSimulation = () => {
             ? 'ពន្លឺងងឹតពេក សូមបើកភ្លើង ឬថតនៅកន្លែងមានពន្លឺ' 
             : 'Too dark. Please turn on lights or find brighter area'
           guidanceMessage.value = msg
-          if (checks % 3 === 0 && lastSpokenGuidance !== 'dark') {
-            lastSpokenGuidance = 'dark'
-            speakAccessibility(msg)
-          }
+          if (checks % 3 === 0 && sayGuidance('dark', msg)) triggerHaptic([60, 40, 60])
         } else if (avgLuminance > 230) {
           guidanceState.value = 'position'
           const msg = currentLang.value === 'km' 
             ? 'ពន្លឺចាំងខ្លាំងពេក សូមផ្លាស់ប្តូរមុំកាមេរ៉ា' 
             : 'Too much glare. Please tilt camera slightly'
           guidanceMessage.value = msg
-          if (checks % 3 === 0 && lastSpokenGuidance !== 'glare') {
-            lastSpokenGuidance = 'glare'
-            speakAccessibility(msg)
-          }
+          if (checks % 3 === 0 && sayGuidance('glare', msg)) triggerHaptic([60, 40, 60])
         } else {
           guidanceState.value = 'ready'
           guidanceMessage.value = t('cameraReadyCapture')
-          if (lastSpokenGuidance !== 'ready') {
-            lastSpokenGuidance = 'ready'
-            speakAccessibility(t('cameraReadyCapture'))
-            triggerHaptic([40, 30])
-          }
+          if (sayGuidance('ready', t('cameraReadyCapture'))) triggerHaptic([40, 30])
         }
       }
     } catch (e) {

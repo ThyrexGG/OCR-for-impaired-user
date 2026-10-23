@@ -195,8 +195,8 @@ export default function ReaderScreen({ navigation }) {
 
       {/* Summary dialog */}
       <Modal visible={isSummaryOpen} transparent animationType="fade" onRequestClose={() => setIsSummaryOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setIsSummaryOpen(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable accessible={false} style={styles.backdrop} onPress={() => setIsSummaryOpen(false)}>
+          <Pressable accessible={false} style={styles.sheet} onPress={() => {}}>
             <SheetHeader styles={styles} fonts={fonts} s={s} title="សង្ខេបខ្លឹមសារ" Icon={BookOpen} onClose={() => setIsSummaryOpen(false)} />
             <ScrollView style={styles.summaryScroll}>
               {summaryPoints.map((pt, i) => (
@@ -221,8 +221,8 @@ export default function ReaderScreen({ navigation }) {
 
       {/* Voice & speed dialog */}
       <Modal visible={isVoiceOpen} transparent animationType="fade" onRequestClose={() => setIsVoiceOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setIsVoiceOpen(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable accessible={false} style={styles.backdrop} onPress={() => setIsVoiceOpen(false)}>
+          <Pressable accessible={false} style={styles.sheet} onPress={() => {}}>
             <SheetHeader styles={styles} fonts={fonts} s={s} title="សំឡេង និងល្បឿនអាន" Icon={Volume2} onClose={() => setIsVoiceOpen(false)} />
             <ScrollView style={styles.voiceScroll}>
               {voices.map((v) => {

@@ -203,7 +203,8 @@ export function AppProvider({ children }) {
     [announceToScreenReader]
   )
 
-  // Quiet status messages (skip, seek): never cut the current sentence off.
+  // Status messages that must not touch the document reading (skip, seek). They replace each
+  // other, so tapping skip five times says "forward" once, not five times in a queue.
   const announce = useCallback(
     (text) => {
       if (!text) return
@@ -211,7 +212,7 @@ export function AppProvider({ children }) {
         announceToScreenReader(text)
         return
       }
-      speakNow(text, { interrupt: false })
+      speakNow(text)
     },
     [announceToScreenReader]
   )
@@ -265,6 +266,12 @@ export function AppProvider({ children }) {
   }, [speakAccessibility])
 
   useEffect(() => () => stopSpeaking(), [])
+
+  // Screen intros wait for the saved preferences; never let a storage hiccup hold them back forever
+  useEffect(() => {
+    const id = setTimeout(() => setPrefsLoaded(true), 1500)
+    return () => clearTimeout(id)
+  }, [])
 
   const toggleAutoRead = useCallback(() => {
     setIsAutoReadEnabled((prev) => {

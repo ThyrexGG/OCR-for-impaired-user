@@ -30,11 +30,12 @@ const VOICE_KEY_SRC = `export const voiceKey = (text) => {
 }`
 
 const SPOKEN_FORM_SRC = `// What is actually said for a label: English helper notes in brackets are for
-// sighted/dev readers and are dropped, as are links and extra whitespace.
+// sighted/dev readers and are dropped, as are keyboard shortcuts (Alt+2), links and extra whitespace.
 export const spokenForm = (text) =>
   String(text || '')
     .replace(/\\s*\\((?=[^()]*[A-Za-z])[^()]*\\)/g, '')
     .replace(/https?:\\/\\/\\S+/g, '')
+    .replace(/\\s*\\b(?:Alt|Ctrl|Shift)\\+\\S+/g, '')
     .replace(/\\s+/g, ' ')
     .trim()`
 
