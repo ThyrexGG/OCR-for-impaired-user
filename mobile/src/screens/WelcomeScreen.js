@@ -46,10 +46,10 @@ export default function WelcomeScreen({ navigation }) {
         <AccessiblePressable
           style={styles.ctaButton}
           hapticIntensity="medium"
-          accessibilityLabel="ចាប់ផ្តើមប្រើភ្លាមៗ"
+          accessibilityLabel="ចាប់ផ្តើមប្រើភ្លាម"
           onPress={() => navigation.replace('Main')}
         >
-          <Text style={[styles.ctaLabel, { fontFamily: fonts.khmer }]}>ចាប់ផ្តើមប្រើភ្លាមៗ</Text>
+          <Text style={[styles.ctaLabel, { fontFamily: fonts.khmer }]}>ចាប់ផ្តើមប្រើភ្លាម</Text>
           <ArrowRight size={24} color={colors.accentText} />
         </AccessiblePressable>
 

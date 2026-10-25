@@ -37,7 +37,7 @@ export const translations = {
     featureInstant: 'ស្កេន និងអានជាសំឡេងភ្លាមៗ',
     featureKaraoke: 'រំលេចពាក្យពេលកំពុងអាន',
     featurePrivacy: 'ឥតគិតថ្លៃ និងមិនបាច់ចុះឈ្មោះ',
-    startInstantBtn: 'ចាប់ផ្តើមប្រើភ្លាមៗ',
+    startInstantBtn: 'ចាប់ផ្តើមប្រើភ្លាម',
     welcomeFooter: 'រចនាឡើងសម្រាប់អ្នកមានពិការភាពគំហើញ',
 
     // OCR Panel & Reader
