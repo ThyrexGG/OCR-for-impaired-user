@@ -433,8 +433,8 @@ const MAX_PARALLEL_SENTENCES = 8
 const silenceMp3 = (ms) => Buffer.concat(Array(Math.max(1, Math.round(ms / 24))).fill(SILENT_FRAME))
 
 // part2_3_length (bits of audio data) of frame f, read from the 12 bits after the 4-byte header, main_data_begin and private bit
-const frameAudioBits = (buf, f) => {
-  const o = f * FRAME_BYTES + 4
+const frameAudioBits = (buf, start) => {
+  const o = start + 4
   return ((buf[o + 1] & 0x7f) << 5) | (buf[o + 2] >> 3)
 }
 
@@ -444,11 +444,22 @@ const frameAudioBits = (buf, f) => {
  * a controlled length. Anything that does not look like the expected frame layout is returned untouched.
  */
 export function trimTrailingSilence(buf) {
-  if (buf.length < FRAME_BYTES * 8 || buf.length % FRAME_BYTES !== 0 || buf[0] !== 0xff) return buf
-  const frames = buf.length / FRAME_BYTES
-  let last = frames - 1
-  while (last > 0 && frameAudioBits(buf, last) < 24) last--
-  return buf.subarray(0, Math.min(frames, last + 1 + KEEP_TAIL_FRAMES) * FRAME_BYTES)
+  // Walk the real frame headers (a frame can carry a padding byte), so one odd frame cannot disable trimming
+  const starts = []
+  let at = 0
+  while (at + 4 <= buf.length) {
+    if (buf[at] !== 0xff || buf[at + 1] !== 0xf3 || (buf[at + 2] & 0xfc) !== 0x64) break
+    const len = FRAME_BYTES + ((buf[at + 2] >> 1) & 1)
+    if (at + len > buf.length) break
+    starts.push(at)
+    at += len
+  }
+  if (starts.length < 8 || at !== buf.length) return buf // not the expected stream: leave it alone
+
+  let last = starts.length - 1
+  while (last > 0 && frameAudioBits(buf, starts[last]) < 24) last--
+  const keep = Math.min(starts.length, last + 1 + KEEP_TAIL_FRAMES)
+  return keep === starts.length ? buf : buf.subarray(0, starts[keep])
 }
 
 export function splitIntoSentences(text) {
