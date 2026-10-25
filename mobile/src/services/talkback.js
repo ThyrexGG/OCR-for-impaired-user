@@ -115,7 +115,7 @@ const playSource = (source, gen) =>
       currentPlayer = player
       cancelCurrent = finish
       player.volume = 1
-      player.playbackRate = rate
+      player.setPlaybackRate(rate)
       sub = player.addListener('playbackStatusUpdate', (status) => {
         if (status.didJustFinish) finish()
       })

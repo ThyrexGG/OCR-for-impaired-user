@@ -272,7 +272,7 @@ export function TtsProvider({ children }) {
         const player = createAudioPlayer({ uri: audioUri }, { updateInterval: 100 })
         audioPlayerRef.current = player
         player.volume = duckedRef.current ? DUCKED_VOLUME : 1.0
-        player.playbackRate = rateRef.current
+        player.setPlaybackRate(rateRef.current)
         audioSubRef.current = player.addListener('playbackStatusUpdate', (status) => {
           if (status.didJustFinish) {
             stopSpeech()
@@ -391,7 +391,7 @@ export function TtsProvider({ children }) {
   const setSpeedPreset = useCallback(
     (val) => {
       setRate(val)
-      if (audioPlayerRef.current) audioPlayerRef.current.playbackRate = val
+      if (audioPlayerRef.current) audioPlayerRef.current.setPlaybackRate(val)
       triggerHaptic('light')
       speakAccessibility(`ប្តូរល្បឿនអានទៅ ${val} ដង`)
     },
