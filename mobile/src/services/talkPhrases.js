@@ -163,5 +163,25 @@ export const TP = {
   "voiceCmdOff": {
     "km": "បញ្ជាដោយសំឡេង៖ បិទ",
     "en": "Voice commands: off"
+  },
+  "sampleOpen_announcement": {
+    "km": "ឯកសាររដ្ឋបាល សេចក្តីជូនដំណឹង",
+    "en": "Government Official notice"
+  },
+  "sampleOpen_story": {
+    "km": "អក្សរសិល្ប៍ រឿងព្រេង: ធនញ្ជ័យ",
+    "en": "Literature Folk tale: Thon Chay"
+  },
+  "sampleOpen_poem": {
+    "km": "កំណាព្យខ្មែរ កំណាព្យ: ភុជង្គលីលា",
+    "en": "Khmer poetry Poem: Phujong Lila"
+  },
+  "sampleOpen_receipt": {
+    "km": "ជីវភាពរស់នៅ វិក័យប័ត្រទូទាត់",
+    "en": "Daily life Pharmacy receipt"
+  },
+  "sampleOpen_clinic": {
+    "km": "សុខភាព ព័ត៌មានគ្លីនិក",
+    "en": "Health Clinic information"
   }
 }

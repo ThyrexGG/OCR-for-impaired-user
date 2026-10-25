@@ -6,6 +6,8 @@ import {
 } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 import { haptics } from '../services/haptics'
+import { sampleLibrary } from '../services/sampleDocs'
+import { tp } from '../services/talkback'
 
 const props = defineProps({
   isProcessing: {
@@ -373,7 +375,7 @@ onBeforeUnmount(() => {
     <div 
       v-else-if="activeInputTab === 'upload'" 
       class="upload-assistant-view"
-      :class="{ 'is-empty-state': !props.recentDocs || props.recentDocs.length === 0 }"
+
     >
       <div 
         class="tactile-dropzone" 
@@ -439,6 +441,34 @@ onBeforeUnmount(() => {
               <div class="sample-item-text">
                 <span class="sample-item-category">{{ doc.date || doc.timestamp }}</span>
                 <span class="sample-item-title">{{ doc.name }}</span>
+              </div>
+              <ArrowRight :size="24" class="sample-item-chevron" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Ready-made documents: try the reader and the voice without a camera or a file -->
+      <section class="sample-documents-section" :aria-label="currentLang === 'km' ? 'ឯកសារគំរូ' : 'Sample documents'">
+        <div class="sample-sec-header">
+          <Sparkles :size="20" class="text-heading" aria-hidden="true" />
+          <h2 class="sample-sec-title khmer-font">
+            {{ currentLang === 'km' ? 'សាកល្បងជាមួយឯកសារគំរូ' : 'Try a sample document' }}
+          </h2>
+        </div>
+        <div class="sample-unboxed-list" role="list">
+          <div v-for="(sample, idx) in sampleLibrary" :key="sample.id" class="sample-row-wrapper" role="listitem">
+            <div v-if="idx > 0" class="sample-hairline-divider" aria-hidden="true"></div>
+            <button
+              type="button"
+              class="sample-list-item khmer-font"
+              :aria-label="tp('sampleOpen_' + sample.id)"
+              @click="$emit('open-recent', { id: 'sample-' + sample.id, name: sample.title, text: sample.text, cached: true })"
+            >
+              <div class="sample-item-text">
+                <span class="sample-item-category">{{ currentLang === 'km' ? sample.category : sample.categoryEn }}</span>
+                {{ ' ' }}
+                <span class="sample-item-title">{{ currentLang === 'km' ? sample.title : sample.titleEn }}</span>
               </div>
               <ArrowRight :size="24" class="sample-item-chevron" aria-hidden="true" />
             </button>

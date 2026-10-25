@@ -3,6 +3,7 @@ import { ArrowRight, Sparkles } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useOcr } from '../context/OcrContext'
 import AccessiblePressable from './AccessiblePressable'
+import { TP } from '../services/talkPhrases'
 
 // Ports DocumentUploader.vue's "Sample Documents" section — SURFACES.md 8/11:
 // an unboxed list (no card border/background), a solid navy category chip
@@ -25,7 +26,7 @@ export default function SampleDocsGrid() {
             {idx > 0 && <View style={styles.divider} />}
             <AccessiblePressable
               style={({ pressed }) => [styles.row, pressed && { backgroundColor: s.surface2 }]}
-              accessibilityLabel={`បើក ${sample.title}`}
+              accessibilityLabel={TP['sampleOpen_' + sample.id]?.km || `${sample.category} ${sample.title}`}
               onPress={() => loadSample(sample)}
             >
               <View style={styles.rowText}>
