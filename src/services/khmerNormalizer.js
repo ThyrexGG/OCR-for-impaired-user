@@ -48,7 +48,10 @@ const UNIT_SUFFIXES = {
   kg: 'គីឡូក្រាម',
   km: 'គីឡូម៉ែត្រ',
   cm: 'សង់ទីម៉ែត្រ',
-  mm: 'មីលីម៉ែត្រ'
+  mm: 'មីលីម៉ែត្រ',
+  g: 'ក្រាម',
+  mb: 'មេកាបៃ',
+  gb: 'ហ្គីហ្គាបៃ'
 }
 
 /**
@@ -87,6 +90,15 @@ export function intToKhmerWords(n) {
     }
   }
   return String(n)
+}
+
+/** "012 345-678" -> digits spoken one by one, with a short breath between the written groups. */
+function spellDigitGroups(str) {
+  return str
+    .split(/[\s-]+/)
+    .filter(Boolean)
+    .map((group) => group.split('').filter((c) => /\d/.test(c)).map((c) => UNITS_KH[parseInt(c, 10)]).join(' '))
+    .join(' , ')
 }
 
 function numberStrToKhmer(numStr) {
@@ -140,6 +152,8 @@ export function normalizeKhmerForSpeech(rawText) {
     s = s.replace(re, `$1 ${unitKh} `)
   }
 
+  s = s.replace(/°\s*C\b/g, ' អង្សាសេ ')
+
   // Expand Dates: DD/MM/YYYY or DD-MM-YYYY
   s = s.replace(/(?:ថ្ងៃទី\s*)?\b(\d{1,2})[/-](\d{1,2})[/-](\d{4})\b/g, (match, dStr, mStr, yStr) => {
     const d = parseInt(dStr, 10)
@@ -180,6 +194,15 @@ export function normalizeKhmerForSpeech(rawText) {
   // Expand Percentages (%)
   s = s.replace(/(\d+(?:\.\d+)?)\s*%/g, (_, num) => ` ${numberStrToKhmer(num)}ភាគរយ `)
 
+  // Phone numbers, ids and codes are read digit by digit, never as one huge quantity
+  s = s.replace(/\+\s?\d{1,3}(?:[\s-]\d{1,4}){1,4}(?!\d)/g, (m) => ` បូក ${spellDigitGroups(m.slice(1))} `)
+  // (no lookbehind: older Safari cannot even parse it, so the preceding character is captured instead)
+  s = s.replace(/(^|[^\d.,])(0\d{1,2}(?:[\s-]\d{2,4}){1,3})(?![\d]|[.,]\d)/g, (_, pre, m) => `${pre} ${spellDigitGroups(m)} `)
+  s = s.replace(/(^|[^\d.,])(\d{3,})(?![\d]|[.,]\d)/g, (all, pre, m) => {
+    if (m.length >= 7 || m.startsWith('0')) return `${pre} ${spellDigitGroups(m.replace(/(\d{3})(?=\d)/g, '$1 '))} `
+    return all
+  })
+
   // Expand remaining numbers
   s = s.replace(/\b\d[\d,]*(?:\.\d+)?\b/g, (num) => ` ${numberStrToKhmer(num)} `)
 
@@ -190,8 +213,8 @@ export function normalizeKhmerForSpeech(rawText) {
   // Convert line breaks (\n) into full Khmer sentence pauses (។) so the voice pauses between lines & list items
   s = s.replace(/\r?\n+/g, ' ។ ')
 
-  // Expand Repeater symbol `ៗ`
-  s = s.replace(/([ក-៻]+)\s*ៗ/g, '$1 $1')
+  // The repeater mark `ៗ` is left for the voice, which repeats the word itself; expanding it here
+  // would copy the whole unspaced run of text before it, since Khmer has no spaces between words.
   s = s.replace(/។ល។/g, ' ហើយនិងដទៃទៀត ')
 
   // Apply Pali/Sanskrit/Medical Lexicon & User Custom Overrides

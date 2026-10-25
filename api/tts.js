@@ -419,6 +419,83 @@ function synthesizeViaZeroKeyWebSocket(ssml, retryCount = 0) {
   })
 }
 
+// The zero-key voice service rejects every SSML tag except <prosody>, so <break> is not available and
+// the Khmer full stop adds no pause by itself. Sentences are synthesized one by one instead and joined
+// with real silence, which is what gives long text its natural breathing.
+// 24 kHz mono MPEG-2 Layer III at 48 kbps is the format requested above: 144-byte frames of 24 ms each.
+const SILENT_FRAME = Buffer.concat([Buffer.from([0xff, 0xf3, 0x64, 0xc4]), Buffer.alloc(140)])
+const FRAME_BYTES = 144
+const SENTENCE_PAUSE_MS = 260
+const KEEP_TAIL_FRAMES = 4 // ~100 ms of natural fade after the last spoken frame
+const MIN_SENTENCE_CHARS = 8
+const MAX_PARALLEL_SENTENCES = 8
+
+const silenceMp3 = (ms) => Buffer.concat(Array(Math.max(1, Math.round(ms / 24))).fill(SILENT_FRAME))
+
+// part2_3_length (bits of audio data) of frame f, read from the 12 bits after the 4-byte header, main_data_begin and private bit
+const frameAudioBits = (buf, f) => {
+  const o = f * FRAME_BYTES + 4
+  return ((buf[o + 1] & 0x7f) << 5) | (buf[o + 2] >> 3)
+}
+
+/**
+ * The voice ends every clip with about a second of silence, which would make the gaps between sentences far
+ * too long. Frames with no audio data after the last spoken frame are dropped; the pause is then added back at
+ * a controlled length. Anything that does not look like the expected frame layout is returned untouched.
+ */
+export function trimTrailingSilence(buf) {
+  if (buf.length < FRAME_BYTES * 8 || buf.length % FRAME_BYTES !== 0 || buf[0] !== 0xff) return buf
+  const frames = buf.length / FRAME_BYTES
+  let last = frames - 1
+  while (last > 0 && frameAudioBits(buf, last) < 24) last--
+  return buf.subarray(0, Math.min(frames, last + 1 + KEEP_TAIL_FRAMES) * FRAME_BYTES)
+}
+
+export function splitIntoSentences(text) {
+  const parts = text.split(/\s*។\s*/).map((p) => p.trim()).filter(Boolean)
+  const out = []
+  let carry = ''
+  // Tiny fragments (list numbers, one-word lines) ride along with a neighbour instead of getting their own pause
+  for (const p of parts) {
+    const piece = carry ? `${carry} , ${p}` : p
+    if (piece.length < MIN_SENTENCE_CHARS) {
+      carry = piece
+    } else {
+      out.push(piece)
+      carry = ''
+    }
+  }
+  if (carry) {
+    if (out.length) out[out.length - 1] += ` , ${carry}`
+    else out.push(carry)
+  }
+  return out
+}
+
+const buildSsml = (voiceSpec, text) =>
+  `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='km-KH'>` +
+  `<voice name='${voiceSpec.baseVoice}'><prosody pitch='${voiceSpec.pitch}' rate='${voiceSpec.rate}'>${escapeXml(text)}</prosody></voice>` +
+  `</speak>`
+
+async function synthesizeWithPauses(text, voiceSpec) {
+  const sentences = splitIntoSentences(text)
+  if (sentences.length < 2) return trimTrailingSilence(await synthesizeViaZeroKeyWebSocket(buildSsml(voiceSpec, text)))
+
+  const audio = new Array(sentences.length)
+  let next = 0
+  const worker = async () => {
+    while (next < sentences.length) {
+      const i = next++
+      audio[i] = await synthesizeViaZeroKeyWebSocket(buildSsml(voiceSpec, `${sentences[i]} ។`))
+      if (!audio[i] || !audio[i].length) throw new Error('Empty audio for a sentence')
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(MAX_PARALLEL_SENTENCES, sentences.length) }, worker))
+
+  const pause = silenceMp3(SENTENCE_PAUSE_MS)
+  return Buffer.concat(audio.flatMap((a, i) => (i ? [pause, trimTrailingSilence(a)] : [trimTrailingSilence(a)])))
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')
@@ -491,7 +568,13 @@ export default async function handler(req, res) {
 
   // Mode 2: Zero-Key Neural WebSocket Stream Fallback (Always works on Vercel / iPhone)
   try {
-    const audioBuffer = await synthesizeViaZeroKeyWebSocket(ssml)
+    let audioBuffer
+    try {
+      audioBuffer = await synthesizeWithPauses(text, voiceSpec)
+    } catch (chunkErr) {
+      console.warn('Sentence-by-sentence synthesis failed, retrying as one block:', chunkErr)
+      audioBuffer = await synthesizeViaZeroKeyWebSocket(ssml)
+    }
     if (!audioBuffer || audioBuffer.length === 0) {
       throw new Error('Empty audio stream returned')
     }
