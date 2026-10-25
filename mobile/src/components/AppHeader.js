@@ -1,9 +1,8 @@
 import { Image, StyleSheet, Text, View } from 'react-native'
-import { HelpCircle, Languages, Settings, Volume2, VolumeX } from 'lucide-react-native'
+import { HelpCircle, Languages, Settings } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useApp } from '../context/AppContext'
 import AccessiblePressable from './AccessiblePressable'
-import { TP } from '../services/talkPhrases'
 
 /**
  * The web app's header (App.vue `.assistive-header`) at phone width: logo tile +
@@ -11,7 +10,7 @@ import { TP } from '../services/talkPhrases'
  */
 export default function AppHeader() {
   const { colors, fonts, currentTheme } = useTheme()
-  const { openHelp, openSettings, addToast, triggerHaptic, isUiVoiceEnabled, toggleUiVoice } = useApp()
+  const { openHelp, openSettings, addToast, triggerHaptic } = useApp()
   const s = colors.surfaces
   const styles = createStyles(colors, currentTheme)
 
@@ -30,15 +29,6 @@ export default function AppHeader() {
       </View>
 
       <View style={styles.actions}>
-        {/* Always reachable, always first: the one switch a user must be able to find by touch */}
-        <AccessiblePressable
-          style={[styles.roundBtn, isUiVoiceEnabled && styles.roundBtnOn]}
-          accessibilityLabel={isUiVoiceEnabled ? TP.voiceBtnOn.km : TP.voiceBtnOff.km}
-          speakOnPress={false}
-          onPress={toggleUiVoice}
-        >
-          {isUiVoiceEnabled ? <Volume2 size={20} color="#FFFFFF" /> : <VolumeX size={20} color={s.onSurface} />}
-        </AccessiblePressable>
         <AccessiblePressable
           style={styles.roundBtn}
           accessibilityLabel="ភាសាបច្ចុប្បន្ន៖ ខ្មែរ (ចុចដើម្បីប្តូរទៅ English)"
@@ -86,7 +76,6 @@ const createStyles = (colors, theme) => {
     logoImg: { width: 30, height: 30 },
     brandName: { fontSize: 19, fontWeight: '800', color: s.onSurface, letterSpacing: -0.2 },
     actions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    roundBtnOn: { backgroundColor: s.primary, borderColor: s.primary },
     roundBtn: {
       width: 44,
       height: 44,

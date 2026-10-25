@@ -179,22 +179,12 @@
   color: #0F172A;
 }
 
-.voice-btn {
-  min-width: 120px;
-}
-
 .help-trigger-btn {
   min-width: 80px;
 }
 
 .settings-trigger-btn {
   min-width: 88px;
-}
-
-.voice-btn.active-voice {
-  background: #FEF08A;
-  color: #854D0E;
-  border-color: #F59E0B;
 }
 
 [data-theme="dark"] .header-btn,
@@ -221,13 +211,6 @@
 .theme-dark .lang-toggle-btn {
   background: #111B2E;
   color: #FFFFFF;
-}
-
-[data-theme="dark"] .voice-btn.active-voice,
-.theme-dark .voice-btn.active-voice {
-  background: #713F12;
-  color: #FEF08A;
-  border-color: #F59E0B;
 }
 
 /* Responsive Header Design */

@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, provide, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { 
-  Settings, Volume2, VolumeX, Moon, Sun, Contrast, 
+  Settings, Moon, Sun, Contrast, 
   ZoomIn, ZoomOut, RotateCcw, X, Sliders, Eye, Headphones, 
   Keyboard, Sparkles, Camera, Upload, BookOpen, History, Check, HelpCircle, Languages,
   Mic, MicOff
@@ -302,20 +302,6 @@ onMounted(() => {
           >
             <Languages :size="18" />
             <span class="btn-caption font-bold">{{ t('langToggle') }}</span>
-          </button>
-
-          <!-- Voice Toggle Quick Button (Desktop / Tablet only) -->
-          <button 
-            type="button" 
-            class="header-btn voice-btn"
-            :class="{ 'active-voice': isUiVoiceEnabled }"
-            @click="toggleUiVoice"
-            :aria-label="isUiVoiceEnabled ? tp('voiceBtnOn') : tp('voiceBtnOff')"
-            :title="t('voiceGuidance')"
-          >
-            <Volume2 v-if="isUiVoiceEnabled" :size="20" />
-            <VolumeX v-else :size="20" />
-            <span class="btn-caption khmer-font">{{ isUiVoiceEnabled ? t('voiceGuidance') + ': ON' : t('voiceGuidance') + ': OFF' }}</span>
           </button>
 
           <!-- Help / How to Use Trigger (Desktop / Tablet only) -->
