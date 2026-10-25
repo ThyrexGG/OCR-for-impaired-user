@@ -2,6 +2,7 @@ import { createContext, useContext, useCallback, useEffect, useMemo, useRef, use
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
 import { AccessibilityInfo, Platform, Vibration } from 'react-native'
+import { vibratePattern } from '../services/nativeHaptics'
 import { setSpeechRate, speakNow, stopSpeaking } from '../services/talkback'
 import { TP } from '../services/talkPhrases'
 
@@ -49,10 +50,10 @@ const HAPTIC_MAP = {
 // app's haptics service (src/services/haptics.js). iOS keeps expo-haptics: RN's
 // Vibration is a fixed ~400ms buzz there.
 const ANDROID_PATTERNS = {
-  light: [0, 20],
-  medium: [0, 35],
-  heavy: [0, 60],
-  selection: [0, 15],
+  light: [0, 30],
+  medium: [0, 45],
+  heavy: [0, 70],
+  selection: [0, 22],
   success: [0, 80, 40, 100],
   warning: [0, 100, 50, 100],
   error: [0, 100, 60, 100],
@@ -159,7 +160,8 @@ export function AppProvider({ children }) {
     if (!isHapticsEnabledRef.current) return
     try {
       if (Platform.OS === 'android') {
-        Vibration.vibrate(ANDROID_PATTERNS[intensity] || ANDROID_PATTERNS.light)
+        const pattern = ANDROID_PATTERNS[intensity] || ANDROID_PATTERNS.light
+        if (!vibratePattern(pattern)) Vibration.vibrate(pattern)
         return
       }
       const run = HAPTIC_MAP[intensity] || HAPTIC_MAP.light
@@ -174,7 +176,7 @@ export function AppProvider({ children }) {
   const testHaptics = useCallback(() => {
     try {
       if (Platform.OS === 'android') {
-        Vibration.vibrate(ANDROID_PATTERNS.success)
+        if (!vibratePattern(ANDROID_PATTERNS.success)) Vibration.vibrate(ANDROID_PATTERNS.success)
       } else {
         Promise.resolve(HAPTIC_MAP.success()).catch(() => {})
       }
