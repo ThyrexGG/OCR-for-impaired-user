@@ -39,6 +39,7 @@ class AnnouncerService {
     this._packLoading = null
     this._live = new Map()
     this._speakingCount = 0
+    this._pending = 0
     this._idleTimer = null
     this._speakingListeners = new Set()
     this._pendingUntilActive = null
@@ -60,6 +61,25 @@ class AnnouncerService {
 
   getRate() {
     return this._rate
+  }
+
+  /**
+   * Resolves once talk-back has said everything it was asked to, plus a short breath, so the reader's
+   * voice never starts on top of a control label or announcement. Gives up after maxWaitMs.
+   */
+  whenSilent({ gapMs = 350, maxWaitMs = 4000 } = {}) {
+    return new Promise((resolve) => {
+      const deadline = Date.now() + maxWaitMs
+      let quietSince = 0
+      const poll = () => {
+        const busy = this._pending > 0 || this._speakingCount > 0
+        if (busy) quietSince = 0
+        else if (!quietSince) quietSince = Date.now()
+        if ((!busy && Date.now() - quietSince >= gapMs) || Date.now() >= deadline) return resolve()
+        setTimeout(poll, 40)
+      }
+      poll()
+    })
   }
 
   /** Called with true when talk-back starts speaking and false once it falls quiet (to duck the reader). */
@@ -262,7 +282,13 @@ class AnnouncerService {
     const gen = this._generation
     // Start every fetch now; playback then walks them in order.
     const fetched = segments.map((s) => this._resolve(s))
-    this._tail = this._tail.then(() => this._run(segments, fetched, gen))
+    this._pending++
+    this._tail = this._tail
+      .then(() => this._run(segments, fetched, gen))
+      .catch(() => {})
+      .then(() => {
+        this._pending = Math.max(0, this._pending - 1)
+      })
   }
 
   /**

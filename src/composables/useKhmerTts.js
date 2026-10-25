@@ -398,6 +398,10 @@ export function useKhmerTts({ getText, activeWordIndex }) {
       // Stopped (or restarted) while the audio was being synthesized
       if (currentAudio !== unlockedAudio) return
 
+      // Let the control label / announcement that led here finish before the document voice begins
+      await announcer.whenSilent()
+      if (currentAudio !== unlockedAudio) return
+
       unlockedAudio.src = audioUrl
       unlockedAudio.playbackRate = rate.value
       unlockedAudio.volume = effectiveVolume()

@@ -7,7 +7,7 @@ import { useOcr } from './OcrContext'
 import { synthesizeTextAzureTTS, synthesizeTextCloudTTS } from '../services/tts'
 import { CLOUD_API_AVAILABLE } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
-import { subscribeSpeaking } from '../services/talkback'
+import { subscribeSpeaking, whenSilent } from '../services/talkback'
 import { TP } from '../services/talkPhrases'
 
 // While talk-back speaks, the document audio dips so the guidance is clearly heard.
@@ -269,6 +269,10 @@ export function TtsProvider({ children }) {
         // Stopped (or restarted) while the audio was being synthesized
         if (speechSessionRef.current !== session) return
 
+        // Let the control label / announcement that led here finish before the document voice begins
+        await whenSilent()
+        if (speechSessionRef.current !== session) return
+
         const player = createAudioPlayer({ uri: audioUri }, { updateInterval: 100 })
         audioPlayerRef.current = player
         player.volume = duckedRef.current ? DUCKED_VOLUME : 1.0
@@ -301,11 +305,15 @@ export function TtsProvider({ children }) {
       } catch (error) {
         console.error(error)
         if (speechSessionRef.current !== session) return
+        await whenSilent()
+        if (speechSessionRef.current !== session) return
         fallbackWebSpeech(extractedText, Math.max(0, activeWordRef.current))
         return
       }
     }
 
+    await whenSilent()
+    if (speechSessionRef.current !== session) return
     fallbackWebSpeech(extractedText)
   }, [extractedText, stopSpeech, startHighlighting, triggerHaptic, speakAccessibility, fallbackWebSpeech, indexForFraction, setPaused, ocrConfig])
 

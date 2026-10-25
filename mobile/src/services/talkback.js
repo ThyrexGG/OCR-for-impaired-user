@@ -35,6 +35,7 @@ const liveCache = new Map() // key -> Promise<{ uri }>
 
 const speakingListeners = new Set()
 let speakingCount = 0
+let pendingMessages = 0 // messages queued or being spoken, including ones still being fetched
 let idleTimer = null
 const emitSpeaking = (value) => speakingListeners.forEach((fn) => fn(value))
 
@@ -193,8 +194,32 @@ export const speakNow = (input, { interrupt = true } = {}) => {
   const gen = generation
   // Start every fetch now; playback then walks them in order.
   const fetched = segments.map((s) => resolveSegment(s).catch(() => null))
-  tail = tail.then(() => runMessage(segments, fetched, gen))
+  pendingMessages += 1
+  tail = tail
+    .then(() => runMessage(segments, fetched, gen))
+    .catch(() => {})
+    .then(() => {
+      pendingMessages = Math.max(0, pendingMessages - 1)
+    })
 }
+
+/**
+ * Resolves once talk-back has finished everything it was asked to say, plus a short breath, so the
+ * reader's voice never starts on top of a control label or announcement. Gives up after maxWaitMs.
+ */
+export const whenSilent = ({ gapMs = 350, maxWaitMs = 4000 } = {}) =>
+  new Promise((resolve) => {
+    const deadline = Date.now() + maxWaitMs
+    let quietSince = 0
+    const poll = () => {
+      const busy = pendingMessages > 0 || speakingCount > 0
+      if (busy) quietSince = 0
+      else if (!quietSince) quietSince = Date.now()
+      if ((!busy && Date.now() - quietSince >= gapMs) || Date.now() >= deadline) return resolve()
+      setTimeout(poll, 40)
+    }
+    poll()
+  })
 
 /** Fetches phrases into the live cache ahead of time (e.g. a document title about to be announced). */
 export const warmUp = (texts) => {
