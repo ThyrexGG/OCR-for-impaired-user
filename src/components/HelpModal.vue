@@ -1,10 +1,10 @@
 <script setup>
 import { onMounted, onBeforeUnmount, inject } from 'vue'
 import { HelpCircle, X, Check, Camera, Scan, Sparkles, Volume2, ShieldCheck } from 'lucide-vue-next'
-import { t } from '../services/i18n'
+import { t, currentLang } from '../services/i18n'
 import { vFocusTrap } from '../services/focusTrap'
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'start-tour'])
 
 const speakAccessibility = inject('speakAccessibility', () => {})
 const triggerHaptic = inject('triggerHaptic', () => {})
@@ -127,6 +127,15 @@ onBeforeUnmount(() => {
 
       <!-- Footer Action -->
       <div class="help-footer">
+        <button 
+          type="button" 
+          class="btn btn-secondary btn-start-tour khmer-font" 
+          @click="$emit('start-tour')"
+        >
+          <Sparkles :size="18" />
+          <span>{{ currentLang === 'km' ? 'មើលការណែនាំលម្អិត' : 'Interactive Tour' }}</span>
+        </button>
+
         <button 
           type="button" 
           class="btn btn-primary btn-got-it khmer-font" 

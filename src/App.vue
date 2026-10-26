@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, provide, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, provide, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { 
   Settings, Moon, Sun, Contrast, 
@@ -8,6 +8,7 @@ import {
   Mic, MicOff
 } from 'lucide-vue-next'
 import HelpModal from './components/HelpModal.vue'
+import FeatureGuidelines from './components/FeatureGuidelines.vue'
 import { currentLang, toggleLang, t } from './services/i18n'
 import { haptics } from './services/haptics'
 import { announcer } from './services/announcer'
@@ -118,6 +119,18 @@ const closeSettings = () => {
   speakAccessibility(t('closeSettings'))
 }
 
+// --- Feature Guidelines Walkthrough ---
+const isGuidelinesOpen = ref(false)
+const openGuidelines = () => {
+  isHelpOpen.value = false
+  isSettingsOpen.value = false
+  isGuidelinesOpen.value = true
+  haptics.pulse('selection')
+}
+const closeGuidelines = () => {
+  isGuidelinesOpen.value = false
+}
+
 // --- Help / How to Use Modal ---
 const isHelpOpen = ref(false)
 const openHelp = () => {
@@ -181,6 +194,7 @@ provide('activeMode', activeMode)
 provide('setMode', setMode)
 provide('openSettings', openSettings)
 provide('openHelp', openHelp)
+provide('openGuidelines', openGuidelines)
 provide('currentTheme', currentTheme)
 provide('currentLang', currentLang)
 provide('toggleLang', toggleLang)
@@ -260,6 +274,25 @@ onMounted(() => {
 
   window.addEventListener('offline', onOffline)
   window.addEventListener('online', onOnline)
+
+  // Auto-launch guidelines on HomeScreen: in DEV mode always show for testing; in production check localStorage
+  const isDev = import.meta.env.DEV
+  const checkAndLaunchGuidelines = () => {
+    if (!isLoginScreen.value && (isDev || !localStorage.getItem('songkhem_guidelines_completed'))) {
+      setTimeout(() => {
+        if (!isLoginScreen.value && !isSettingsOpen.value && !isHelpOpen.value) {
+          openGuidelines()
+        }
+      }, 500)
+    }
+  }
+
+  // Watch route transitions into HomeScreen
+  watch(isLoginScreen, (isLogin) => {
+    if (!isLogin) {
+      checkAndLaunchGuidelines()
+    }
+  }, { immediate: true })
 })
 </script>
 
@@ -304,10 +337,10 @@ onMounted(() => {
             <span class="btn-caption font-bold">{{ t('langToggle') }}</span>
           </button>
 
-          <!-- Help / How to Use Trigger (Desktop / Tablet only) -->
+          <!-- Help / How to Use Trigger -->
           <button 
             type="button" 
-            class="header-btn help-trigger-btn desktop-only"
+            class="header-btn help-trigger-btn"
             @click="openHelp"
             :aria-label="t('help')"
             :title="t('help')"
@@ -883,7 +916,10 @@ onMounted(() => {
     </div>
 
     <!-- Help / How to Use Modal -->
-    <HelpModal v-if="isHelpOpen" @close="closeHelp" />
+    <HelpModal v-if="isHelpOpen" @close="closeHelp" @start-tour="openGuidelines" />
+
+    <!-- Feature Guidelines Walkthrough -->
+    <FeatureGuidelines :is-open="isGuidelinesOpen" @close="closeGuidelines" />
   </div>
 </template>
 
