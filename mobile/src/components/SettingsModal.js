@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Check, Contrast, Eye, Headphones, Moon, RotateCcw, Scan, Sliders, Sun, X, ZoomIn, ZoomOut } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useApp } from '../context/AppContext'
@@ -78,7 +79,8 @@ export default function SettingsModal() {
   } = useApp()
   const [activeTab, setActiveTab] = useState('visual')
   const [draftConfig, setDraftConfig] = useState(ocrConfig)
-  const styles = createStyles(colors)
+  const insets = useSafeAreaInsets()
+  const styles = createStyles(colors, insets)
 
   // Reset the draft form fields to the persisted values each time the sheet opens.
   useEffect(() => {
@@ -387,7 +389,7 @@ const itemStyles = StyleSheet.create({
   desc: { fontSize: 12, opacity: 0.7 },
 })
 
-const createStyles = (colors) =>
+const createStyles = (colors, insets) =>
   StyleSheet.create({
     backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
     sheet: {
@@ -461,7 +463,8 @@ const createStyles = (colors) =>
     clearCacheWrap: { alignSelf: 'flex-start', marginLeft: 3 },
     clearCacheBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 42, paddingHorizontal: 16 },
     clearCacheText: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
-    footer: { padding: 18, borderTopWidth: 1.5, borderTopColor: colors.borderSubtle },
+    // The sheet is drawn behind the system navigation bar / gesture pill, so the Done button needs that clearance
+    footer: { padding: 18, paddingBottom: 18 + Math.max(insets.bottom, 16), borderTopWidth: 1.5, borderTopColor: colors.borderSubtle },
     doneBtn: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.accent, borderRadius: colors.radii.md },
     doneBtnText: { color: colors.accentText, fontWeight: '700', fontSize: 15 },
   })
