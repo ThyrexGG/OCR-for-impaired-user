@@ -24,7 +24,7 @@ const MAX_LIVE_CACHE = 80
 
 class AnnouncerService {
   constructor() {
-    this._isVoiceEnabled = true
+    this._isVoiceEnabled = false
     this._rate = 1.25
     this._liveRegionPolite = null
     this._liveRegionAssertive = null

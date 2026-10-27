@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { Check, Contrast, Eye, Headphones, Moon, RotateCcw, Scan, Sliders, Sun, X, ZoomIn, ZoomOut } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useApp } from '../context/AppContext'
@@ -186,12 +186,14 @@ export default function SettingsModal() {
             {activeTab === 'audio' && (
               <>
                 <SettingItem
-                  title="សំឡេងណែនាំ (TalkBack)"
-                  desc={isScreenReaderOn ? 'កំពុងប្រើ TalkBack របស់ទូរស័ព្ទ ដូច្នេះសំឡេងណែនាំក្នុងកម្មវិធីនឹងសម្ងំ' : 'អានឈ្មោះប៊ូតុង ទំព័រ និងលទ្ធផលជាសំឡេងភ្លាមៗ'}
+                  title={`សំឡេងណែនាំ (${Platform.OS === 'ios' ? 'VoiceOver' : 'TalkBack'})`}
+                  desc={isScreenReaderOn 
+                    ? `កំពុងប្រើ ${Platform.OS === 'ios' ? 'VoiceOver' : 'TalkBack'} របស់ទូរស័ព្ទ ដូច្នេះសំឡេងណែនាំក្នុងកម្មវិធីនឹងសម្ងំ (ជៀសវាងសំឡេងជាន់គ្នា)` 
+                    : 'អានឈ្មោះប៊ូតុង ទំព័រ និងលទ្ធផលជាសំឡេងភ្លាមៗ'}
                   fonts={fonts}
                   row
                 >
-                  <AccessibleSwitch value={isUiVoiceEnabled} onValueChange={toggleUiVoice} accessibilityLabel="សំឡេងណែនាំ" />
+                  <AccessibleSwitch value={isUiVoiceEnabled} onValueChange={toggleUiVoice} accessibilityLabel={`សំឡេងណែនាំ ${Platform.OS === 'ios' ? 'VoiceOver' : 'TalkBack'}`} />
                 </SettingItem>
                 <SettingItem title="ចុចម្តងស្តាប់ ចុចពីរដងបើក (Explore by Touch)" desc="ចុចលើប៊ូតុងម្តងដើម្បីស្តាប់ថាវាជាអ្វី ចុចម្តងទៀតដើម្បីបើក ការពារកុំឱ្យចុចខុស" fonts={fonts} row>
                   <AccessibleSwitch value={isExploreEnabled} onValueChange={toggleExplore} accessibilityLabel="ចុចម្តងស្តាប់ ចុចពីរដងបើក" />

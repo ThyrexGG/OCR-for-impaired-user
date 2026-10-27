@@ -35,6 +35,7 @@ const {
   voiceRate,
   isAutoReadEnabled,
   isHapticsEnabled,
+  osScreenReaderName,
   setTheme,
   changeFontScale,
   resetFontScale,
@@ -648,11 +649,16 @@ onMounted(() => {
 
         <!-- Tab 2: Audio & Guidance Settings -->
         <div v-if="activeSettingsTab === 'audio'" class="tab-pane audio-pane">
-          <!-- UI Spoken Guidance Toggle -->
+          <!-- UI Spoken Guidance Toggle (TalkBack on Android / VoiceOver on iOS) -->
           <div class="setting-item">
             <div class="setting-label-col">
-              <span class="setting-title khmer-font">{{ t('voiceGuidance') }}</span>
-              <span class="setting-desc khmer-font">{{ t('voiceGuidanceDesc') }}</span>
+              <span class="setting-title khmer-font">{{ t('voiceGuidance') }} ({{ osScreenReaderName }})</span>
+              <span class="setting-desc khmer-font">
+                {{ currentLang === 'km' 
+                  ? `អានឈ្មោះប៊ូតុង និងស្ថានភាព (សម្រាប់អ្នកដែលមិនបានបើក ${osScreenReaderName} លើទូរស័ព្ទ។ បើបានបើកលើប្រព័ន្ធរួចហើយ សូមកុំបើក ដើម្បីជៀសវាងសំឡេងជាន់គ្នា)`
+                  : `Read control titles and status aloud (for users without OS ${osScreenReaderName}. Keep off if ${osScreenReaderName} is already active).` 
+                }}
+              </span>
             </div>
             <button 
               type="button" 
@@ -661,16 +667,16 @@ onMounted(() => {
               @click="toggleUiVoice"
               :aria-checked="isUiVoiceEnabled"
               role="switch"
-              :aria-label="t('voiceGuidance')"
+              :aria-label="`${t('voiceGuidance')} In-App ${osScreenReaderName}`"
             >
               <span class="switch-thumb"></span>
             </button>
           </div>
 
           <!-- Explore by touch: tap to hear, tap again to open -->
-          <div class="setting-item">
+          <div class="setting-item" :class="{ 'opacity-60': !isUiVoiceEnabled }">
             <div class="setting-label-col">
-              <span class="setting-title khmer-font">{{ currentLang === 'km' ? 'ចុចម្តងស្តាប់ ចុចពីរដងបើក' : 'Explore by touch' }}</span>
+              <span class="setting-title khmer-font">{{ currentLang === 'km' ? `ចុចម្តងស្តាប់ ចុចពីរដងបើក (${osScreenReaderName} Mode)` : `Explore by touch (${osScreenReaderName} Mode)` }}</span>
               <span class="setting-desc khmer-font">{{ currentLang === 'km' ? 'លើអេក្រង់ប៉ះ ចុចប៊ូតុងម្តងដើម្បីស្តាប់ថាវាជាអ្វី ចុចម្តងទៀតដើម្បីបើក ការពារកុំឱ្យចុចខុស' : 'On touch screens, tap a control once to hear it and again to open it, so nothing is triggered by accident' }}</span>
             </div>
             <button
@@ -679,6 +685,7 @@ onMounted(() => {
               :class="{ 'switch-on': isExploreEnabled }"
               @click="toggleExplore"
               :aria-checked="isExploreEnabled"
+              :disabled="!isUiVoiceEnabled"
               role="switch"
               :aria-label="currentLang === 'km' ? 'ចុចម្តងស្តាប់ ចុចពីរដងបើក' : 'Explore by touch'"
             >
