@@ -350,20 +350,6 @@ onMounted(() => {
             <span class="btn-caption khmer-font">{{ t('help') }}</span>
           </button>
 
-          <!-- Hands-Free Voice Commands Button -->
-          <button 
-            type="button" 
-            class="header-btn mic-btn"
-            :class="{ 'active-voice': isVoiceListening }"
-            @click="toggleVoiceListening"
-            :aria-label="isVoiceListening ? tp('voiceCmdOn') : tp('voiceCmdOff')"
-            :title="isVoiceListening ? 'Voice Commands: ON' : 'Voice Commands: OFF (Alt+V)'"
-          >
-            <Mic v-if="isVoiceListening" :size="20" class="text-accent animate-pulse" />
-            <MicOff v-else :size="20" />
-            <span class="btn-caption khmer-font">{{ isVoiceListening ? (currentLang === 'km' ? 'សំឡេង: ON' : 'Voice: ON') : (currentLang === 'km' ? 'បញ្ជាសំឡេង' : 'Voice Cmd') }}</span>
-          </button>
-
           <!-- Settings Trigger (Available on all screens) -->
           <button 
             type="button" 
@@ -725,6 +711,32 @@ onMounted(() => {
               :aria-checked="isAutoReadEnabled"
               role="switch"
               :aria-label="t('autoRead')"
+            >
+              <span class="switch-thumb"></span>
+            </button>
+          </div>
+
+          <!-- Hands-Free Voice Commands (Moved into settings) -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">
+                {{ currentLang === 'km' ? 'បញ្ជាដោយសំឡេង (Voice Commands)' : 'Hands-Free Voice Commands' }}
+              </span>
+              <span class="setting-desc khmer-font">
+                {{ currentLang === 'km' 
+                  ? 'បើកដើម្បីបញ្ជាកម្មវិធីដោយពាក្យ "អាន", "ឈប់", ឬ "ស្កេន" (ផ្លូវកាត់ Alt+V)' 
+                  : 'Navigate hands-free with spoken commands like "read", "stop", or "scan" (Shortcut Alt+V)' 
+                }}
+              </span>
+            </div>
+            <button 
+              type="button" 
+              class="accessible-switch" 
+              :class="{ 'switch-on': isVoiceListening }"
+              @click="toggleVoiceListening"
+              :aria-checked="isVoiceListening"
+              role="switch"
+              :aria-label="currentLang === 'km' ? 'បើកបិទការបញ្ជាដោយសំឡេង' : 'Toggle voice commands'"
             >
               <span class="switch-thumb"></span>
             </button>

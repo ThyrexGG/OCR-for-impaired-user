@@ -32,18 +32,6 @@ export const GUIDELINE_STEPS = [
     preferredDock: 'bottom'
   },
   {
-    id: 'voice',
-    icon: Mic,
-    mode: 'scan',
-    targetSelector: '.mic-btn',
-    fallbackSelector: '.header-actions',
-    titleKm: 'បញ្ជាដោយសំឡេង',
-    titleEn: 'Voice Commands',
-    descKm: 'បើកដើម្បីបញ្ជាកម្មវិធីដោយសំឡេងដោយមិនបាច់ប៉ះអេក្រង់ ដូចជាពាក្យ "អាន", "ឈប់", ឬ "ស្កេន"។',
-    descEn: 'Turn on hands-free voice control to navigate and read aloud without touching the screen.',
-    preferredDock: 'bottom'
-  },
-  {
     id: 'settings',
     icon: Sliders,
     mode: 'scan',
