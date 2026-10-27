@@ -13,7 +13,7 @@
   font-family: var(--font-sans);
   position: relative;
   background-color: var(--bg-page);
-  padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px)); /* Standard bottom nav height */
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px)); /* Google M3 standard nav height */
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -48,19 +48,38 @@
 }
 
 /* ==========================================================================
-   Clean Assistive Top Header
+   Google Material Design 3 Top App Bar (M3 Standard)
+   - 64px container height
+   - Surface Container (#FFFFFF light / #1E1F22 dark / #000000 contrast)
+   - Borderless Google M3 Icon Buttons with circular state layers
    ========================================================================== */
 .assistive-header {
   position: sticky;
   top: 0;
   z-index: 900;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--divider, #E2E8F0);
-  padding: 8px 16px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  height: 64px;
+  min-height: 64px;
+  background: #FFFFFF;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 0 16px;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+[data-theme="dark"] .assistive-header {
+  background: #1E1F22;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="contrast"] .assistive-header {
+  background: #000000;
+  border-bottom: 2px solid #FFFF00;
 }
 
 .header-inner {
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   display: flex;
@@ -79,38 +98,37 @@
 .header-brand-cluster .brand-link {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   text-decoration: none;
   color: var(--text-primary);
   padding: 4px;
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
 }
+
 .header-brand-cluster .brand-link:focus-visible {
-  outline: 3px solid var(--border-focus);
+  outline: 2px solid #005AC1;
+  outline-offset: 2px;
 }
 
 .brand-logo-gem {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: var(--bg-surface-elevated);
- 
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+  box-shadow: none;
   flex-shrink: 0;
 }
 
 .brand-img {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
 }
-
-
 
 .brand-titles {
   display: flex;
@@ -118,26 +136,38 @@
 }
 
 .brand-name {
-  font-family: var(--font-sans);
-  font-size: 1.125rem;
-  font-weight: 800;
+  font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--text-primary);
-  line-height: 1.25;
+  color: #1F1F1F;
+  line-height: 1.2;
+}
+
+[data-theme="dark"] .brand-name {
+  color: #E3E3E3;
+}
+
+[data-theme="contrast"] .brand-name {
+  color: #FFFF00;
 }
 
 .brand-caption {
   font-size: 0.75rem;
-  color: var(--color-brand-light);
-  font-weight: 600;
+  color: #444746;
+  font-weight: 500;
   line-height: 1;
 }
 
-/* Header Controls (4-Point Standard) */
+[data-theme="dark"] .brand-caption {
+  color: #C4C7C5;
+}
+
+/* Header Controls — Material 3 Standard Icon Buttons */
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -145,110 +175,76 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 40px;
-  min-width: 40px;
-  padding: 8px 16px;
-  background: #F8FAFC;
-  border: 1px solid #CBD5E1;
-  border-radius: 9999px;
-  color: #0F172A;
-  font-weight: 700;
-  font-size: 0.875rem;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  color: #444746;
+  box-shadow: none;
   cursor: pointer;
-  transition: all 0.16s cubic-bezier(0.2, 0, 0, 1);
+  transition: background-color 0.15s ease, color 0.15s ease;
   text-align: center;
-  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .header-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
-  background: #F8FAFC;
-  border-color: #2563EB;
+  background: rgba(68, 71, 70, 0.08);
+  color: #1F1F1F;
+  box-shadow: none;
+  transform: none;
 }
 
 .header-btn:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  background: rgba(68, 71, 70, 0.12);
+  transform: none;
 }
 
-.lang-toggle-btn {
-  background: #F8FAFC;
-  color: #0F172A;
+.header-btn:focus-visible {
+  outline: 2px solid #005AC1;
+  outline-offset: 2px;
 }
 
-.help-trigger-btn {
-  min-width: 80px;
+[data-theme="dark"] .header-btn {
+  background: transparent;
+  border: none;
+  color: #C4C7C5;
+  box-shadow: none;
 }
 
-.settings-trigger-btn {
-  min-width: 88px;
-}
-
-[data-theme="dark"] .header-btn,
-.theme-dark .header-btn {
-  background: #111B2E;
-  border-color: #334155;
+[data-theme="dark"] .header-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
   color: #FFFFFF;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: none;
+  transform: none;
 }
 
-[data-theme="dark"] .header-btn:hover,
-.theme-dark .header-btn:hover {
-  background: #1E293B;
-  border-color: #60A5FA;
-  box-shadow: 0 4px 14px rgba(96, 165, 250, 0.2);
+[data-theme="dark"] .header-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+  transform: none;
 }
 
-[data-theme="dark"] .header-btn:active,
-.theme-dark .header-btn:active {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+[data-theme="dark"] .header-btn:focus-visible {
+  outline-color: #A8C7FA;
 }
 
-[data-theme="dark"] .lang-toggle-btn,
-.theme-dark .lang-toggle-btn {
-  background: #111B2E;
-  color: #FFFFFF;
+[data-theme="contrast"] .header-btn {
+  background: #000000;
+  border: 2px solid #FFFF00;
+  color: #FFFF00;
+  box-shadow: none;
 }
 
-/* Responsive Header Design */
-@media (max-width: 768px) {
-  .assistive-header {
-    padding: 6px 12px;
-  }
-
-  .header-actions {
-    gap: 8px;
-  }
-
-  /* On small screens, hide desktop-only buttons if any */
-  .header-btn.desktop-only {
-    display: none !important;
-  }
-
-  .header-btn {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0;
-    border-radius: 9999px;
-  }
-
-  .lang-toggle-btn,
-  .help-trigger-btn,
-  .mic-btn,
-  .settings-trigger-btn {
-    min-width: 44px;
-    width: 44px;
-  }
+.btn-caption {
+  display: none;
 }
 
 @media (max-width: 480px) {
   .assistive-header {
-    padding: 6px 10px;
+    padding: 0 12px;
   }
 
   .header-brand-cluster {
@@ -259,31 +255,8 @@
     display: none;
   }
 
-  .brand-logo-gem {
-    width: 40px;
-    height: 40px;
-  }
-
-  .brand-img {
-    width: 28px;
-    height: 28px;
-  }
-
   .brand-name {
-    font-size: 1.12rem;
-  }
-
-  .header-btn {
-    width: 44px;
-    height: 44px;
-    min-width: 44px;
-    min-height: 44px;
-    padding: 0;
-  }
-
-  .settings-trigger-btn {
-    min-width: 44px;
-    width: 44px;
+    font-size: 1.15rem;
   }
 }
 
@@ -300,8 +273,11 @@
 }
 
 /* ==========================================================================
-   Tactile Bottom Navigation — Jakob's Law / Familiar Modern Mobile UX
-   Standard height, subtle divider, clean M3 pill active indicator
+   Google Material Design 3 Navigation Bar (M3 Standard)
+   - 80px container height with safe-area padding
+   - Surface Container (#F0F4F9 light / #1E1F22 dark)
+   - Pill-shaped active indicator (64px x 32px) in Secondary Container
+   - Authentic Google colors, typography, touch target, and smooth transitions
    ========================================================================== */
 .bottom-nav-bar {
   position: fixed;
@@ -309,66 +285,114 @@
   left: 0;
   right: 0;
   z-index: 850;
-  background: var(--bg-surface);
-  border-top: 1px solid var(--divider, #E2E8F0);
-  padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 -1px 4px rgba(15, 23, 42, 0.04);
+  height: calc(80px + env(safe-area-inset-bottom, 0px));
+  background: #F0F4F9;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 -1px 3px 0 rgba(0, 0, 0, 0.04);
+  padding: 0 16px env(safe-area-inset-bottom, 0px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 [data-theme="dark"] .bottom-nav-bar {
-  border-top-color: #1E293B;
-  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.3);
+  background: #1E1F22;
+  border-top-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="contrast"] .bottom-nav-bar {
+  background: #000000;
+  border-top: 2px solid #FFFF00;
 }
 
 .nav-bar-inner {
+  width: 100%;
   max-width: 480px;
+  height: 100%;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
 }
 
 .nav-tab-btn {
-  position: relative;
+  flex: 1;
+  height: 100%;
+  max-width: 120px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: 48px;
-  padding: 4px;
   background: transparent;
   border: none;
-  border-radius: 12px;
-  color: var(--on-surface-muted, #566579);
+  border-radius: 16px;
+  color: #444746;
   cursor: pointer;
-  transition: all 0.15s ease;
+  padding: 8px 0;
+  margin: 0;
+  text-decoration: none;
+  transition: color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 .nav-tab-btn:hover {
-  color: var(--on-surface, #0F172A);
+  color: #1F1F1F;
 }
 
+.nav-tab-btn:hover .tab-icon-wrap:not(.active) {
+  background: rgba(68, 71, 70, 0.08);
+}
+
+/* Google M3 Active Indicator Pill (64px x 32px) */
 .tab-icon-wrap {
-  width: 48px;
-  height: 28px;
+  width: 64px;
+  height: 32px;
   border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  background: transparent;
+  color: #444746;
+  transition: background-color 0.2s cubic-bezier(0.2, 0, 0, 1), color 0.2s cubic-bezier(0.2, 0, 0, 1), transform 0.15s ease;
+}
+
+.tab-icon-wrap svg {
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
 .nav-tab-btn.tab-active {
-  color: var(--on-surface, #0F172A);
-  background: transparent;
-  border: none;
+  color: #1F1F1F;
 }
 
+/* Material 3 Secondary Container Pill (#C2E7FF in light) */
 .nav-tab-btn.tab-active .tab-icon-wrap {
-  background: rgba(15, 23, 42, 0.08);
-  color: var(--on-surface, #0F172A);
+  background: #C2E7FF;
+  color: #041E49;
+}
+
+.nav-tab-btn.tab-active .tab-icon-wrap svg {
+  transform: scale(1.05);
+}
+
+/* Dark mode colors */
+[data-theme="dark"] .nav-tab-btn {
+  color: #C4C7C5;
+}
+
+[data-theme="dark"] .nav-tab-btn:hover {
+  color: #FFFFFF;
+}
+
+[data-theme="dark"] .nav-tab-btn:hover .tab-icon-wrap:not(.active) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .nav-tab-btn .tab-icon-wrap {
+  color: #C4C7C5;
 }
 
 [data-theme="dark"] .nav-tab-btn.tab-active {
@@ -376,37 +400,76 @@
 }
 
 [data-theme="dark"] .nav-tab-btn.tab-active .tab-icon-wrap {
-  background: rgba(255, 255, 255, 0.12);
+  background: #004A77;
+  color: #C2E7FF;
+}
+
+/* High Contrast mode */
+[data-theme="contrast"] .nav-tab-btn {
+  color: #FFFFFF;
+}
+
+[data-theme="contrast"] .nav-tab-btn .tab-icon-wrap {
   color: #FFFFFF;
 }
 
 [data-theme="contrast"] .nav-tab-btn.tab-active .tab-icon-wrap {
   background: #FFFF00;
   color: #000000;
+  border: 1px solid #000000;
 }
 
-.nav-indicator-bar {
-  display: none;
+/* Accessible Google Focus */
+.nav-tab-btn:focus-visible {
+  outline: none;
 }
 
+.nav-tab-btn:focus-visible .tab-icon-wrap {
+  outline: 2px solid #005AC1;
+  outline-offset: 2px;
+}
+
+[data-theme="dark"] .nav-tab-btn:focus-visible .tab-icon-wrap {
+  outline-color: #A8C7FA;
+}
+
+[data-theme="contrast"] .nav-tab-btn:focus-visible .tab-icon-wrap {
+  outline: 3px solid #FFFF00;
+  outline-offset: 3px;
+}
+
+/* Google M3 Typography Label */
 .tab-label {
-  font-size: 0.75rem;
+  font-family: 'Google Sans', Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 0.75rem; /* 12px */
   font-weight: 500;
   line-height: 16px;
-  color: inherit;
-  transition: font-weight 0.15s ease;
+  letter-spacing: 0.1px;
+  color: #444746;
+  transition: font-weight 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
 }
 
 .nav-tab-btn.tab-active .tab-label {
-  font-weight: 700;
-  color: var(--primary, #1D4ED8);
+  font-weight: 600;
+  color: #041E49;
+}
+
+[data-theme="dark"] .tab-label {
+  color: #C4C7C5;
 }
 
 [data-theme="dark"] .nav-tab-btn.tab-active .tab-label {
-  color: #93C5FD;
+  font-weight: 600;
+  color: #E3E3E3;
+}
+
+[data-theme="contrast"] .tab-label {
+  color: #FFFFFF;
 }
 
 [data-theme="contrast"] .nav-tab-btn.tab-active .tab-label {
+  font-weight: 700;
   color: #FFFF00;
 }
 
@@ -919,7 +982,7 @@
 
 @media (max-width: 640px) {
   .web-app-wrapper {
-    padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
   }
 
   .assistive-header {

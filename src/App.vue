@@ -403,7 +403,6 @@ onMounted(() => {
           :aria-label="t('navScanAria')"
           :aria-current="activeMode === 'scan' ? 'page' : undefined"
         >
-          <span v-if="activeMode === 'scan'" class="nav-indicator-bar" aria-hidden="true"></span>
           <div class="tab-icon-wrap">
             <Camera :size="24" />
           </div>
@@ -419,7 +418,6 @@ onMounted(() => {
           :aria-label="t('navUploadAria')"
           :aria-current="activeMode === 'upload' ? 'page' : undefined"
         >
-          <span v-if="activeMode === 'upload'" class="nav-indicator-bar" aria-hidden="true"></span>
           <div class="tab-icon-wrap">
             <Upload :size="24" />
           </div>
@@ -435,7 +433,6 @@ onMounted(() => {
           :aria-label="t('navHistoryAria')"
           :aria-current="activeMode === 'recent' ? 'page' : undefined"
         >
-          <span v-if="activeMode === 'recent'" class="nav-indicator-bar" aria-hidden="true"></span>
           <div class="tab-icon-wrap">
             <History :size="24" />
           </div>
