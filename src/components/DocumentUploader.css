@@ -147,40 +147,75 @@
   object-fit: cover;
 }
 
-/* Conversational Guidance Banner (Solid High-Contrast) - sits near the top,
-   out of the way of the shutter button floating at the bottom */
+/* Google Lens / Camera Conversational Guidance Chip
+   - Floating centered pill with backdrop blur
+   - High visibility Google light blue icon and clean typography
+   ========================================================================== */
 .guidance-banner {
   position: absolute;
-  top: 14px;
-  left: 16px;
-  right: 16px;
-  background: #0B111E;
-  border: 2px solid var(--color-accent);
-  border-radius: var(--radius-full);
-  padding: 8px 16px;
-  display: flex;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 32px);
+  background: rgba(23, 27, 34, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+  padding: 8px 18px;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   z-index: 4;
+  box-sizing: border-box;
 }
 
 .guidance-pulse-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--color-accent-subtle);
+  background: rgba(168, 199, 250, 0.16);
+  color: #A8C7FA;
   flex-shrink: 0;
 }
 
+.guidance-pulse-icon svg {
+  color: #A8C7FA !important;
+}
+
 .guidance-text {
-  font-size: 0.92rem;
-  font-weight: 700;
+  font-family: 'Google Sans', Roboto, var(--font-khmer, sans-serif);
+  font-size: 0.875rem;
+  font-weight: 500;
   color: #FFFFFF;
-  line-height: 1.3;
+  line-height: 1.35;
+  letter-spacing: 0.1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-theme="contrast"] .guidance-banner,
+.mode-contrast .guidance-banner {
+  background: #000000;
+  border: 2px solid #FFFF00;
+  box-shadow: none;
+}
+
+[data-theme="contrast"] .guidance-text,
+.mode-contrast .guidance-text {
+  color: #FFFF00;
+}
+
+[data-theme="contrast"] .guidance-pulse-icon svg,
+.mode-contrast .guidance-pulse-icon svg {
+  color: #FFFF00 !important;
 }
 
 /* ==========================================================================
@@ -804,21 +839,23 @@
 
   .guidance-banner {
     top: 14px;
-    left: 14px;
-    right: 14px;
-    padding: 10px 16px;
-    border-radius: var(--radius-full);
-    gap: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100% - 24px);
+    padding: 8px 14px;
+    border-radius: 9999px;
+    gap: 8px;
   }
 
   .guidance-pulse-icon {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
   }
 
   .guidance-text {
-    font-size: 0.92rem;
-    line-height: 1.4;
+    font-size: 0.85rem;
+    line-height: 1.3;
   }
 
   /* Primary Action: SCAN & READ Hero Button */

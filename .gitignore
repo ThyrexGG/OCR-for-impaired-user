@@ -39,3 +39,12 @@ khmer-tts-engine/checkpoints/*.wav
 khmer-tts-engine/checkpoints/*.pt
 khmer-tts-engine/checkpoints/**/*.safetensors
 khmer-tts-engine/checkpoints/**/*.bin
+
+# Android & Gradle build caches
+.gradle/
+**/android/.gradle/
+**/build/
+local.properties
+.cxx/
+*.apk
+*.aab

@@ -16,13 +16,24 @@ const fontScale = ref(1.0)
 const lineSpacing = ref(1.85)
 const isBoldText = ref(false)
 
-// Talk-back is on unless someone turned it off: the app is built for people who may not see
-// the screen, so it must speak before anyone has had the chance to find a setting.
-const isUiVoiceEnabled = ref(true)
-const isExploreEnabled = ref(true)
+// In-app talk-back is OFF by default so songKHEM functions as a normal app unless the user
+// explicitly turns it on, or uses their device's native TalkBack (Android) / VoiceOver (iOS).
+const isUiVoiceEnabled = ref(false)
+const isExploreEnabled = ref(false)
 const voiceRate = ref(1.25)
 const isAutoReadEnabled = ref(true)
 const isHapticsEnabled = ref(true)
+
+/**
+ * Detect OS screen reader naming convention: VoiceOver on Apple devices, TalkBack on Android
+ */
+export function getOsScreenReaderName() {
+  if (typeof navigator === 'undefined') return 'TalkBack / VoiceOver'
+  const ua = navigator.userAgent || ''
+  const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const isMac = /Macintosh|Mac OS X/.test(ua) && !isIOS
+  return isIOS || isMac ? 'VoiceOver' : 'TalkBack'
+}
 
 export function useA11yPreferences() {
   /**
@@ -187,9 +198,16 @@ export function useA11yPreferences() {
       document.body.classList.add('bold-text')
     }
 
-    isUiVoiceEnabled.value = storage.getItem(STORAGE_KEYS.VOICE, 'true') !== 'false'
+    // One-time migration: default to false so songKHEM runs as a normal app unless user enables in-app talkback
+    if (!storage.getItem('songkhem_voice_default_v3')) {
+      storage.removeItem(STORAGE_KEYS.VOICE)
+      storage.removeItem(STORAGE_KEYS.EXPLORE)
+      storage.setItem('songkhem_voice_default_v3', '1')
+    }
+
+    isUiVoiceEnabled.value = storage.getItem(STORAGE_KEYS.VOICE, 'false') === 'true'
     announcer.setVoiceEnabled(isUiVoiceEnabled.value)
-    isExploreEnabled.value = storage.getItem(STORAGE_KEYS.EXPLORE, 'true') !== 'false'
+    isExploreEnabled.value = storage.getItem(STORAGE_KEYS.EXPLORE, 'false') === 'true'
     const savedRate = parseFloat(storage.getItem(STORAGE_KEYS.VOICE_RATE, '1.25'))
     voiceRate.value = savedRate >= 0.75 && savedRate <= 2.5 ? savedRate : 1.25
     announcer.setRate(voiceRate.value)
@@ -209,6 +227,7 @@ export function useA11yPreferences() {
     voiceRate,
     isAutoReadEnabled,
     isHapticsEnabled,
+    osScreenReaderName: getOsScreenReaderName(),
     setTheme,
     changeFontScale,
     resetFontScale,

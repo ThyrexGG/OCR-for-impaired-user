@@ -2,7 +2,8 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, inject, nextTick } from 'vue'
 import { 
   ArrowLeft, Settings, BookOpen, Copy, Play, Pause, 
-  RotateCcw, RotateCw, Check, X, Volume2, Sparkles, AlertCircle, Camera, Upload
+  RotateCcw, RotateCw, Check, X, Volume2, Sparkles, AlertCircle, Camera, Upload,
+  SkipBack, SkipForward, MoreHorizontal
 } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 import { haptics } from '../services/haptics'
@@ -255,6 +256,56 @@ const jumpRelative = (delta) => {
   announcer.announce(dirMsg)
 }
 
+// --- Spotify-style Reading Progress & Scrubber ---
+const tokensCount = computed(() => {
+  return tts.tokens?.value?.length || 0
+})
+
+const currentWordPos = computed(() => {
+  return Math.max(0, activeWordIndex.value >= 0 ? activeWordIndex.value : 0)
+})
+
+const progressPercent = computed(() => {
+  if (!tokensCount.value || tokensCount.value <= 1) return 0
+  return Math.min(100, Math.max(0, (currentWordPos.value / (tokensCount.value - 1)) * 100))
+})
+
+// Estimated audio duration based on word count (~2.5 words/sec at 1.0x rate)
+const totalDurationSecs = computed(() => {
+  const w = tokensCount.value
+  if (!w) return 0
+  const spd = rate.value || 1.0
+  return Math.max(1, Math.round((w / 2.5) / spd))
+})
+
+const elapsedSecs = computed(() => {
+  if (!tokensCount.value) return 0
+  const ratio = tokensCount.value <= 1 ? 0 : currentWordPos.value / (tokensCount.value - 1)
+  return Math.min(totalDurationSecs.value, Math.round(ratio * totalDurationSecs.value))
+})
+
+const remainingSecs = computed(() => {
+  return Math.max(0, totalDurationSecs.value - elapsedSecs.value)
+})
+
+const formatTime = (secs) => {
+  const m = Math.floor(secs / 60)
+  const s = Math.floor(secs % 60)
+  return `${m}:${s < 10 ? '0' : ''}${s}`
+}
+
+const elapsedFormatted = computed(() => formatTime(elapsedSecs.value))
+const remainingFormatted = computed(() => `-${formatTime(remainingSecs.value)}`)
+
+const handleScrub = (e) => {
+  if (!tokensCount.value) return
+  const track = e.currentTarget
+  const rect = track.getBoundingClientRect()
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  const targetIndex = Math.round(ratio * (tokensCount.value - 1))
+  seekToWord(targetIndex)
+}
+
 // --- Voice & Speed Picker (4 Khmer personas incl. trained songKHEM-VITS) ---
 const isVoiceModalOpen = ref(false)
 
@@ -462,52 +513,94 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <!-- 4. BOTTOM AUDIO PLAYBACK BAR (Rewind, Large Orange Play/Pause, Fast Forward) -->
-    <div v-if="text && text.trim()" class="reader-bottom-player-bar" role="group" :aria-label="currentLang === 'km' ? 'ឧបករណ៍បញ្ជាសំឡេង' : 'Audio controls'">
-      <div class="player-controls-cluster">
-        <!-- Rewind Button (<<) -->
-        <button 
-          type="button" 
-          class="player-round-btn btn-rewind" 
-          @click="jumpRelative(-5)"
-          :aria-label="currentLang === 'km' ? 'ថយក្រោយ ៥ ពាក្យ' : 'Rewind 5 words'"
-        >
-          <RotateCcw :size="22" />
-        </button>
+    <!-- 4. BOTTOM SPOTIFY-STYLE AUDIO PLAYBACK BAR (Scrubber, Prev, Play/Pause, Skip) -->
+    <div v-if="text && text.trim()" class="reader-bottom-player-bar spotify-player-bar" role="group" :aria-label="currentLang === 'km' ? 'ឧបករណ៍បញ្ជាសំឡេង' : 'Audio controls'">
+      <div class="player-inner-wrap">
+        <!-- Spotify-style Scrubber Header (Voice Persona info & ... More Options) -->
+        <div class="spotify-scrub-header">
+          <div 
+            class="spotify-voice-tag khmer-font" 
+            @click="openVoiceModal" 
+            role="button" 
+            tabindex="0" 
+            :title="currentLang === 'km' ? 'ប្តូរសំឡេង' : 'Change voice'"
+            @keydown.enter="openVoiceModal"
+            @keydown.space.prevent="openVoiceModal"
+          >
+            <Volume2 :size="15" />
+            <span>{{ selectedVoiceName.includes('Sreymom') ? 'ស្រីមុំ' : selectedVoiceName.includes('Piseth') ? 'ពិសិដ្ឋ' : selectedVoiceName.includes('Sokha') ? 'សុខា' : 'songKHEM-VITS' }}</span>
+          </div>
+          <button 
+            type="button" 
+            class="spotify-more-options-btn" 
+            @click="openVoiceModal"
+            :aria-label="currentLang === 'km' ? 'ជម្រើសសំឡេង និងល្បឿនអាន' : 'Voice and speed options'"
+            :title="currentLang === 'km' ? 'ជម្រើសសំឡេង' : 'Voice options'"
+          >
+            <MoreHorizontal :size="20" />
+          </button>
+        </div>
 
-        <!-- Hero Play / Pause Button (Large Orange Circle) -->
-        <button 
-          type="button" 
-          class="player-round-btn btn-hero-play"
-          :class="{ 'is-playing': isSpeaking }"
-          @click="toggleAudio"
-          :aria-label="isSpeaking 
-            ? (currentLang === 'km' ? 'ផ្អាកការអាន' : 'Pause reading') 
-            : (currentLang === 'km' ? 'ចាប់ផ្តើមអាន' : 'Play reading')"
-        >
-          <Pause v-if="isSpeaking" :size="28" />
-          <Play v-else :size="28" class="play-icon-offset" />
-        </button>
+        <!-- Spotify-style Reading Progress Scrubber -->
+        <div class="reader-spotify-scrubber">
+          <div 
+            class="spotify-scrub-track-wrap" 
+            @click="handleScrub" 
+            role="slider"
+            :aria-valuenow="Math.round(progressPercent)"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-label="currentLang === 'km' ? 'វឌ្ឍនភាពការអាន' : 'Reading progress'"
+          >
+            <div class="spotify-scrub-track">
+              <div class="spotify-scrub-fill" :style="{ width: `${progressPercent}%` }"></div>
+              <div class="spotify-scrub-thumb" :style="{ left: `${progressPercent}%` }"></div>
+            </div>
+          </div>
+          <div class="spotify-scrub-times">
+            <span class="scrub-time elapsed">{{ elapsedFormatted }}</span>
+            <span class="scrub-time remaining">{{ remainingFormatted }}</span>
+          </div>
+        </div>
 
-        <!-- Fast Forward Button (>>) -->
-        <button 
-          type="button" 
-          class="player-round-btn btn-forward" 
-          @click="jumpRelative(5)"
-          :aria-label="currentLang === 'km' ? 'ទៅមុខ ៥ ពាក្យ' : 'Fast forward 5 words'"
-        >
-          <RotateCw :size="22" />
-        </button>
+        <!-- Controls: Prev, Play/Pause, Skip -->
+        <div class="player-controls-cluster spotify-cluster">
+          <!-- Prev Button (Skip Back) -->
+          <button 
+            type="button" 
+            class="player-round-btn btn-prev" 
+            @click="jumpRelative(-5)"
+            :aria-label="currentLang === 'km' ? 'ថយក្រោយ ៥ ពាក្យ' : 'Previous 5 words'"
+            :title="currentLang === 'km' ? 'ថយក្រោយ' : 'Previous'"
+          >
+            <SkipBack :size="24" />
+          </button>
 
-        <!-- Voice & Speed (songKHEM-VITS / Neural personas) -->
-        <button
-          type="button"
-          class="player-round-btn btn-voice"
-          @click="openVoiceModal"
-          :aria-label="currentLang === 'km' ? 'ជ្រើសរើសសំឡេង និងល្បឿន' : 'Choose voice and speed'"
-        >
-          <Volume2 :size="22" />
-        </button>
+          <!-- Hero Play / Pause Button (Large Orange Circle) -->
+          <button 
+            type="button" 
+            class="player-round-btn btn-hero-play"
+            :class="{ 'is-playing': isSpeaking }"
+            @click="toggleAudio"
+            :aria-label="isSpeaking 
+              ? (currentLang === 'km' ? 'ផ្អាកការអាន' : 'Pause reading') 
+              : (currentLang === 'km' ? 'ចាប់ផ្តើមអាន' : 'Play reading')"
+          >
+            <Pause v-if="isSpeaking" :size="30" />
+            <Play v-else :size="30" class="play-icon-offset" />
+          </button>
+
+          <!-- Next Button (Skip Forward) -->
+          <button 
+            type="button" 
+            class="player-round-btn btn-skip" 
+            @click="jumpRelative(5)"
+            :aria-label="currentLang === 'km' ? 'រំលងទៅមុខ ៥ ពាក្យ' : 'Skip forward 5 words'"
+            :title="currentLang === 'km' ? 'រំលងទៅមុខ' : 'Skip forward'"
+          >
+            <SkipForward :size="24" />
+          </button>
+        </div>
       </div>
     </div>
 
@@ -580,7 +673,16 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="summary-card-footer">
+        <div class="summary-card-footer voice-modal-footer">
+          <button
+            type="button"
+            class="btn-summary-action btn-summary-settings-link"
+            @click="() => { closeVoiceModal(); openSettings(); }"
+            :aria-label="t('settings')"
+          >
+            <Settings :size="18" />
+            <span>{{ currentLang === 'km' ? 'ការកំណត់' : 'Settings' }}</span>
+          </button>
           <button
             type="button"
             class="btn-summary-action btn-summary-done"

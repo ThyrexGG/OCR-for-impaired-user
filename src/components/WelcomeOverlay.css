@@ -1,0 +1,266 @@
+/* ==========================================================================
+   songKHEM - Google Material 3 / Lookout Onboarding Dialog
+   Clean, Human, Accessible (No AI-template cards, No artificial fluff)
+   ========================================================================== */
+
+.g-welcome-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10600;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: gFadeIn 0.2s cubic-bezier(0, 0, 0.2, 1) forwards;
+}
+
+@keyframes gFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.g-welcome-dialog {
+  width: 100%;
+  max-width: 440px;
+  background: #FFFFFF;
+  border-radius: 28px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  padding: 28px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: gDialogPop 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  box-sizing: border-box;
+}
+
+@keyframes gDialogPop {
+  0% { transform: scale(0.94) translateY(8px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+/* Dark Mode (Google Dark Theme Surface #1E1F22) */
+[data-theme="dark"] .g-welcome-dialog {
+  background: #1E1F22;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
+}
+
+/* High Contrast Yellow-Black (WCAG AAA) */
+[data-theme="contrast"] .g-welcome-dialog,
+.mode-contrast .g-welcome-dialog {
+  background: #000000;
+  border: 3px solid #FFFF00;
+  box-shadow: none;
+}
+
+/* Product Avatar */
+.g-product-icon-wrap {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.g-icon-bg {
+  fill: #E8F0FE;
+}
+
+[data-theme="dark"] .g-icon-bg {
+  fill: #174EA6;
+}
+
+[data-theme="contrast"] .g-icon-bg {
+  fill: #FFFF00;
+}
+
+/* Clean Google Typography */
+.g-welcome-title {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #1F1F1F;
+  margin: 0;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="dark"] .g-welcome-title {
+  color: #E3E3E3;
+}
+
+[data-theme="contrast"] .g-welcome-title {
+  color: #FFFF00;
+  font-weight: 700;
+}
+
+.g-welcome-subtitle {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #444746;
+  margin: 0;
+}
+
+[data-theme="dark"] .g-welcome-subtitle {
+  color: #C4C7C5;
+}
+
+[data-theme="contrast"] .g-welcome-subtitle {
+  color: #FFFFFF;
+}
+
+/* Feature List (Border-free, natural spacing) */
+.g-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 4px 0 8px;
+}
+
+.g-feature-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.g-feature-icon-circle {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  background: #F0F4F9;
+  color: #0B57D0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+[data-theme="dark"] .g-feature-icon-circle {
+  background: #2A2B2F;
+  color: #A8C7FA;
+}
+
+[data-theme="contrast"] .g-feature-icon-circle {
+  background: #FFFF00;
+  color: #000000;
+}
+
+.g-feature-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 1px;
+}
+
+.g-feature-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #1F1F1F;
+  line-height: 1.35;
+}
+
+[data-theme="dark"] .g-feature-title {
+  color: #E3E3E3;
+}
+
+[data-theme="contrast"] .g-feature-title {
+  color: #FFFF00;
+  font-weight: 700;
+}
+
+.g-feature-desc {
+  font-size: 0.8rem;
+  color: #5E5E5E;
+  line-height: 1.4;
+}
+
+[data-theme="dark"] .g-feature-desc {
+  color: #9AA0A6;
+}
+
+[data-theme="contrast"] .g-feature-desc {
+  color: #FFFFFF;
+}
+
+/* Google Material 3 Buttons */
+.g-dialog-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.g-btn {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 9999px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+/* Material 3 Filled Button (Google Blue #0B57D0) */
+.g-btn-primary {
+  background: #0B57D0;
+  color: #FFFFFF;
+}
+
+.g-btn-primary:hover {
+  background: #0842A0;
+}
+
+.g-btn-primary:active {
+  transform: scale(0.99);
+}
+
+/* Material 3 Text Button */
+.g-btn-text {
+  background: transparent;
+  color: #0B57D0;
+}
+
+.g-btn-text:hover {
+  background: rgba(11, 87, 208, 0.08);
+}
+
+.g-btn-text:active {
+  background: rgba(11, 87, 208, 0.12);
+}
+
+[data-theme="dark"] .g-btn-primary {
+  background: #A8C7FA;
+  color: #062E6F;
+}
+
+[data-theme="dark"] .g-btn-primary:hover {
+  background: #C2E7FF;
+}
+
+[data-theme="dark"] .g-btn-text {
+  color: #A8C7FA;
+}
+
+[data-theme="dark"] .g-btn-text:hover {
+  background: rgba(168, 199, 250, 0.1);
+}
+
+[data-theme="contrast"] .g-btn-primary {
+  background: #FFFF00;
+  color: #000000;
+  border: 2px solid #FFFF00;
+  font-weight: 700;
+}
+
+[data-theme="contrast"] .g-btn-primary:hover {
+  background: #FFFF33;
+}
+
+[data-theme="contrast"] .g-btn-text {
+  color: #FFFF00;
+  border: 2px solid #FFFF00;
+}

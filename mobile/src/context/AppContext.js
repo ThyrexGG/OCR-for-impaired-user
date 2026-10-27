@@ -80,9 +80,10 @@ const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
   // Talk-back is on by default: this app is built for people who may not see the screen,
-  // so it must speak before anyone has had the chance to find a setting.
-  const [isUiVoiceEnabled, setIsUiVoiceEnabled] = useState(true)
-  const [isExploreEnabled, setIsExploreEnabled] = useState(true)
+  // In-app talk-back is OFF by default so songKHEM functions as a normal app unless the user
+  // explicitly turns it on, or uses their device's native TalkBack (Android) / VoiceOver (iOS).
+  const [isUiVoiceEnabled, setIsUiVoiceEnabled] = useState(false)
+  const [isExploreEnabled, setIsExploreEnabled] = useState(false)
   const [voiceRate, setVoiceRateState] = useState(1.25)
   const [isScreenReaderOn, setIsScreenReaderOn] = useState(false)
   const [prefsLoaded, setPrefsLoaded] = useState(false)
@@ -134,8 +135,8 @@ export function AppProvider({ children }) {
           AsyncStorage.getItem(STORAGE_KEYS.azureTtsKey),
           AsyncStorage.getItem(STORAGE_KEYS.azureTtsEndpoint),
         ])
-      setIsUiVoiceEnabled(voice !== 'false')
-      setIsExploreEnabled(explore !== 'false')
+      setIsUiVoiceEnabled(voice === 'true')
+      setIsExploreEnabled(explore === 'true')
       const rateNum = parseFloat(savedRate)
       if (rateNum >= 0.75 && rateNum <= 2.5) {
         setVoiceRateState(rateNum)
