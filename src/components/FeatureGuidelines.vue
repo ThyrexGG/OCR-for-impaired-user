@@ -55,7 +55,7 @@ const announceStep = () => {
   speakAccessibility(spokenText)
 }
 
-// Synchronize current step with app view mode (e.g. switching to 'upload' screen)
+// Synchronize current step with app view mode (e.g. switching to 'upload' or 'reader' screen)
 const syncCurrentStep = async () => {
   const step = currentStep.value
   if (!step) return
@@ -69,7 +69,10 @@ const syncCurrentStep = async () => {
     updatePosition()
     announceStep()
     scrollTargetIntoView()
-  }, 120)
+  }, 180)
+  setTimeout(() => {
+    updatePosition()
+  }, 360)
 }
 
 // Navigation Actions
@@ -93,12 +96,18 @@ const handlePrev = () => {
 const handleSkip = () => {
   triggerHaptic(20)
   speakAccessibility(currentLang.value === 'km' ? 'បានរំលងការណែនាំ' : 'Skipped feature guidelines')
+  if (initialMode.value && typeof setMode === 'function' && activeMode.value !== initialMode.value) {
+    setMode(initialMode.value)
+  }
   emit('close')
 }
 
 const handleComplete = () => {
   triggerHaptic([50, 30, 80])
   speakAccessibility(currentLang.value === 'km' ? 'ការណែនាំបានបញ្ចប់រួចរាល់' : 'Feature guidelines completed')
+  if (initialMode.value && typeof setMode === 'function' && activeMode.value !== initialMode.value) {
+    setMode(initialMode.value)
+  }
   
   // In production, save to localStorage so it only shows once. In DEV, keep it testable.
   if (!import.meta.env.DEV) {

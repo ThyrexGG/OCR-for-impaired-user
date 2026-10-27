@@ -17,6 +17,7 @@ import { storage, STORAGE_KEYS } from '../services/storage'
 import { haptics } from '../services/haptics'
 import { t, currentLang } from '../services/i18n'
 import { tp } from '../services/talkback'
+import { sampleLibrary } from '../services/sampleDocs'
 
 
 const router = useRouter()
@@ -28,6 +29,20 @@ const activeMode = inject('activeMode', ref('scan'))
 const setMode = inject('setMode', () => {})
 const openSettings = inject('openSettings', () => {})
 const openHelp = inject('openHelp', () => {})
+
+// Auto-populate sample document if reader or history mode is opened without data (e.g. guidelines walkthrough)
+watch(activeMode, (newMode) => {
+  if (newMode === 'reader' && (!extractedText.value || !extractedText.value.trim())) {
+    extractedText.value = sampleLibrary[0].text
+    selectedFileName.value = currentLang.value === 'km' ? sampleLibrary[0].title : sampleLibrary[0].titleEn
+  } else if (newMode === 'recent' && (!historyList.value || historyList.value.length === 0)) {
+    addToHistory(
+      currentLang.value === 'km' ? sampleLibrary[0].title : sampleLibrary[0].titleEn,
+      sampleLibrary[0].text,
+      true
+    )
+  }
+})
 const isAutoReadEnabled = inject('isAutoReadEnabled', ref(true))
 const lastVoiceCommand = inject('lastVoiceCommand', ref(null))
 

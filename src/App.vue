@@ -52,7 +52,7 @@ const {
 // Active Assistant Mode: 'scan' | 'upload' | 'reader' | 'recent'
 const activeMode = ref('scan')
 const isSettingsOpen = ref(false)
-const activeSettingsTab = ref('visual') // 'visual' | 'audio' | 'ocr' | 'interaction'
+const activeSettingsTab = ref('visual') // 'visual' | 'audio' | 'system'
 
 // OCR & Cloud Services Configuration
 const ocrEngine = ref('tesseract')
@@ -453,7 +453,7 @@ onMounted(() => {
           </button>
         </div>
 
-        <!-- Modal Category Tabs -->
+        <!-- Modal Category Tabs (3 Balanced Pillars) -->
         <div class="modal-nav-tabs" role="tablist" :aria-label="t('settingsTitle')">
           <button 
             type="button"
@@ -481,23 +481,12 @@ onMounted(() => {
             type="button"
             role="tab" 
             class="tab-pill khmer-font" 
-            :class="{ 'pill-active': activeSettingsTab === 'ocr' }"
-            :aria-selected="activeSettingsTab === 'ocr'"
-            @click="activeSettingsTab = 'ocr'"
+            :class="{ 'pill-active': activeSettingsTab === 'system' }"
+            :aria-selected="activeSettingsTab === 'system'"
+            @click="activeSettingsTab = 'system'"
           >
-            <Sparkles :size="16" />
-            <span>ម៉ាស៊ីន OCR</span>
-          </button>
-          <button 
-            type="button"
-            role="tab" 
-            class="tab-pill khmer-font" 
-            :class="{ 'pill-active': activeSettingsTab === 'interaction' }"
-            :aria-selected="activeSettingsTab === 'interaction'"
-            @click="activeSettingsTab = 'interaction'"
-          >
-            <Keyboard :size="16" />
-            <span>{{ t('tabInteraction') }}</span>
+            <Sliders :size="16" />
+            <span>{{ currentLang === 'km' ? 'ប្រព័ន្ធ' : 'System' }}</span>
           </button>
         </div>
 
@@ -742,35 +731,47 @@ onMounted(() => {
             </button>
           </div>
 
-          <!-- Optional Azure Neural Voice API Key -->
-          <div class="setting-item cloud-api-item">
-            <div class="setting-label-col">
-              <span class="setting-title khmer-font">សំឡេងខ្មែរ Neural កម្រិតខ្ពស់ (Azure Speech - ស្រេចចិត្ត)</span>
-              <span class="setting-desc khmer-font">សំឡេង Piseth & Sreymom មានស្រាប់។ បញ្ចូល Key តែពេលចង់ប្រើគណនី Azure ផ្ទាល់ខ្លួនប៉ុណ្ណោះ</span>
-            </div>
-            <div class="api-fields-group">
-              <input 
-                type="password" 
-                v-model="azureTtsKey" 
-                @blur="saveOcrConfig"
-                placeholder="Azure TTS Subscription Key" 
-                class="settings-api-input khmer-font" 
-                aria-label="Azure TTS Subscription Key"
-              />
-              <input 
-                type="text" 
-                v-model="azureTtsEndpoint" 
-                @blur="saveOcrConfig"
-                placeholder="Azure TTS Endpoint (ស្រេចចិត្ត)" 
-                class="settings-api-input khmer-font" 
-                aria-label="Azure TTS Endpoint URL"
-              />
-            </div>
-          </div>
         </div>
 
-        <!-- Tab 3: OCR Engine Settings -->
-        <div v-if="activeSettingsTab === 'ocr'" class="tab-pane ocr-pane">
+        <!-- Tab 3: System, Tools & OCR Settings -->
+        <div v-if="activeSettingsTab === 'system'" class="tab-pane system-pane">
+          <!-- Haptic Vibrations -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">{{ t('haptics') }}</span>
+              <span class="setting-desc khmer-font">{{ haptics.isSupported() ? t('hapticsDesc') : t('hapticsUnsupported') }}</span>
+            </div>
+            <button 
+              type="button" 
+              class="accessible-switch" 
+              :class="{ 'switch-on': isHapticsEnabled }"
+              @click="toggleHaptics"
+              :aria-checked="isHapticsEnabled"
+              role="switch"
+              :aria-label="t('haptics')"
+            >
+              <span class="switch-thumb"></span>
+            </button>
+          </div>
+
+          <!-- Replay Guided Tour Button -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">{{ currentLang === 'km' ? 'សេចក្តីណែនាំមុខងារ' : 'Guided Tour' }}</span>
+              <span class="setting-desc khmer-font">{{ currentLang === 'km' ? 'មើលការណែនាំពីរបៀបប្រើប្រាស់កម្មវិធី និងប៊ូតុងទាំងអស់ឡើងវិញ' : 'Replay the interactive guided walkthrough for all features' }}</span>
+            </div>
+            <button 
+              type="button"
+              class="btn btn-secondary khmer-font" 
+              @click="isSettingsOpen = false; openGuidelines()"
+              style="min-height: 40px; padding: 0 14px; border-radius: var(--radius-sm); gap: 6px; display: inline-flex; align-items: center;"
+              :aria-label="currentLang === 'km' ? 'មើលការណែនាំឡើងវិញ' : 'Replay tour'"
+            >
+              <HelpCircle :size="16" />
+              <span>{{ currentLang === 'km' ? 'មើលការណែនាំ' : 'Replay' }}</span>
+            </button>
+          </div>
+
           <!-- OCR Engine Selector -->
           <div class="setting-item">
             <div class="setting-label-col">
@@ -807,50 +808,6 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Google Cloud Vision Credentials -->
-          <div v-if="ocrEngine === 'google-vision'" class="setting-item cloud-api-item">
-            <div class="setting-label-col">
-              <span class="setting-title khmer-font">Google Vision API Credentials</span>
-              <span class="setting-desc khmer-font">ស្រេចចិត្ត — ទុកទទេដើម្បីប្រើម៉ាស៊ីនស្កេនរបស់ songKHEM</span>
-            </div>
-            <div class="api-fields-group">
-              <input 
-                type="password" 
-                v-model="googleApiKey" 
-                @blur="saveOcrConfig"
-                placeholder="Google Vision API Key (AIza...)" 
-                class="settings-api-input khmer-font" 
-                aria-label="Google Vision API Key"
-              />
-            </div>
-          </div>
-
-          <!-- Azure AI Vision Credentials -->
-          <div v-if="ocrEngine === 'azure-read'" class="setting-item cloud-api-item">
-            <div class="setting-label-col">
-              <span class="setting-title khmer-font">Azure Computer Vision Credentials</span>
-              <span class="setting-desc khmer-font">បញ្ចូល Subscription Key និង Endpoint ពី Azure Portal</span>
-            </div>
-            <div class="api-fields-group">
-              <input 
-                type="password" 
-                v-model="azureVisionKey" 
-                @blur="saveOcrConfig"
-                placeholder="Azure Computer Vision Key" 
-                class="settings-api-input khmer-font" 
-                aria-label="Azure Computer Vision Key"
-              />
-              <input 
-                type="text" 
-                v-model="azureVisionEndpoint" 
-                @blur="saveOcrConfig"
-                placeholder="Endpoint URL (ឧ. https://eastus.api.cognitive.microsoft.com/)" 
-                class="settings-api-input khmer-font" 
-                aria-label="Azure Vision Endpoint URL"
-              />
-            </div>
-          </div>
-
           <!-- Clear OCR Cache -->
           <div class="setting-item">
             <div class="setting-label-col">
@@ -868,27 +825,58 @@ onMounted(() => {
               <span>សម្អាត Cache</span>
             </button>
           </div>
-        </div>
 
-        <!-- Tab 4: Interaction & Shortcuts -->
-        <div v-if="activeSettingsTab === 'interaction'" class="tab-pane shortcuts-pane">
-          <!-- Haptic Vibrations -->
-          <div class="setting-item">
+          <!-- Optional Cloud API Credentials (Google, Azure Vision, Azure TTS) -->
+          <div class="setting-item cloud-api-item">
             <div class="setting-label-col">
-              <span class="setting-title khmer-font">{{ t('haptics') }}</span>
-              <span class="setting-desc khmer-font">{{ haptics.isSupported() ? t('hapticsDesc') : t('hapticsUnsupported') }}</span>
+              <span class="setting-title khmer-font">គណនី Cloud API ផ្ទាល់ខ្លួន (Advanced Credentials - ស្រេចចិត្ត)</span>
+              <span class="setting-desc khmer-font">ទុកទទេដើម្បីប្រើម៉ាស៊ីនស្រាប់។ បញ្ចូលតែពេលចង់ប្រើគណនីផ្ទាល់ខ្លួន</span>
             </div>
-            <button 
-              type="button" 
-              class="accessible-switch" 
-              :class="{ 'switch-on': isHapticsEnabled }"
-              @click="toggleHaptics"
-              :aria-checked="isHapticsEnabled"
-              role="switch"
-              :aria-label="t('haptics')"
-            >
-              <span class="switch-thumb"></span>
-            </button>
+            <div class="api-fields-group">
+              <input 
+                v-if="ocrEngine === 'google-vision'"
+                type="password" 
+                v-model="googleApiKey" 
+                @blur="saveOcrConfig"
+                placeholder="Google Vision API Key (AIza...)" 
+                class="settings-api-input khmer-font" 
+                aria-label="Google Vision API Key"
+              />
+              <input 
+                v-if="ocrEngine === 'azure-read'"
+                type="password" 
+                v-model="azureVisionKey" 
+                @blur="saveOcrConfig"
+                placeholder="Azure Computer Vision Key" 
+                class="settings-api-input khmer-font" 
+                aria-label="Azure Computer Vision Key"
+              />
+              <input 
+                v-if="ocrEngine === 'azure-read'"
+                type="text" 
+                v-model="azureVisionEndpoint" 
+                @blur="saveOcrConfig"
+                placeholder="Azure Vision Endpoint URL" 
+                class="settings-api-input khmer-font" 
+                aria-label="Azure Vision Endpoint URL"
+              />
+              <input 
+                type="password" 
+                v-model="azureTtsKey" 
+                @blur="saveOcrConfig"
+                placeholder="Azure TTS Subscription Key (ស្រេចចិត្ត)" 
+                class="settings-api-input khmer-font" 
+                aria-label="Azure TTS Subscription Key"
+              />
+              <input 
+                type="text" 
+                v-model="azureTtsEndpoint" 
+                @blur="saveOcrConfig"
+                placeholder="Azure TTS Endpoint URL (ស្រេចចិត្ត)" 
+                class="settings-api-input khmer-font" 
+                aria-label="Azure TTS Endpoint URL"
+              />
+            </div>
           </div>
 
           <!-- Keyboard Shortcuts Table -->
@@ -919,16 +907,16 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Modal Footer -->
+        <!-- Modal Footer: Accessible Done Button -->
         <div class="modal-footer">
           <button 
             type="button" 
             class="btn btn-primary btn-save-modal khmer-font" 
             @click="closeSettings"
-            :aria-label="t('closeSettings')"
+            :aria-label="currentLang === 'km' ? 'រួចរាល់' : 'Done'"
           >
             <Check :size="18" />
-            <span>{{ t('closeSettings') }}</span>
+            <span>{{ currentLang === 'km' ? 'រួចរាល់' : 'Done' }}</span>
           </button>
         </div>
       </div>
