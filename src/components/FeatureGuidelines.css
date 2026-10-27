@@ -21,37 +21,40 @@
   cursor: default;
 }
 
-/* 3px High-Visibility Pulsating Focus Halo around active target */
+/* 3px High-Visibility Focus Halo around active target (Matches element shape) */
 .guidelines-active-halo {
   position: fixed;
-  border-radius: 12px;
   pointer-events: none;
   z-index: 10502;
-  box-shadow: 0 0 0 3px var(--focus, #4466F6), 0 0 20px rgba(68, 102, 246, 0.45);
-  transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+  box-shadow: 0 0 0 3px var(--focus, #4466F6), 0 0 16px rgba(68, 102, 246, 0.4);
+  transition: top 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              left 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              width 0.25s cubic-bezier(0.16, 1, 0.3, 1), 
+              height 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+              border-radius 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .halo-pulse-ring {
   position: absolute;
-  inset: -6px;
-  border-radius: 16px;
-  border: 2px solid var(--focus, #4466F6);
-  opacity: 0.8;
+  inset: -2px;
+  pointer-events: none;
+  border: 1.5px solid var(--focus, #4466F6);
+  opacity: 0.6;
   animation: halo-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 @keyframes halo-pulse {
   0% {
-    transform: scale(0.98);
-    opacity: 0.9;
+    transform: scale(0.99);
+    opacity: 0.8;
   }
   50% {
-    transform: scale(1.05);
-    opacity: 0.2;
+    transform: scale(1.04);
+    opacity: 0.15;
   }
   100% {
-    transform: scale(0.98);
-    opacity: 0.9;
+    transform: scale(0.99);
+    opacity: 0.8;
   }
 }
 
@@ -107,7 +110,7 @@
   width: 100%;
   max-width: 440px;
   background-color: var(--surface-1, #FFFFFF);
-  border: 2px solid var(--focus, #4466F6);
+  /* border: 2px solid var(--focus, #4466F6); */
   border-radius: 18px;
   box-shadow: 0 10px 30px rgba(11, 18, 32, 0.22), 0 0 0 1px rgba(255, 255, 255, 0.1);
   padding: 14px 18px;

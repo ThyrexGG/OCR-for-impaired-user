@@ -417,7 +417,7 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Real Uploaded Documents: Only real user-uploaded documents (No dummy data) -->
-      <section v-if="props.recentDocs && props.recentDocs.length > 0" class="sample-documents-section" :aria-label="t('recentReadsTitle')">
+      <section v-if="props.recentDocs && props.recentDocs.length > 0" class="sample-documents-section recent-uploads-section" :aria-label="t('recentReadsTitle')">
         <div class="sample-sec-header">
           <FileText :size="20" class="text-heading" />
           <h2 class="sample-sec-title khmer-font">
@@ -449,7 +449,7 @@ onBeforeUnmount(() => {
       </section>
 
       <!-- Ready-made documents: try the reader and the voice without a camera or a file -->
-      <section class="sample-documents-section" :aria-label="currentLang === 'km' ? 'ឯកសារគំរូ' : 'Sample documents'">
+      <section class="sample-documents-section sample-library-section" :aria-label="currentLang === 'km' ? 'ឯកសារគំរូ' : 'Sample documents'">
         <div class="sample-sec-header">
           <Sparkles :size="20" class="text-heading" aria-hidden="true" />
           <h2 class="sample-sec-title khmer-font">

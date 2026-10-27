@@ -223,22 +223,26 @@
     gap: 8px;
   }
 
-  /* On small screens, hide voice guidance and help buttons from the navbar (keep in settings) */
+  /* On small screens, hide desktop-only buttons if any */
   .header-btn.desktop-only {
     display: none !important;
   }
 
   .header-btn {
-    min-height: 48px;
-    padding: 8px 12px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 9999px;
   }
 
-  .lang-toggle-btn {
-    min-width: 60px;
-  }
-
+  .lang-toggle-btn,
+  .help-trigger-btn,
+  .mic-btn,
   .settings-trigger-btn {
-    min-width: 80px;
+    min-width: 44px;
+    width: 44px;
   }
 }
 
@@ -270,13 +274,16 @@
   }
 
   .header-btn {
-    padding: 8px 10px;
-    min-height: 48px;
-    min-width: 48px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
   }
 
   .settings-trigger-btn {
-    min-width: 48px;
+    min-width: 44px;
+    width: 44px;
   }
 }
 

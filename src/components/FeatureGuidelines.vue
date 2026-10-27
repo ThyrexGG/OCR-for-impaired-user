@@ -3,7 +3,7 @@ import { ref, computed, nextTick, inject, watch, onMounted, onBeforeUnmount } fr
 import { ArrowLeft, ArrowRight, Check } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 import { vFocusTrap } from '../services/focusTrap'
-import { GUIDELINE_STEPS } from '../services/guidelinesConfig'
+import { GUIDELINE_STEPS, getAvailableSteps } from '../services/guidelinesConfig'
 import { useSpotlight } from '../composables/useSpotlight'
 import './FeatureGuidelines.css'
 
@@ -19,14 +19,17 @@ const emit = defineEmits(['close', 'complete', 'step-change'])
 // Injected accessible services (DIP: Dependency Inversion Principle)
 const speakAccessibility = inject('speakAccessibility', () => {})
 const triggerHaptic = inject('triggerHaptic', () => {})
+const setMode = inject('setMode', () => {})
+const activeMode = inject('activeMode', ref('scan'))
+const initialMode = ref('scan')
 
 // Step State
 const currentStepIndex = ref(0)
-const steps = GUIDELINE_STEPS
-const totalSteps = steps.length
-const currentStep = computed(() => steps[currentStepIndex.value] || steps[0])
+const steps = computed(() => getAvailableSteps())
+const totalSteps = computed(() => steps.value.length)
+const currentStep = computed(() => steps.value[currentStepIndex.value] || steps.value[0])
 const isFirstStep = computed(() => currentStepIndex.value === 0)
-const isLastStep = computed(() => currentStepIndex.value === totalSteps - 1)
+const isLastStep = computed(() => currentStepIndex.value === totalSteps.value - 1)
 
 // DRY: Centralized active language computed properties
 const activeTitle = computed(() => currentLang.value === 'km' ? currentStep.value.titleKm : currentStep.value.titleEn)
@@ -47,9 +50,26 @@ const { spotlightRect, dockPosition, updatePosition, scrollTargetIntoView } = us
 // Speak step instructions aloud for screen reader / audio guide
 const announceStep = () => {
   const spokenText = currentLang.value === 'km'
-    ? `ជំហានទី ${currentStepIndex.value + 1} នៃ ${totalSteps}: ${activeTitle.value}។ ${activeDesc.value}`
-    : `Step ${currentStepIndex.value + 1} of ${totalSteps}: ${activeTitle.value}. ${activeDesc.value}`
+    ? `ជំហានទី ${currentStepIndex.value + 1} នៃ ${totalSteps.value}: ${activeTitle.value}។ ${activeDesc.value}`
+    : `Step ${currentStepIndex.value + 1} of ${totalSteps.value}: ${activeTitle.value}. ${activeDesc.value}`
   speakAccessibility(spokenText)
+}
+
+// Synchronize current step with app view mode (e.g. switching to 'upload' screen)
+const syncCurrentStep = async () => {
+  const step = currentStep.value
+  if (!step) return
+
+  if (step.mode && typeof setMode === 'function' && activeMode.value !== step.mode) {
+    setMode(step.mode)
+  }
+
+  await nextTick()
+  setTimeout(() => {
+    updatePosition()
+    announceStep()
+    scrollTargetIntoView()
+  }, 120)
 }
 
 // Navigation Actions
@@ -110,29 +130,20 @@ const handleKeydown = (e) => {
 
 watch(() => props.isOpen, (open) => {
   if (open) {
+    initialMode.value = activeMode.value
     currentStepIndex.value = 0
-    nextTick(() => {
-      updatePosition()
-      announceStep()
-    })
+    syncCurrentStep()
   }
 })
 
 watch(currentStepIndex, () => {
-  nextTick(() => {
-    updatePosition()
-    announceStep()
-    scrollTargetIntoView()
-  })
+  syncCurrentStep()
 })
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
   if (props.isOpen) {
-    nextTick(() => {
-      updatePosition()
-      announceStep()
-    })
+    syncCurrentStep()
   }
 })
 
@@ -157,14 +168,15 @@ onBeforeUnmount(() => {
         <mask id="guidelines-spotlight-mask">
           <!-- White fills whole screen (opaque) -->
           <rect x="0" y="0" width="100%" height="100%" fill="#FFFFFF" />
-          <!-- Black cutout reveals the active target element -->
+          <!-- Cutout reveals active target element with matching dynamic shape & radius -->
           <rect 
             v-if="spotlightRect"
             :x="spotlightRect.left" 
             :y="spotlightRect.top" 
             :width="spotlightRect.width" 
             :height="spotlightRect.height" 
-            rx="12"
+            :rx="spotlightRect.rx || 0"
+            :ry="spotlightRect.ry || spotlightRect.rx || 0"
             fill="#000000"
           />
         </mask>
@@ -180,7 +192,7 @@ onBeforeUnmount(() => {
       />
     </svg>
 
-    <!-- 2. High-Visibility Pulsating Spotlight Focus Ring around target -->
+    <!-- 2. High-Visibility Focus Halo around target (matching element shape) -->
     <div 
       v-if="spotlightRect" 
       class="guidelines-active-halo"
@@ -188,11 +200,12 @@ onBeforeUnmount(() => {
         top: `${spotlightRect.top}px`,
         left: `${spotlightRect.left}px`,
         width: `${spotlightRect.width}px`,
-        height: `${spotlightRect.height}px`
+        height: `${spotlightRect.height}px`,
+        borderRadius: spotlightRect.borderRadius || '8px'
       }"
       aria-hidden="true"
     >
-      <span class="halo-pulse-ring"></span>
+      <span class="halo-pulse-ring" :style="{ borderRadius: spotlightRect.borderRadius || '8px' }"></span>
     </div>
 
     <!-- 3. Accessible Guideline Instruction Card (Auto Docked Top or Bottom) -->
