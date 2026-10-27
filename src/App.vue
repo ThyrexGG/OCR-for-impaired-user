@@ -9,6 +9,7 @@ import {
 } from 'lucide-vue-next'
 import HelpModal from './components/HelpModal.vue'
 import FeatureGuidelines from './components/FeatureGuidelines.vue'
+import WelcomeOverlay from './components/WelcomeOverlay.vue'
 import { currentLang, toggleLang, t } from './services/i18n'
 import { haptics } from './services/haptics'
 import { announcer } from './services/announcer'
@@ -123,6 +124,7 @@ const closeSettings = () => {
 // --- Feature Guidelines Walkthrough ---
 const isGuidelinesOpen = ref(false)
 const openGuidelines = () => {
+  isWelcomeOpen.value = false
   isHelpOpen.value = false
   isSettingsOpen.value = false
   isGuidelinesOpen.value = true
@@ -130,6 +132,23 @@ const openGuidelines = () => {
 }
 const closeGuidelines = () => {
   isGuidelinesOpen.value = false
+}
+
+// --- First-Open Welcome Overlay ---
+const isWelcomeOpen = ref(false)
+const openWelcome = () => {
+  isWelcomeOpen.value = true
+  haptics.pulse('selection')
+}
+const handleStartTutorialFromWelcome = () => {
+  isWelcomeOpen.value = false
+  openGuidelines()
+}
+const handleSkipTutorialFromWelcome = () => {
+  isWelcomeOpen.value = false
+  try {
+    localStorage.setItem('songkhem_guidelines_completed', 'true')
+  } catch (e) {}
 }
 
 // --- Help / How to Use Modal ---
@@ -276,13 +295,13 @@ onMounted(() => {
   window.addEventListener('offline', onOffline)
   window.addEventListener('online', onOnline)
 
-  // Auto-launch guidelines on HomeScreen: in DEV mode always show for testing; in production check localStorage
+  // Auto-launch welcome screen on first open: in DEV mode always show for testing; in production check localStorage
   const isDev = import.meta.env.DEV
   const checkAndLaunchGuidelines = () => {
     if (!isLoginScreen.value && (isDev || !localStorage.getItem('songkhem_guidelines_completed'))) {
       setTimeout(() => {
-        if (!isLoginScreen.value && !isSettingsOpen.value && !isHelpOpen.value) {
-          openGuidelines()
+        if (!isLoginScreen.value && !isSettingsOpen.value && !isHelpOpen.value && !isGuidelinesOpen.value) {
+          isWelcomeOpen.value = true
         }
       }, 500)
     }
@@ -927,6 +946,14 @@ onMounted(() => {
 
     <!-- Feature Guidelines Walkthrough -->
     <FeatureGuidelines :is-open="isGuidelinesOpen" @close="closeGuidelines" />
+
+    <!-- First-Open Welcome & Mission Overlay -->
+    <WelcomeOverlay 
+      :is-open="isWelcomeOpen" 
+      @start-tutorial="handleStartTutorialFromWelcome" 
+      @skip-tutorial="handleSkipTutorialFromWelcome" 
+      @close="isWelcomeOpen = false"
+    />
   </div>
 </template>
 
