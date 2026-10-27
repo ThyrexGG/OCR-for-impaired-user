@@ -14,3 +14,19 @@ export const vibratePattern = (pattern) => {
     return false
   }
 }
+
+// android.os.VibrationEffect ids for the phone's built-in effects
+export const EFFECT = { CLICK: 0, DOUBLE_CLICK: 1, TICK: 2, HEAVY_CLICK: 5 }
+
+/**
+ * Plays the phone's own click / tick effects: [[effectId, startMs], ...]. Plain timed buzzes are barely
+ * felt on linear-motor phones, these are crisp. @returns {boolean} false when unsupported (use a buzz instead)
+ */
+export const playEffects = (steps) => {
+  if (!Native || !Native.playEffects) return false
+  try {
+    return Native.playEffects(steps) === true
+  } catch (e) {
+    return false
+  }
+}

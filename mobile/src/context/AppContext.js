@@ -2,7 +2,7 @@ import { createContext, useContext, useCallback, useEffect, useMemo, useRef, use
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
 import { AccessibilityInfo, Platform, Vibration } from 'react-native'
-import { vibratePattern } from '../services/nativeHaptics'
+import { vibratePattern, playEffects, EFFECT } from '../services/nativeHaptics'
 import { setSpeechRate, speakNow, stopSpeaking } from '../services/talkback'
 import { TP } from '../services/talkPhrases'
 
@@ -59,6 +59,19 @@ const ANDROID_PATTERNS = {
   error: [0, 150, 80, 150, 80, 220],
   // Settings > Test Vibration: long and unmistakable, so "nothing felt" really means the phone is blocking it
   test: [0, 300, 150, 300, 150, 500],
+}
+
+// The phone's built-in effects [effectId, startMs]; preferred over the plain buzzes above because linear-motor
+// phones render a timed buzz as almost nothing. Each tap type is a distinct shape you can tell apart.
+const EFFECT_STEPS = {
+  light: [[EFFECT.CLICK, 0]],
+  selection: [[EFFECT.TICK, 0]],
+  medium: [[EFFECT.HEAVY_CLICK, 0]],
+  heavy: [[EFFECT.HEAVY_CLICK, 0], [EFFECT.HEAVY_CLICK, 130]],
+  success: [[EFFECT.CLICK, 0], [EFFECT.HEAVY_CLICK, 150]],
+  warning: [[EFFECT.HEAVY_CLICK, 0], [EFFECT.HEAVY_CLICK, 200]],
+  error: [[EFFECT.HEAVY_CLICK, 0], [EFFECT.HEAVY_CLICK, 160], [EFFECT.HEAVY_CLICK, 320]],
+  test: [[EFFECT.HEAVY_CLICK, 0], [EFFECT.HEAVY_CLICK, 700], [EFFECT.HEAVY_CLICK, 1400]],
 }
 
 let toastIdCounter = 0
@@ -163,7 +176,7 @@ export function AppProvider({ children }) {
     try {
       if (Platform.OS === 'android') {
         const pattern = ANDROID_PATTERNS[intensity] || ANDROID_PATTERNS.light
-        if (!vibratePattern(pattern)) Vibration.vibrate(pattern)
+        if (!playEffects(EFFECT_STEPS[intensity] || EFFECT_STEPS.light) && !vibratePattern(pattern)) Vibration.vibrate(pattern)
         return
       }
       const run = HAPTIC_MAP[intensity] || HAPTIC_MAP.light
@@ -178,7 +191,7 @@ export function AppProvider({ children }) {
   const testHaptics = useCallback(() => {
     try {
       if (Platform.OS === 'android') {
-        if (!vibratePattern(ANDROID_PATTERNS.test)) Vibration.vibrate(ANDROID_PATTERNS.test)
+        if (!playEffects(EFFECT_STEPS.test) && !vibratePattern(ANDROID_PATTERNS.test)) Vibration.vibrate(ANDROID_PATTERNS.test)
       } else {
         Promise.resolve(HAPTIC_MAP.success()).catch(() => {})
       }
