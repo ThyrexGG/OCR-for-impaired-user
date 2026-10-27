@@ -1,14 +1,16 @@
-import { Languages, Sliders, Navigation, Camera, Volume2 } from 'lucide-vue-next'
+import { Languages, HelpCircle, Mic, Sliders, Navigation, Upload, FileText, Sparkles } from 'lucide-vue-next'
+import { storage, STORAGE_KEYS } from './storage'
 
 /**
  * SOLID (Open/Closed Principle & Single Responsibility):
  * Step definitions isolated from presentation component.
- * New walkthrough steps can be added here without modifying the UI engine.
+ * Walks through Header controls (Language, Help, Voice, Settings) -> Home Navigation -> Upload -> Recents -> Samples.
  */
 export const GUIDELINE_STEPS = [
   {
     id: 'language',
     icon: Languages,
+    mode: 'scan',
     targetSelector: '.lang-toggle-btn',
     fallbackSelector: '.header-actions',
     titleKm: 'ប្តូរភាសា',
@@ -18,8 +20,33 @@ export const GUIDELINE_STEPS = [
     preferredDock: 'bottom'
   },
   {
+    id: 'help',
+    icon: HelpCircle,
+    mode: 'scan',
+    targetSelector: '.help-trigger-btn',
+    fallbackSelector: '.header-actions',
+    titleKm: 'ជំនួយការប្រើប្រាស់',
+    titleEn: 'Help & Quick Guide',
+    descKm: 'ចុចទីនេះដើម្បីមើលសេចក្តីណែនាំអំពីរបៀបប្រើប្រាស់កម្មវិធី និងផ្លូវកាត់ក្តារចុចសំខាន់ៗ។',
+    descEn: 'Tap here to view user instructions, keyboard shortcuts, or replay this guided tour.',
+    preferredDock: 'bottom'
+  },
+  {
+    id: 'voice',
+    icon: Mic,
+    mode: 'scan',
+    targetSelector: '.mic-btn',
+    fallbackSelector: '.header-actions',
+    titleKm: 'បញ្ជាដោយសំឡេង',
+    titleEn: 'Voice Commands',
+    descKm: 'បើកដើម្បីបញ្ជាកម្មវិធីដោយសំឡេងដោយមិនបាច់ប៉ះអេក្រង់ ដូចជាពាក្យ "អាន", "ឈប់", ឬ "ស្កេន"។',
+    descEn: 'Turn on hands-free voice control to navigate and read aloud without touching the screen.',
+    preferredDock: 'bottom'
+  },
+  {
     id: 'settings',
     icon: Sliders,
+    mode: 'scan',
     targetSelector: '.settings-trigger-btn',
     fallbackSelector: '.header-actions',
     titleKm: 'ការកំណត់ជំនួយ',
@@ -31,6 +58,7 @@ export const GUIDELINE_STEPS = [
   {
     id: 'navigation',
     icon: Navigation,
+    mode: 'scan',
     targetSelector: '.bottom-nav-bar',
     fallbackSelector: '.app-main-content',
     titleKm: 'របារប្តូរមុខងារ',
@@ -40,25 +68,56 @@ export const GUIDELINE_STEPS = [
     preferredDock: 'top'
   },
   {
-    id: 'capture',
-    icon: Camera,
-    targetSelector: '.btn-shutter, .tactile-dropzone',
-    fallbackSelector: '.app-main-content',
-    titleKm: 'ថតរូប ឬផ្ទុកឯកសារ',
-    titleEn: 'Capture & Upload',
-    descKm: 'តម្រង់កាមេរ៉ាទៅលើអត្ថបទ រួចចុចប៊ូតុងថត ឬផ្ទុកឯកសាររូបភាព/PDF ដើម្បីបំប្លែងជាអក្សរ។',
-    descEn: 'Align your camera over text and press shutter, or upload an image/PDF document to extract text.',
-    preferredDock: 'top'
+    id: 'upload',
+    icon: Upload,
+    mode: 'upload',
+    targetSelector: '.tactile-dropzone',
+    fallbackSelector: '.btn-choose-file',
+    titleKm: 'ផ្ទុកឯកសារឡើង',
+    titleEn: 'Upload Document',
+    descKm: 'ទម្លាក់ឯកសារ ឬចុចប៊ូតុងជ្រើសរើសរូបភាព ឬ PDF ពីឧបករណ៍របស់អ្នក ដើម្បីស្កេន និងអានជាសំឡេងភ្លាមៗ។',
+    descEn: 'Drop or choose an image or PDF file from your device to scan and convert into spoken audio.',
+    preferredDock: 'bottom'
   },
   {
-    id: 'reader',
-    icon: Volume2,
-    targetSelector: '.reader-bottom-player-bar, .header-brand-cluster',
-    fallbackSelector: '.assistive-header',
-    titleKm: 'ឧបករណ៍អានជាសំឡេង',
-    titleEn: 'Audio Player',
-    descKm: 'ចុចប៊ូតុងធំកណ្តាលដើម្បីចាក់ ឬផ្អាកសំឡេងអាន និងចុចលើពាក្យនីមួយៗដើម្បីស្តាប់ឡើងវិញ។',
-    descEn: 'Press the large center button to play/pause speech, and tap individual words to seek audio.',
+    id: 'recent-docs',
+    icon: FileText,
+    mode: 'upload',
+    targetSelector: '.recent-uploads-section',
+    fallbackSelector: '.tactile-dropzone',
+    titleKm: 'ឯកសារដែលបានផ្ទុកឡើងថ្មីៗ',
+    titleEn: 'Recent Uploads',
+    descKm: 'ចុចលើឯកសារដែលបានផ្ទុកឡើងពីមុន ដើម្បីបើកអាន និងស្តាប់ឡើងវិញភ្លាមៗ ដោយមិនបាច់ស្កេនម្តងទៀត។',
+    descEn: 'Reopen your previously uploaded documents instantly without having to scan them again.',
+    preferredDock: 'bottom'
+  },
+  {
+    id: 'samples',
+    icon: Sparkles,
+    mode: 'upload',
+    targetSelector: '.sample-library-section',
+    fallbackSelector: '.sample-unboxed-list',
+    titleKm: 'ឯកសារគំរូ',
+    titleEn: 'Sample Documents',
+    descKm: 'សាកល្បងអានឯកសារគំរូដូចជា អត្តសញ្ញាណប័ណ្ណ ឬវេជ្ជបញ្ជា ដោយមិនចាំបាច់មានឯកសារផ្ទាល់ខ្លួន។',
+    descEn: 'Try reading sample documents like ID cards or medical prescriptions without uploading your own file.',
     preferredDock: 'top'
   }
 ]
+
+/**
+ * Filter steps dynamically based on available DOM / storage state
+ * (e.g. only show Recent Uploads if user has past uploaded files)
+ */
+export function getAvailableSteps() {
+  const history = storage.getJson(STORAGE_KEYS.HISTORY, [])
+  const hasRecentHistory = Array.isArray(history) && history.length > 0
+  const hasRecentInDom = typeof document !== 'undefined' && !!document.querySelector('.recent-uploads-section')
+
+  return GUIDELINE_STEPS.filter(step => {
+    if (step.id === 'recent-docs') {
+      return hasRecentHistory || hasRecentInDom
+    }
+    return true
+  })
+}
