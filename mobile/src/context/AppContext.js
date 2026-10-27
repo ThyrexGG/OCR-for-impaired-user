@@ -57,6 +57,8 @@ const ANDROID_PATTERNS = {
   success: [0, 110, 60, 150],
   warning: [0, 150, 70, 150],
   error: [0, 150, 80, 150, 80, 220],
+  // Settings > Test Vibration: long and unmistakable, so "nothing felt" really means the phone is blocking it
+  test: [0, 300, 150, 300, 150, 500],
 }
 
 let toastIdCounter = 0
@@ -176,7 +178,7 @@ export function AppProvider({ children }) {
   const testHaptics = useCallback(() => {
     try {
       if (Platform.OS === 'android') {
-        if (!vibratePattern(ANDROID_PATTERNS.success)) Vibration.vibrate(ANDROID_PATTERNS.success)
+        if (!vibratePattern(ANDROID_PATTERNS.test)) Vibration.vibrate(ANDROID_PATTERNS.test)
       } else {
         Promise.resolve(HAPTIC_MAP.success()).catch(() => {})
       }
