@@ -50,13 +50,15 @@ const HAPTIC_MAP = {
 // app's haptics service (src/services/haptics.js). iOS keeps expo-haptics: RN's
 // Vibration is a fixed ~400ms buzz there.
 const ANDROID_PATTERNS = {
-  light: [0, 30],
-  medium: [0, 45],
-  heavy: [0, 70],
-  selection: [0, 22],
-  success: [0, 80, 40, 100],
-  warning: [0, 100, 50, 100],
-  error: [0, 100, 60, 100],
+  light: [0, 55],
+  medium: [0, 80],
+  heavy: [0, 120],
+  selection: [0, 40],
+  success: [0, 110, 60, 150],
+  warning: [0, 150, 70, 150],
+  error: [0, 150, 80, 150, 80, 220],
+  // Settings > Test Vibration: long and unmistakable, so "nothing felt" really means the phone is blocking it
+  test: [0, 300, 150, 300, 150, 500],
 }
 
 let toastIdCounter = 0
@@ -176,7 +178,7 @@ export function AppProvider({ children }) {
   const testHaptics = useCallback(() => {
     try {
       if (Platform.OS === 'android') {
-        if (!vibratePattern(ANDROID_PATTERNS.success)) Vibration.vibrate(ANDROID_PATTERNS.success)
+        if (!vibratePattern(ANDROID_PATTERNS.test)) Vibration.vibrate(ANDROID_PATTERNS.test)
       } else {
         Promise.resolve(HAPTIC_MAP.success()).catch(() => {})
       }
