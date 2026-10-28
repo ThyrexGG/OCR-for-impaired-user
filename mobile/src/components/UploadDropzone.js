@@ -4,6 +4,7 @@ import { Upload } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useOcr } from '../context/OcrContext'
 import NeoButton from './NeoButton'
+import { useTourTarget } from '../context/TourContext'
 
 /**
  * Ports DocumentUploader.vue's "tactile-dropzone" (View B) — SURFACES.md 8's
@@ -16,6 +17,7 @@ export default function UploadDropzone() {
   const { setFile } = useOcr()
   const s = colors.surfaces
   const styles = createStyles(s)
+  const tourRef = useTourTarget('upload-dropzone')
 
   const handlePress = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -28,7 +30,7 @@ export default function UploadDropzone() {
   }
 
   return (
-    <View style={styles.dropzone}>
+    <View ref={tourRef} collapsable={false} style={styles.dropzone}>
       <View style={styles.iconCircle}>
         <Upload size={26} color={s.primary} />
       </View>

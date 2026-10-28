@@ -4,6 +4,7 @@ import { useTheme } from '../theme/ThemeContext'
 import { useOcr } from '../context/OcrContext'
 import AccessiblePressable from './AccessiblePressable'
 import { TP } from '../services/talkPhrases'
+import { useTourTarget } from '../context/TourContext'
 
 // Ports DocumentUploader.vue's "Sample Documents" section — SURFACES.md 8/11:
 // an unboxed list (no card border/background), a solid navy category chip
@@ -13,9 +14,10 @@ export default function SampleDocsGrid() {
   const { sampleLibrary, loadSample } = useOcr()
   const s = colors.surfaces
   const styles = createStyles(s)
+  const tourRef = useTourTarget('samples')
 
   return (
-    <View style={styles.section} accessibilityLabel="សាកល្បងជាមួយឯកសារគំរូ">
+    <View ref={tourRef} collapsable={false} style={styles.section} accessibilityLabel="សាកល្បងជាមួយឯកសារគំរូ">
       <View style={styles.header}>
         <Sparkles size={24} color={s.heading} />
         <Text style={[styles.title, { fontFamily: fonts.khmer }]}>សាកល្បងជាមួយឯកសារគំរូ៖</Text>

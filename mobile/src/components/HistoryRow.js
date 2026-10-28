@@ -4,6 +4,7 @@ import { useTheme } from '../theme/ThemeContext'
 import { useApp } from '../context/AppContext'
 import { useOcr } from '../context/OcrContext'
 import AccessiblePressable from './AccessiblePressable'
+import { useTourTarget } from '../context/TourContext'
 
 const estimateDuration = (wordsCount) => {
   if (!wordsCount) return '~30 វិនាទី'
@@ -13,15 +14,19 @@ const estimateDuration = (wordsCount) => {
 
 // The web app's `.history-list-row` (UserHistory.vue): a card with the document
 // name and "date • N words (~time)", then two pill actions: Open and Delete.
-export default function HistoryRow({ item }) {
+export default function HistoryRow({ item, tourFirst = false }) {
   const { colors, fonts, currentTheme } = useTheme()
   const { triggerHaptic, speakAccessibility } = useApp()
   const { loadHistoryItem, deleteHistoryItem } = useOcr()
   const s = colors.surfaces
   const styles = createStyles(s, currentTheme)
+  // Only the first row is something the guided tour points at
+  const rowTourRef = useTourTarget('history-row')
+  const openTourRef = useTourTarget('history-open')
+  const deleteTourRef = useTourTarget('history-delete')
 
   return (
-    <View style={[styles.row, item.pending && styles.rowPending]}>
+    <View ref={tourFirst ? rowTourRef : undefined} collapsable={false} style={[styles.row, item.pending && styles.rowPending]}>
       <View style={styles.infoCol}>
         <Text style={[styles.title, { fontFamily: fonts.khmer }]} numberOfLines={2}>
           {item.name}
@@ -45,6 +50,7 @@ export default function HistoryRow({ item }) {
           style={[styles.actionBtn, { backgroundColor: s.primary }]}
           disabled={item.pending}
           accessibilityLabel={`បើក ${item.name}`}
+          ref={tourFirst ? openTourRef : undefined}
           onPress={() => loadHistoryItem(item)}
         >
           <BookOpen size={16} color={s.onPrimary} />
@@ -54,6 +60,7 @@ export default function HistoryRow({ item }) {
         <AccessiblePressable
           style={[styles.actionBtn, { backgroundColor: colors.dangerSubtle }]}
           disabled={item.pending}
+          ref={tourFirst ? deleteTourRef : undefined}
           accessibilityLabel={`លុប ${item.name}`}
           onPress={() => {
             triggerHaptic('medium')

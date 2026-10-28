@@ -12,6 +12,7 @@ import { ThemeProvider, useTheme } from './src/theme/ThemeContext'
 import { AppProvider } from './src/context/AppContext'
 import { OcrProvider } from './src/context/OcrContext'
 import { TtsProvider } from './src/context/TtsContext'
+import { TourProvider } from './src/context/TourContext'
 import RootNavigator from './src/navigation/RootNavigator'
 import { navigationRef } from './src/navigation/navigationRef'
 import ToastHost from './src/components/ToastHost'
@@ -58,7 +59,9 @@ export default function App() {
         <AppProvider>
           <OcrProvider>
             <TtsProvider>
-              <AppShell />
+              <TourProvider>
+                <AppShell />
+              </TourProvider>
             </TtsProvider>
           </OcrProvider>
         </AppProvider>

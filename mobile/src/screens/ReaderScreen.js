@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Clipboard from 'expo-clipboard'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { ArrowLeft, BookOpen, Camera, Check, Copy, Fingerprint, Pause, Play, RotateCcw, RotateCw, Settings, Upload, Volume2, X } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useApp } from '../context/AppContext'
@@ -10,12 +11,32 @@ import { useTts } from '../context/TtsContext'
 import { tokenizeText } from '../utils/textTokenizer'
 import { buildSummaryPoints } from '../utils/summary'
 import AccessiblePressable from '../components/AccessiblePressable'
+import { useTourTarget } from '../context/TourContext'
 import useScreenIntro from '../utils/useScreenIntro'
 import { TP } from '../services/talkPhrases'
 
 const ORANGE = '#EA580C'
 const ORANGE_ACTIVE = '#D97706'
 const HIGHLIGHT = '#FEF08A'
+
+// What the reading highlight covers, same three choices as the website's reader
+const HIGHLIGHT_MODES = [
+  { id: 'word', label: 'ពាក្យ' },
+  { id: 'sentence', label: 'ប្រយោគ' },
+  { id: 'paragraph', label: 'កថាខណ្ឌ' },
+]
+const DEFAULT_HIGHLIGHT_MODE = 'paragraph'
+const HIGHLIGHT_STORAGE_KEY = 'songkhem_highlight_mode'
+
+// Paragraph and sentence the spoken word belongs to (-1 when nothing is being read)
+function locateWord(paragraphs, wordIndex) {
+  for (const para of paragraphs) {
+    for (const sn of para.sentences) {
+      if (sn.words.some((w) => w.globalIndex === wordIndex)) return { paragraph: para.index, sentence: sn.index }
+    }
+  }
+  return { paragraph: -1, sentence: -1 }
+}
 
 // The web app's reader mode (DocumentReader.vue): top bar, the text with a
 // karaoke highlight, a floating actions button, and a bottom player bar with
@@ -33,11 +54,36 @@ export default function ReaderScreen({ navigation }) {
   const [isSummaryOpen, setIsSummaryOpen] = useState(false)
   const [isVoiceOpen, setIsVoiceOpen] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
+  const [highlightMode, setHighlightMode] = useState(DEFAULT_HIGHLIGHT_MODE)
 
   const scrollRef = useRef(null)
+  const textTourRef = useTourTarget('reader-text')
+  const controlsTourRef = useTourTarget('reader-controls')
+  const voiceTourRef = useTourTarget('reader-voice')
+  const fabTourRef = useTourTarget('reader-fab')
   const paragraphY = useRef({})
 
+  useEffect(() => {
+    AsyncStorage.getItem(HIGHLIGHT_STORAGE_KEY)
+      .then((saved) => {
+        if (HIGHLIGHT_MODES.some((m) => m.id === saved)) setHighlightMode(saved)
+      })
+      .catch(() => {})
+  }, [])
+
+  const chooseHighlightMode = (id) => {
+    setHighlightMode(id)
+    AsyncStorage.setItem(HIGHLIGHT_STORAGE_KEY, id).catch(() => {})
+  }
+
   const paragraphs = useMemo(() => tokenizeText(extractedText), [extractedText])
+  const activeLoc = useMemo(() => locateWord(paragraphs, activeWordIndex), [paragraphs, activeWordIndex])
+  const isWordLit = (w) =>
+    highlightMode === 'word'
+      ? w.globalIndex === activeWordIndex
+      : highlightMode === 'sentence'
+        ? w.sentenceIndex === activeLoc.sentence
+        : w.paragraphIndex === activeLoc.paragraph
   const hasText = !!(extractedText && extractedText.trim())
   // With auto-read on, the scan result and the reading itself already say what is happening
   useScreenIntro(() => (hasText && !isAutoReadEnabled ? TP.readerReady.km : null), { interrupt: false })
@@ -99,6 +145,7 @@ export default function ReaderScreen({ navigation }) {
           {paragraphs.map((para) => (
             <Text
               key={para.index}
+              ref={para.index === 0 ? textTourRef : undefined}
               onLayout={(e) => {
                 paragraphY.current[para.index] = e.nativeEvent.layout.y
               }}
@@ -113,7 +160,7 @@ export default function ReaderScreen({ navigation }) {
                       seekToWord(w.globalIndex)
                     }}
                     accessibilityRole="button"
-                    style={activeWordIndex === w.globalIndex ? styles.activeWord : null}
+                    style={isWordLit(w) ? styles.activeWord : null}
                   >
                     {w.text + ' '}
                   </Text>
@@ -155,6 +202,7 @@ export default function ReaderScreen({ navigation }) {
             </View>
           )}
           <AccessiblePressable
+            ref={fabTourRef}
             style={styles.fab}
             accessibilityLabel="មុខងារបន្ថែម (សង្ខេប និងចម្លង)"
             accessibilityState={{ expanded: isActionsOpen }}
@@ -170,7 +218,7 @@ export default function ReaderScreen({ navigation }) {
       {/* 4. Bottom player bar */}
       {hasText && (
         <View style={styles.playerBar}>
-          <View style={styles.cluster}>
+          <View ref={controlsTourRef} collapsable={false} style={styles.cluster}>
             <AccessiblePressable style={styles.roundBtn} accessibilityLabel="ថយក្រោយ ៥ ពាក្យ" speakOnPress={false} onPress={() => jumpWords(-5)}>
               <RotateCcw size={22} color={s.primary} />
             </AccessiblePressable>
@@ -186,7 +234,7 @@ export default function ReaderScreen({ navigation }) {
             <AccessiblePressable style={styles.roundBtn} accessibilityLabel="ទៅមុខ ៥ ពាក្យ" speakOnPress={false} onPress={() => jumpWords(5)}>
               <RotateCw size={22} color={s.primary} />
             </AccessiblePressable>
-            <AccessiblePressable style={styles.roundBtn} accessibilityLabel="ជ្រើសរើសសំឡេង និងល្បឿន" speakOnPress={false} onPress={() => setIsVoiceOpen(true)}>
+            <AccessiblePressable style={styles.roundBtn} ref={voiceTourRef} accessibilityLabel="ជ្រើសរើសសំឡេង និងល្បឿន" speakOnPress={false} onPress={() => setIsVoiceOpen(true)}>
               <Volume2 size={22} color={s.primary} />
             </AccessiblePressable>
           </View>
@@ -254,6 +302,22 @@ export default function ReaderScreen({ navigation }) {
                   onPress={() => setSpeedPreset(sp)}
                 >
                   <Text style={[styles.speedText, rate === sp && styles.speedTextOn]}>{sp}x</Text>
+                </AccessiblePressable>
+              ))}
+            </View>
+            <Text style={[styles.speedLabel, { fontFamily: fonts.khmerBold }]}>រំលេចពេលអាន</Text>
+            <View style={styles.speedRow}>
+              {HIGHLIGHT_MODES.map((m) => (
+                <AccessiblePressable
+                  key={m.id}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: highlightMode === m.id }}
+                  accessibilityLabel={`រំលេចម្តងមួយ${m.label}`}
+                  speakOnPress={false}
+                  style={[styles.speedPill, highlightMode === m.id && { backgroundColor: s.primary, borderColor: s.primary }]}
+                  onPress={() => chooseHighlightMode(m.id)}
+                >
+                  <Text style={[styles.speedText, { fontFamily: fonts.khmerBold }, highlightMode === m.id && styles.speedTextOn]}>{m.label}</Text>
                 </AccessiblePressable>
               ))}
             </View>

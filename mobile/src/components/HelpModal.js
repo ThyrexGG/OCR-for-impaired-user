@@ -3,11 +3,12 @@ import { Check, HelpCircle, X } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useApp } from '../context/AppContext'
 import AccessiblePressable from './AccessiblePressable'
+import { useTour } from '../context/TourContext'
 
 const STEPS = [
   {
     heading: 'តម្រង់កាមេរ៉ាទៅកាន់ឯកសារ',
-    desc: 'កាន់ទូរស័ព្ទរបស់អ្នកនៅពីលើក្រដាស ឬសៀវភៅដែលចង់អាន (Point your camera at a document).',
+    desc: 'កាន់ទូរស័ព្ទរបស់អ្នកនៅពីលើក្រដាស ឬសៀវភៅដែលចង់អាន។ ស៊ុមក្រហមនឹងព័ទ្ធជុំវិញឯកសារ (Point your camera at a document; a red outline appears around it).',
   },
   {
     heading: 'កាន់ទូរស័ព្ទឱ្យនឹង',
@@ -15,7 +16,7 @@ const STEPS = [
   },
   {
     heading: 'ចុចប៊ូតុងថតរូបភាព',
-    desc: 'ចុចប៊ូតុងធំ "ថតរូបភាព" ឬ "ស្កេន និងអាន" នៅកណ្តាលអេក្រង់ (Press Capture Document).',
+    desc: 'ពេលមានការញ័រស្រាល ចុចប៊ូតុងថតមូលនៅខាងក្រោម។ រូបថតនឹងកាត់យកតែឯកសារ (When you feel a light buzz, press the round capture button; the photo is cropped to the page).',
   },
   {
     heading: 'រង់ចាំការស្រង់អត្ថបទ',
@@ -30,6 +31,7 @@ const STEPS = [
 export default function HelpModal() {
   const { colors, fonts } = useTheme()
   const { isHelpOpen, closeHelp } = useApp()
+  const { startTour } = useTour()
   const styles = createStyles(colors)
 
   return (
@@ -63,6 +65,17 @@ export default function HelpModal() {
           </ScrollView>
 
           <View style={styles.footer}>
+            <AccessiblePressable
+              style={styles.tourBtn}
+              accessibilityLabel="មើលការណែនាំជាជំហានៗ (Guided tour)"
+              hapticIntensity="light"
+              onPress={() => {
+                closeHelp()
+                setTimeout(startTour, 300)
+              }}
+            >
+              <Text style={[styles.tourText, { fontFamily: fonts.khmer }]}>ការណែនាំជាជំហានៗ (Guided tour)</Text>
+            </AccessiblePressable>
             <AccessiblePressable style={styles.gotItBtn} accessibilityLabel="យល់ព្រម (Got it)" hapticIntensity="light" onPress={closeHelp}>
               <Check size={18} color={colors.accentText} />
               <Text style={[styles.gotItText, { fontFamily: fonts.khmer }]}>យល់ព្រម (Got it)</Text>
@@ -106,7 +119,9 @@ const createStyles = (colors) =>
     stepContent: { flex: 1, gap: 2 },
     stepHeading: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
     stepDesc: { fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
-    footer: { padding: 18, borderTopWidth: 1.5, borderTopColor: colors.borderSubtle, alignItems: 'flex-end' },
-    gotItBtn: { minWidth: 160, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.accent, borderRadius: colors.radii.md, paddingHorizontal: 20 },
+    footer: { padding: 18, borderTopWidth: 1.5, borderTopColor: colors.borderSubtle, gap: 10 },
+    tourBtn: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, borderRadius: colors.radii.md, borderWidth: 1.5, borderColor: colors.borderMedium },
+    tourText: { color: colors.textPrimary, fontWeight: '700', fontSize: 14 },
+    gotItBtn: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.accent, borderRadius: colors.radii.md, paddingHorizontal: 20 },
     gotItText: { color: colors.accentText, fontWeight: '700', fontSize: 14 },
   })

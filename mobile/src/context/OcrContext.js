@@ -142,7 +142,7 @@ export function OcrProvider({ children }) {
         speakAccessibility('បានស្កេន និងស្រង់អត្ថបទពី Cache ភ្លាមៗរួចរាល់')
         navigateToReader()
         maybeAutoRead(300)
-        return
+        return true
       }
 
       setIsCached(false)
@@ -225,6 +225,7 @@ export function OcrProvider({ children }) {
         text = (text || '').trim()
         if (!text) throw new Error('មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ')
         finalizeOcr(text)
+        return true
       } catch (error) {
         console.error('OCR Extraction Error:', error)
         clearProcessingTimers()
@@ -236,6 +237,7 @@ export function OcrProvider({ children }) {
         const msg = error?.message || 'មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ'
         setOcrError(msg)
         speakAccessibility(`មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ - ${msg}`)
+        return false
       }
     },
     [addToHistory, addToast, triggerHaptic, speakAccessibility, saveHistory, maybeAutoRead, ocrConfig, clearProcessingTimers]
@@ -319,6 +321,38 @@ export function OcrProvider({ children }) {
       maybeAutoRead()
     },
     [addToHistory, triggerHaptic, addToast, speakAccessibility, maybeAutoRead]
+  )
+
+  // The guided tour opens a sample without the toast, voice, navigation or auto-read that loadSample adds
+  const openSampleQuietly = useCallback(
+    (sample) => {
+      setSelectedFileName(sample.title + '.txt')
+      setSelectedFile({ uri: null, name: sample.id + '.txt', mimeType: 'text/plain', kind: 'text' })
+      setPreviewUri(null)
+      setExtractedText(sample.text)
+      setIsCached(true)
+      setOcrError(null)
+      addToHistory(sample.title, sample.text, true)
+    },
+    [addToHistory]
+  )
+
+  // Undo openSampleQuietly once the tour is over: drop what it added to the history and close the document
+  const discardTourSample = useCallback(
+    (keepIds) => {
+      const keep = new Set(keepIds)
+      setHistoryList((prev) => {
+        const next = prev.filter((i) => keep.has(i.id))
+        if (next.length !== prev.length) saveHistory(next)
+        return next
+      })
+      setSelectedFile(null)
+      setSelectedFileName('')
+      setPreviewUri(null)
+      setExtractedText('')
+      setIsCached(false)
+    },
+    [saveHistory]
   )
 
   // --- History actions ---
@@ -432,6 +466,8 @@ export function OcrProvider({ children }) {
       clearFile,
       captureAndScan,
       loadSample,
+      openSampleQuietly,
+      discardTourSample,
       triggerOcr,
       loadHistoryItem,
       quickPlayHistoryItem,
@@ -457,6 +493,8 @@ export function OcrProvider({ children }) {
       clearFile,
       captureAndScan,
       loadSample,
+      openSampleQuietly,
+      discardTourSample,
       triggerOcr,
       loadHistoryItem,
       quickPlayHistoryItem,

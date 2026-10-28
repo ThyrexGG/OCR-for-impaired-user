@@ -12,13 +12,14 @@ import { TP } from '../services/talkPhrases'
 
 // While talk-back speaks, the document audio dips so the guidance is clearly heard.
 const DUCKED_VOLUME = 0.2
+const APP_VOICE_FAILED = 'មិនអាចភ្ជាប់សំឡេង songKHEM បានទេ។ សូមពិនិត្យអ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។'
 
 export const SPEED_PRESETS = [0.75, 1.0, 1.25, 1.5, 2.0]
 
 const TtsContext = createContext(null)
 
 export function TtsProvider({ children }) {
-  const { triggerHaptic, speakAccessibility, announce, ocrConfig } = useApp()
+  const { triggerHaptic, speakAccessibility, announce, ocrConfig, isAppVoiceOnly, addToast } = useApp()
   const { extractedText, setAutoReadHandler } = useOcr()
 
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -43,6 +44,8 @@ export function TtsProvider({ children }) {
   const pendingSeekRef = useRef(null)
   const pendingSpeechStartRef = useRef(null)
   const duckedRef = useRef(false)
+  const appVoiceOnlyRef = useRef(false)
+  useEffect(() => { appVoiceOnlyRef.current = isAppVoiceOnly }, [isAppVoiceOnly])
 
   useEffect(() => { rateRef.current = rate }, [rate])
   useEffect(() => { voicesRef.current = voices }, [voices])
@@ -189,6 +192,12 @@ export function TtsProvider({ children }) {
   const fallbackWebSpeech = useCallback(
     (text, startIndex = 0) => {
       stopSpeech()
+      // Testing switch "songKHEM voice only": never hand the document to the phone's voice
+      if (appVoiceOnlyRef.current) {
+        addToast(APP_VOICE_FAILED, 'warning')
+        speakAccessibility(APP_VOICE_FAILED)
+        return
+      }
       setIsSpeaking(true)
       setPaused(false)
       speechModeRef.current = true
@@ -208,7 +217,7 @@ export function TtsProvider({ children }) {
       })
       startHighlighting(startIndex)
     },
-    [stopSpeech, startHighlighting, setPaused]
+    [stopSpeech, startHighlighting, setPaused, addToast, speakAccessibility]
   )
 
   const startSpeech = useCallback(async () => {

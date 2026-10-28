@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Linking, StyleSheet, Text, View } from 'react-native'
+import Svg, { Polygon } from 'react-native-svg'
 import { useIsFocused } from '@react-navigation/native'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import { RefreshCw, Scan, ShieldAlert, Upload } from 'lucide-react-native'
@@ -10,12 +11,32 @@ import { navigateToUpload } from '../navigation/navigationRef'
 import AccessiblePressable from './AccessiblePressable'
 import NeoButton from './NeoButton'
 import { TP } from '../services/talkPhrases'
+import { DocCamera, isDocCameraSupported } from '../services/nativeDocCamera'
+import { useTourTarget } from '../context/TourContext'
+import { DocumentTracker, detectDocument } from '../utils/documentDetector'
+
+const SEARCHING_MESSAGE = 'សូមតម្រង់កាមេរ៉ាទៅកាន់ឯកសារ...'
+const FOUND_MESSAGE = 'ឃើញឯកសារហើយ សូមចុចថត'
+const OUTLINE_COLOR = '#EF4444'
+// The detected outline is a touch tight; cut slightly outside it so the page's edge text is never clipped
+const CROP_MARGIN = 1.03
+
+const withMargin = (corners) => {
+  const cx = corners.reduce((sum, p) => sum + p.x, 0) / 4
+  const cy = corners.reduce((sum, p) => sum + p.y, 0) / 4
+  const clamp = (v) => Math.min(1, Math.max(0, v))
+  return corners.map((p) => ({ x: clamp(cx + (p.x - cx) * CROP_MARGIN), y: clamp(cy + (p.y - cy) * CROP_MARGIN) }))
+}
 
 /**
  * Ports DocumentUploader.vue's "camera-assistant-view" (View A): permission
  * recovery box, live viewfinder with HUD corner brackets + guidance banner,
  * and the circular iPhone-style shutter button. getUserMedia + <video> +
  * <canvas>.toBlob become expo-camera's CameraView + takePictureAsync.
+ *
+ * On Android the viewfinder is our own camera view (modules/songkhem-docscan): it finds the page in the live
+ * picture, draws a red outline that follows it, and the photo is cut down to just that page, straightened.
+ * expo-camera's plain viewfinder stays as the fallback everywhere else.
  */
 export default function CameraCapture() {
   const { colors, fonts } = useTheme()
@@ -23,21 +44,31 @@ export default function CameraCapture() {
   const { captureAndScan, isProcessing } = useOcr()
   const isFocused = useIsFocused()
   const [permission, requestPermission] = useCameraPermissions()
+  const frameTourRef = useTourTarget('camera-view')
+  const shutterTourRef = useTourTarget('shutter')
   const [guidanceMessage, setGuidanceMessage] = useState(
-    'កាមេរ៉ាត្រៀមរួចជាស្រេច។ សូមតម្រង់ទៅកាន់ឯកសារ។'
+    isDocCameraSupported ? SEARCHING_MESSAGE : 'កាមេរ៉ាត្រៀមរួចជាស្រេច។ សូមតម្រង់ទៅកាន់ឯកសារ។'
   )
   const [isCornerLocked, setIsCornerLocked] = useState(false)
   const [isCapturing, setIsCapturing] = useState(false)
+  // Set when our camera view can't start on this phone, which drops back to the plain camera
+  const [docCameraFailed, setDocCameraFailed] = useState(false)
+  const [outline, setOutline] = useState(null)
+  const [viewSize, setViewSize] = useState({ w: 0, h: 0 })
   const cameraRef = useRef(null)
+  const docRef = useRef(null)
+  const trackerRef = useRef(new DocumentTracker())
+  const steadyRef = useRef(false)
   const guidanceTimerRef = useRef(null)
 
   const styles = createStyles(colors)
   const isGranted = permission?.granted
+  const useDocCamera = isDocCameraSupported && !docCameraFailed
 
   // Simple camera framing & readiness cue (honest framing guidance, not
   // simulated AI detection) — ported from startGuidanceSimulation().
   useEffect(() => {
-    if (!isGranted || !isFocused) return
+    if (useDocCamera || !isGranted || !isFocused) return
 
     setGuidanceMessage('សូមតម្រង់កាមេរ៉ាទៅកាន់ឯកសារ...')
     setIsCornerLocked(false)
@@ -57,7 +88,15 @@ export default function CameraCapture() {
       if (guidanceTimerRef.current) clearInterval(guidanceTimerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGranted, isFocused])
+  }, [useDocCamera, isGranted, isFocused])
+
+  // Start every visit to the tab with no outline and nothing remembered about the last page
+  useEffect(() => {
+    trackerRef.current.reset()
+    steadyRef.current = false
+    setOutline(null)
+    setGuidanceMessage(SEARCHING_MESSAGE)
+  }, [isFocused])
 
   // The web app's startCamera() calls getUserMedia on mount, which is what
   // triggers the browser's permission prompt; do the same here so a fresh
@@ -90,6 +129,54 @@ export default function CameraCapture() {
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.92 })
       await captureAndScan({ uri: photo.uri, name: `scan_${Date.now()}.jpg`, mimeType: 'image/jpeg' })
+    } catch (e) {
+      console.warn('Capture error:', e)
+    } finally {
+      setIsCapturing(false)
+    }
+  }, [captureAndScan, isCapturing, isProcessing])
+
+  // A new brightness picture from the camera view: look for the page, steady the outline, and cue the user
+  // (haptic + the live-region banner a screen reader announces) when a page is lined up
+  const handleFrame = useCallback(
+    (event) => {
+      if (isProcessing) return
+      try {
+        const { width, height, data } = event.nativeEvent
+        const bin = globalThis.atob(data)
+        const luma = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) luma[i] = bin.charCodeAt(i)
+        const { corners, steady } = trackerRef.current.update(detectDocument(luma, width, height))
+        setOutline((prev) => (prev === null && corners === null ? prev : corners))
+        if (steady !== steadyRef.current) {
+          steadyRef.current = steady
+          setGuidanceMessage(steady ? FOUND_MESSAGE : SEARCHING_MESSAGE)
+          if (steady) triggerHaptic('light')
+        }
+      } catch (e) {
+        console.warn('Page detection error:', e)
+      }
+    },
+    [isProcessing, triggerHaptic]
+  )
+
+  const handleDocCameraError = useCallback((event) => {
+    console.warn('Document camera unavailable, using the plain camera:', event?.nativeEvent?.message)
+    setDocCameraFailed(true)
+  }, [])
+
+  const handleDocCapture = useCallback(async () => {
+    if (!docRef.current || isCapturing || isProcessing) return
+    setIsCapturing(true)
+    try {
+      const page = trackerRef.current.corners
+      const flat = page ? withMargin(page).flatMap((p) => [p.x, p.y]) : null
+      const { uri, fullUri } = await docRef.current.capture(flat)
+      const ok = await captureAndScan({ uri, name: `scan_${Date.now()}.jpg`, mimeType: 'image/jpeg' })
+      // The cut-out came back unreadable (a wrong outline can crop the text away): read the whole photo instead
+      if (ok === false && fullUri) {
+        await captureAndScan({ uri: fullUri, name: `scan_${Date.now()}.jpg`, mimeType: 'image/jpeg' })
+      }
     } catch (e) {
       console.warn('Capture error:', e)
     } finally {
@@ -157,8 +244,25 @@ export default function CameraCapture() {
   }
 
   return (
-    <View style={styles.frame}>
-      <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
+    <View ref={frameTourRef} collapsable={false} style={styles.frame} onLayout={(e) => setViewSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
+      {useDocCamera ? (
+        <DocCamera ref={docRef} style={StyleSheet.absoluteFill} onFrame={handleFrame} onError={handleDocCameraError} />
+      ) : (
+        <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" />
+      )}
+
+      {/* Red outline that follows the page found in the camera view */}
+      {useDocCamera && outline && viewSize.w > 0 && (
+        <Svg style={StyleSheet.absoluteFill} width={viewSize.w} height={viewSize.h} pointerEvents="none">
+          <Polygon
+            points={outline.map((p) => `${p.x * viewSize.w},${p.y * viewSize.h}`).join(' ')}
+            fill="none"
+            stroke={OUTLINE_COLOR}
+            strokeWidth={4}
+            strokeLinejoin="round"
+          />
+        </Svg>
+      )}
 
       {/* Guidance banner (no scan border: the whole viewfinder is captured) */}
       <View style={styles.guidanceBanner} accessibilityLiveRegion="assertive">
@@ -171,12 +275,13 @@ export default function CameraCapture() {
       {/* Circular iPhone-style shutter button */}
       <View style={styles.actionsDeck}>
         <AccessiblePressable
+          ref={shutterTourRef}
           style={styles.shutterButton}
           accessibilityLabel="ថតរូបភាពឯកសារ (Capture document)"
           disabled={isProcessing || isCapturing}
           speakOnPress={false}
           hapticIntensity="medium"
-          onPress={handleCapture}
+          onPress={useDocCamera ? handleDocCapture : handleCapture}
         >
           <View style={styles.shutterRing} />
         </AccessiblePressable>

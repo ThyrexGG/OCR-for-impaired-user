@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Haptics from 'expo-haptics'
 import { AccessibilityInfo, Platform, Vibration } from 'react-native'
 import { vibratePattern, playEffects, EFFECT } from '../services/nativeHaptics'
-import { setSpeechRate, speakNow, stopSpeaking } from '../services/talkback'
+import { setPhoneVoiceAllowed, setSpeechRate, speakNow, stopSpeaking } from '../services/talkback'
 import { TP } from '../services/talkPhrases'
 
 const STORAGE_KEYS = {
@@ -20,6 +20,7 @@ const STORAGE_KEYS = {
   azureVisionEndpoint: 'songkhem_azure_vision_endpoint',
   azureTtsKey: 'songkhem_azure_tts_key',
   azureTtsEndpoint: 'songkhem_azure_tts_endpoint',
+  appVoiceOnly: 'songkhem_app_voice_only',
 }
 
 const EMPTY_OCR_CONFIG = {
@@ -89,6 +90,7 @@ export function AppProvider({ children }) {
   const [prefsLoaded, setPrefsLoaded] = useState(false)
   const [isAutoReadEnabled, setIsAutoReadEnabled] = useState(true)
   const [isHapticsEnabled, setIsHapticsEnabled] = useState(true)
+  const [isAppVoiceOnly, setIsAppVoiceOnly] = useState(false)
   const [toasts, setToasts] = useState([])
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
@@ -105,6 +107,17 @@ export function AppProvider({ children }) {
   const isScreenReaderOnRef = useRef(false)
   useEffect(() => { isUiVoiceEnabledRef.current = isUiVoiceEnabled }, [isUiVoiceEnabled])
   useEffect(() => { isScreenReaderOnRef.current = isScreenReaderOn }, [isScreenReaderOn])
+
+  // Testing switch (off by default): speak everything in songKHEM's own voice, never the phone's, for phones
+  // whose Khmer voice is missing or broken. Also covers TalkBack / VoiceOver announcements.
+  const appVoiceOnlyRef = useRef(false)
+  useEffect(() => {
+    appVoiceOnlyRef.current = isAppVoiceOnly
+    setPhoneVoiceAllowed(!isAppVoiceOnly)
+  }, [isAppVoiceOnly])
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEYS.appVoiceOnly).then((v) => setIsAppVoiceOnly(v === 'true')).catch(() => {})
+  }, [])
 
   // The OS screen reader (TalkBack / VoiceOver) already speaks every control and does
   // its own touch exploration; running ours as well would double every sentence.
@@ -211,11 +224,11 @@ export function AppProvider({ children }) {
   const speakAccessibility = useCallback(
     (text, interrupt = true) => {
       if (!text) return
-      if (isScreenReaderOnRef.current) {
+      if (isScreenReaderOnRef.current && !appVoiceOnlyRef.current) {
         announceToScreenReader(Array.isArray(text) ? text.join('. ') : text)
         return
       }
-      if (!isUiVoiceEnabledRef.current) return
+      if (!isUiVoiceEnabledRef.current && !isScreenReaderOnRef.current) return
       speakNow(text, { interrupt })
     },
     [announceToScreenReader]
@@ -226,6 +239,10 @@ export function AppProvider({ children }) {
   const announce = useCallback(
     (text) => {
       if (!text) return
+      if (isScreenReaderOnRef.current && appVoiceOnlyRef.current) {
+        speakNow(text)
+        return
+      }
       if (isScreenReaderOnRef.current || !isUiVoiceEnabledRef.current) {
         announceToScreenReader(text)
         return
@@ -311,6 +328,15 @@ export function AppProvider({ children }) {
     })
   }, [speakAccessibility, testHaptics])
 
+  const toggleAppVoiceOnly = useCallback(() => {
+    setIsAppVoiceOnly((prev) => {
+      const next = !prev
+      AsyncStorage.setItem(STORAGE_KEYS.appVoiceOnly, next ? 'true' : 'false').catch(() => {})
+      triggerHaptic('light')
+      return next
+    })
+  }, [triggerHaptic])
+
   const saveOcrConfig = useCallback(
     (next) => {
       setOcrConfig(next)
@@ -382,6 +408,7 @@ export function AppProvider({ children }) {
       prefsLoaded,
       isAutoReadEnabled,
       isHapticsEnabled,
+      isAppVoiceOnly,
       toasts,
       isSettingsOpen,
       isHelpOpen,
@@ -403,6 +430,7 @@ export function AppProvider({ children }) {
       openHelp,
       closeHelp,
       saveOcrConfig,
+      toggleAppVoiceOnly,
     }),
     [
       isTalkbackActive,
@@ -414,6 +442,7 @@ export function AppProvider({ children }) {
       prefsLoaded,
       isAutoReadEnabled,
       isHapticsEnabled,
+      isAppVoiceOnly,
       toasts,
       isSettingsOpen,
       isHelpOpen,
@@ -435,6 +464,7 @@ export function AppProvider({ children }) {
       openHelp,
       closeHelp,
       saveOcrConfig,
+      toggleAppVoiceOnly,
     ]
   )
 

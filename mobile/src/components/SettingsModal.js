@@ -70,6 +70,8 @@ export default function SettingsModal() {
     toggleAutoRead,
     isHapticsEnabled,
     toggleHaptics,
+    isAppVoiceOnly,
+    toggleAppVoiceOnly,
     testHaptics,
     ocrConfig,
     saveOcrConfig,
@@ -205,6 +207,14 @@ export default function SettingsModal() {
                 </SettingItem>
                 <SettingItem title="អានស្វ័យប្រវត្តិ (Auto-Read After Scan)" desc="ចាប់ផ្តើមអានជាសំឡេងភ្លាមៗបន្ទាប់ពីស្កេនឯកសាររួច" fonts={fonts} row>
                   <AccessibleSwitch value={isAutoReadEnabled} onValueChange={toggleAutoRead} accessibilityLabel="បើកបិទការអានស្វ័យប្រវត្តិ" />
+                </SettingItem>
+                <SettingItem
+                  title="ប្រើតែសំឡេង songKHEM (សម្រាប់សាកល្បង)"
+                  desc="បើកពេលសំឡេងរបស់ទូរស័ព្ទមិនអានភាសាខ្មែរ ឬអានមិនត្រឹមត្រូវ។ កម្មវិធីនឹងនិយាយដោយសំឡេង songKHEM ជានិច្ច សូម្បីពេលបើក TalkBack ក៏ដោយ (ត្រូវការអ៊ីនធឺណិត)"
+                  fonts={fonts}
+                  row
+                >
+                  <AccessibleSwitch value={isAppVoiceOnly} onValueChange={toggleAppVoiceOnly} accessibilityLabel="ប្រើតែសំឡេង songKHEM" />
                 </SettingItem>
                 <SettingItem
                   title="សំឡេងខ្មែរ Neural កម្រិតខ្ពស់ (Azure Speech - ស្រេចចិត្ត)"

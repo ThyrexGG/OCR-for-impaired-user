@@ -3,6 +3,7 @@ import { HelpCircle, Languages, Settings } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useApp } from '../context/AppContext'
 import AccessiblePressable from './AccessiblePressable'
+import { useTourTarget } from '../context/TourContext'
 
 /**
  * The web app's header (App.vue `.assistive-header`) at phone width: logo tile +
@@ -12,6 +13,9 @@ export default function AppHeader() {
   const { colors, fonts, currentTheme } = useTheme()
   const { openHelp, openSettings, addToast, triggerHaptic } = useApp()
   const s = colors.surfaces
+  const langRef = useTourTarget('lang')
+  const helpRef = useTourTarget('help')
+  const settingsRef = useTourTarget('settings')
   const styles = createStyles(colors, currentTheme)
 
   const handleToggleLang = () => {
@@ -34,13 +38,14 @@ export default function AppHeader() {
           accessibilityLabel="ភាសាបច្ចុប្បន្ន៖ ខ្មែរ (ចុចដើម្បីប្តូរទៅ English)"
           speakOnPress={false}
           onPress={handleToggleLang}
+          ref={langRef}
         >
           <Languages size={20} color={s.onSurface} />
         </AccessiblePressable>
-        <AccessiblePressable style={styles.roundBtn} accessibilityLabel="របៀបប្រើប្រាស់ (Help / How to Use)" speakOnPress={false} onPress={openHelp}>
+        <AccessiblePressable style={styles.roundBtn} accessibilityLabel="របៀបប្រើប្រាស់ (Help / How to Use)" speakOnPress={false} onPress={openHelp} ref={helpRef}>
           <HelpCircle size={20} color={s.onSurface} />
         </AccessiblePressable>
-        <AccessiblePressable style={styles.roundBtn} accessibilityLabel="បើកការកំណត់លទ្ធភាពប្រើប្រាស់ (Settings)" speakOnPress={false} onPress={openSettings}>
+        <AccessiblePressable style={styles.roundBtn} accessibilityLabel="បើកការកំណត់លទ្ធភាពប្រើប្រាស់ (Settings)" speakOnPress={false} onPress={openSettings} ref={settingsRef}>
           <Settings size={20} color={s.onSurface} />
         </AccessiblePressable>
       </View>
