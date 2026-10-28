@@ -13,13 +13,24 @@ import NeoButton from './NeoButton'
 import { TP } from '../services/talkPhrases'
 import { DocCamera, isDocCameraSupported } from '../services/nativeDocCamera'
 import { useTourTarget } from '../context/TourContext'
-import { DocumentTracker, detectDocument } from '../utils/documentDetector'
+import { DocumentTracker, assessFraming, detectDocument } from '../utils/documentDetector'
 
 const SEARCHING_MESSAGE = 'សូមតម្រង់កាមេរ៉ាទៅកាន់ឯកសារ...'
-const FOUND_MESSAGE = 'ឃើញឯកសារហើយ សូមចុចថត'
+const FOUND_MESSAGE = 'ឃើញឯកសារពេញលេញ សូមកាន់ឱ្យនឹង ហើយចុចថត'
+// Spoken directions (relative to the page, so they make sense with the phone held flat over it)
+const HINT_MESSAGES = {
+  left: 'មិនឃើញគែមខាងឆ្វេងនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅឆ្វេងបន្តិច',
+  right: 'មិនឃើញគែមខាងស្តាំនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅស្តាំបន្តិច',
+  up: 'មិនឃើញគែមខាងលើនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅខាងលើឯកសារបន្តិច',
+  down: 'មិនឃើញគែមខាងក្រោមនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅខាងក្រោមឯកសារបន្តិច',
+  further: 'ឯកសារធំជាងរូបភាព សូមលើកទូរស័ព្ទឱ្យខ្ពស់ជាងនេះ',
+  closer: 'ឯកសារនៅឆ្ងាយពេក សូមដាក់ទូរស័ព្ទឱ្យជិតឯកសារជាងនេះ',
+}
+const SAY_AGAIN_MS = 4000 // the same direction is not repeated sooner than this
+const FRAMES_TO_CHANGE = 2 // a new state must hold this many frames (~0.2s) before it is announced
 const OUTLINE_COLOR = '#EF4444'
-// The detected outline is a touch tight; cut slightly outside it so the page's edge text is never clipped
-const CROP_MARGIN = 1.03
+// The detected outline can sit a little inside the paper; cut well outside it so edge text is never clipped
+const CROP_MARGIN = 1.06
 
 const withMargin = (corners) => {
   const cx = corners.reduce((sum, p) => sum + p.x, 0) / 4
@@ -58,7 +69,8 @@ export default function CameraCapture() {
   const cameraRef = useRef(null)
   const docRef = useRef(null)
   const trackerRef = useRef(new DocumentTracker())
-  const steadyRef = useRef(false)
+  // What the user was last told: 'search' | 'found' | a HINT_MESSAGES key
+  const framingRef = useRef({ key: 'search', candidate: null, count: 0, spokenAt: {} })
   const guidanceTimerRef = useRef(null)
 
   const styles = createStyles(colors)
@@ -94,7 +106,7 @@ export default function CameraCapture() {
   // Start every visit to the tab with no outline and nothing remembered about the last page
   useEffect(() => {
     trackerRef.current.reset()
-    steadyRef.current = false
+    framingRef.current = { key: 'search', candidate: null, count: 0, spokenAt: {} }
     setOutline(null)
     setGuidanceMessage(SEARCHING_MESSAGE)
   }, [isFocused])
@@ -149,16 +161,33 @@ export default function CameraCapture() {
         for (let i = 0; i < bin.length; i++) luma[i] = bin.charCodeAt(i)
         const { corners, steady } = trackerRef.current.update(detectDocument(luma, width, height))
         setOutline((prev) => (prev === null && corners === null ? prev : corners))
-        if (steady !== steadyRef.current) {
-          steadyRef.current = steady
-          setGuidanceMessage(steady ? FOUND_MESSAGE : SEARCHING_MESSAGE)
-          if (steady) triggerHaptic('light')
+
+        // Tell the user how to move until the whole page is in view; only then say it is ready
+        const { cropSafe, hint } = assessFraming(corners)
+        const f = framingRef.current
+        const key = !corners ? 'search' : hint || (steady && cropSafe ? 'found' : f.key)
+        if (key === f.key) {
+          f.candidate = null
+        } else if (key === f.candidate && ++f.count >= FRAMES_TO_CHANGE) {
+          f.key = key
+          f.candidate = null
+          const message = key === 'search' ? SEARCHING_MESSAGE : key === 'found' ? FOUND_MESSAGE : HINT_MESSAGES[key]
+          setGuidanceMessage(message)
+          triggerHaptic(key === 'found' ? 'success' : key === 'search' ? 'selection' : 'light')
+          const now = Date.now()
+          if (now - (f.spokenAt[key] || 0) > SAY_AGAIN_MS) {
+            f.spokenAt[key] = now
+            speakAccessibility(message)
+          }
+        } else if (key !== f.candidate) {
+          f.candidate = key
+          f.count = 1
         }
       } catch (e) {
         console.warn('Page detection error:', e)
       }
     },
-    [isProcessing, triggerHaptic]
+    [isProcessing, triggerHaptic, speakAccessibility]
   )
 
   const handleDocCameraError = useCallback((event) => {
@@ -170,8 +199,11 @@ export default function CameraCapture() {
     if (!docRef.current || isCapturing || isProcessing) return
     setIsCapturing(true)
     try {
+      // Cut down to the page only when the whole page is steady and clearly inside the picture; otherwise keep the
+      // whole photo, so no text can be cut away
       const page = trackerRef.current.corners
-      const flat = page ? withMargin(page).flatMap((p) => [p.x, p.y]) : null
+      const safe = page && framingRef.current.key === 'found' && assessFraming(page).cropSafe
+      const flat = safe ? withMargin(page).flatMap((p) => [p.x, p.y]) : null
       const { uri, fullUri } = await docRef.current.capture(flat)
       const ok = await captureAndScan({ uri, name: `scan_${Date.now()}.jpg`, mimeType: 'image/jpeg' })
       // The cut-out came back unreadable (a wrong outline can crop the text away): read the whole photo instead
@@ -267,7 +299,10 @@ export default function CameraCapture() {
 
       {/* Guidance chip (DocumentUploader.css .guidance-banner): a centred pill, one line */}
       <View style={styles.guidanceWrap} pointerEvents="none">
-        <View style={[styles.guidanceBanner, isContrast && styles.guidanceBannerContrast]} accessibilityLiveRegion="assertive">
+        <View
+          style={[styles.guidanceBanner, isContrast && styles.guidanceBannerContrast]}
+          accessibilityLiveRegion={useDocCamera ? 'none' : 'assertive'}
+        >
           <View style={styles.guidancePulseIcon}>
             <Scan size={18} color={isContrast ? '#FFFF00' : '#A8C7FA'} />
           </View>

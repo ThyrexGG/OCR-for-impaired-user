@@ -8,7 +8,7 @@ import { t, currentLang } from '../services/i18n'
 import { haptics } from '../services/haptics'
 import { sampleLibrary } from '../services/sampleDocs'
 import { tp } from '../services/talkback'
-import { DocumentTracker, detectDocument } from '../utils/documentDetector'
+import { DocumentTracker, assessFraming, detectDocument } from '../utils/documentDetector'
 import { cropPageFromCanvas, withMargin } from '../utils/perspectiveCrop'
 
 const props = defineProps({
@@ -141,7 +141,24 @@ const visibleRect = (video) => {
   return { sx: Math.round((vw - sw) / 2), sy: Math.round((vh - sh) / 2), sw, sh }
 }
 
-const pageFoundMessage = () => (currentLang.value === 'km' ? 'ឃើញឯកសារហើយ សូមចុចថត' : 'Document found: press capture')
+const pageFoundMessage = () =>
+  currentLang.value === 'km' ? 'ឃើញឯកសារពេញលេញ សូមកាន់ឱ្យនឹង ហើយចុចថត' : 'Whole page in view: hold steady and press capture'
+
+// Spoken directions until the whole page is in view (relative to the page, as the phone is held flat over it)
+const FRAMING_HINTS = {
+  left: ['មិនឃើញគែមខាងឆ្វេងនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅឆ្វេងបន្តិច', 'Left edge of the page is cut off: move the phone a little left'],
+  right: ['មិនឃើញគែមខាងស្តាំនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅស្តាំបន្តិច', 'Right edge of the page is cut off: move the phone a little right'],
+  up: ['មិនឃើញគែមខាងលើនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅខាងលើឯកសារបន្តិច', 'Top of the page is cut off: move the phone toward the top of the page'],
+  down: ['មិនឃើញគែមខាងក្រោមនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅខាងក្រោមឯកសារបន្តិច', 'Bottom of the page is cut off: move the phone toward the bottom of the page'],
+  further: ['ឯកសារធំជាងរូបភាព សូមលើកទូរស័ព្ទឱ្យខ្ពស់ជាងនេះ', 'The page is bigger than the picture: lift the phone higher'],
+  closer: ['ឯកសារនៅឆ្ងាយពេក សូមដាក់ទូរស័ព្ទឱ្យជិតឯកសារជាងនេះ', 'The page is too far away: bring the phone closer'],
+}
+const framingMessage = (key) =>
+  key === 'found' ? pageFoundMessage() : key === 'search' ? t('alignCameraPrompt') : FRAMING_HINTS[key][currentLang.value === 'km' ? 0 : 1]
+const FRAMES_TO_CHANGE = 2 // a new state must hold ~0.2s before it is announced
+let framingKey = 'search'
+let framingCandidate = null
+let framingCount = 0
 
 const detectPage = () => {
   const v = videoRef.value
@@ -155,17 +172,23 @@ const detectPage = () => {
     for (let i = 0; i < luma.length; i++) luma[i] = (rgba[i * 4] * 77 + rgba[i * 4 + 1] * 150 + rgba[i * 4 + 2] * 29) >> 8
     const { corners, steady } = pageTracker.update(detectDocument(luma, GRID_W, GRID_H))
     pageOutline.value = corners
-    if (steady !== pageSteady.value) {
-      pageSteady.value = steady
-      if (steady) {
-        guidanceState.value = 'detected'
-        guidanceMessage.value = pageFoundMessage()
-        triggerHaptic([40, 30])
-        sayGuidance('found', pageFoundMessage())
-      } else {
-        guidanceState.value = 'position'
-        guidanceMessage.value = t('alignCameraPrompt')
-      }
+
+    // Tell the user how to move until the whole page is in view; only then say it is ready
+    const { cropSafe, hint } = assessFraming(corners)
+    const key = !corners ? 'search' : hint || (steady && cropSafe ? 'found' : framingKey)
+    if (key === framingKey) {
+      framingCandidate = null
+    } else if (key === framingCandidate && ++framingCount >= FRAMES_TO_CHANGE) {
+      framingKey = key
+      framingCandidate = null
+      pageSteady.value = key === 'found'
+      guidanceState.value = key === 'found' ? 'detected' : 'position'
+      guidanceMessage.value = framingMessage(key)
+      triggerHaptic(key === 'found' ? [40, 30, 40] : [25])
+      if (key !== 'search') sayGuidance(key, framingMessage(key))
+    } else if (key !== framingCandidate) {
+      framingCandidate = key
+      framingCount = 1
     }
   } catch (e) {
     // A frame that can't be read (camera still starting) is simply skipped
@@ -183,6 +206,8 @@ function stopPageDetection() {
   pageTracker.reset()
   pageOutline.value = null
   pageSteady.value = false
+  framingKey = 'search'
+  framingCandidate = null
 }
 
 // Real Camera Luminosity & Framing Assistance for Visually Impaired Users
@@ -247,12 +272,13 @@ const startGuidanceSimulation = () => {
             : 'Too much glare. Please tilt camera slightly'
           guidanceMessage.value = msg
           if (checks % 3 === 0 && sayGuidance('glare', msg)) triggerHaptic([60, 40, 60])
-        } else if (!pageSteady.value) {
+        } else if (framingKey === 'search') {
           guidanceState.value = 'ready'
           guidanceMessage.value = t('alignCameraPrompt')
           sayGuidance('ready', t('alignCameraPrompt'))
         } else {
-          guidanceMessage.value = pageFoundMessage()
+          // Lighting is fine and a page is in view: the page detector's direction (or 'ready') stays on screen
+          guidanceMessage.value = framingMessage(framingKey)
         }
       }
     } catch (e) {
@@ -297,9 +323,10 @@ const captureAndScan = () => {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
   }
 
-  // A page has been lined up steadily: keep just the page, straightened (like the phone app)
+  // Cut down to the page only when the whole page is steady and clearly inside the picture (like the phone app);
+  // otherwise keep the whole picture, so no text can be cut away
   let shot = canvas
-  if (pageSteady.value && pageTracker.corners) {
+  if (pageSteady.value && pageTracker.corners && assessFraming(pageTracker.corners).cropSafe) {
     try {
       shot = cropPageFromCanvas(canvas, withMargin(pageTracker.corners))
     } catch (e) {

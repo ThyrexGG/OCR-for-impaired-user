@@ -296,3 +296,39 @@ export class DocumentTracker {
     return { corners: this.corners, steady: this.corners !== null && this.seen >= 3 }
   }
 }
+
+// ---- Framing: is the whole page in view, and if not, which way should the phone move? ----
+// Cutting the photo down to the page is only safe when the whole page is clearly inside the picture; anything
+// else would risk cutting text away, so the camera then keeps the whole photo and tells the user how to move.
+const EDGE_MARGIN = 0.03 // a corner closer than this to the picture's edge means the page may run off it
+const MIN_CROP_AREA = 0.12 // smaller: ask to come closer (the text would be tiny), and don't crop
+const MAX_CROP_AREA = 0.9 // bigger: the page nearly fills the picture, cropping gains nothing
+
+/**
+ * @param {{x:number,y:number}[] | null} corners page corners (0..1 fractions), top-left clockwise
+ * @returns {{ cropSafe: boolean, hint: null | 'left' | 'right' | 'up' | 'down' | 'further' | 'closer' }}
+ *   hint: which way to move the phone so the whole page is in view and big enough (null = it is)
+ */
+export function assessFraming(corners) {
+  if (!corners || corners.length !== 4) return { cropSafe: false, hint: null }
+  const xs = corners.map((p) => p.x)
+  const ys = corners.map((p) => p.y)
+  const cut = {
+    left: Math.min(...xs) < EDGE_MARGIN,
+    right: Math.max(...xs) > 1 - EDGE_MARGIN,
+    up: Math.min(...ys) < EDGE_MARGIN,
+    down: Math.max(...ys) > 1 - EDGE_MARGIN,
+  }
+  const sides = Object.keys(cut).filter((k) => cut[k])
+  const area = polygonArea(corners.map((p) => [p.x, p.y]))
+  // Running off two opposite sides (or more than two) means the phone is too close to fit the page
+  const hint =
+    sides.length > 2 || (cut.left && cut.right) || (cut.up && cut.down)
+      ? 'further'
+      : sides.length > 0
+        ? sides[0]
+        : area < MIN_CROP_AREA
+          ? 'closer'
+          : null
+  return { cropSafe: sides.length === 0 && area >= MIN_CROP_AREA && area <= MAX_CROP_AREA, hint }
+}

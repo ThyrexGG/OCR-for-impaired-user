@@ -4,8 +4,8 @@
  * native crop (DocCameraView.kt), used on the camera snapshot before it is sent to OCR.
  */
 
-// A slightly larger cut than the outline, so text right at the page's edge is never clipped
-export const CROP_MARGIN = 1.03
+// The outline can sit a little inside the paper: cut well outside it, so text at the page's edge is never clipped
+export const CROP_MARGIN = 1.06
 
 export const withMargin = (corners, margin = CROP_MARGIN) => {
   const cx = corners.reduce((sum, p) => sum + p.x, 0) / 4

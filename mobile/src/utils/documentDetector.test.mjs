@@ -1,7 +1,7 @@
 // Run with: node mobile/src/utils/documentDetector.test.mjs
 // Checks the page finder on synthetic brightness pictures (the same 72x96 grid the camera view streams).
 import assert from 'node:assert/strict'
-import { detectDocument, DocumentTracker } from './documentDetector.js'
+import { assessFraming, detectDocument, DocumentTracker } from './documentDetector.js'
 
 const W = 72, H = 96
 let seed = 7
@@ -54,5 +54,17 @@ const seen = [1, 2, 3, 4].map(() => tracker.update(page))
 assert.ok(seen[3].corners && seen[3].steady, 'tracker should show a steady outline after repeated sightings')
 const gone = [1, 2, 3, 4].map(() => tracker.update(null))
 assert.equal(gone[3].corners, null, 'tracker should drop the outline after the page is lost')
+
+// Framing: crop only when the whole page is well inside the picture, otherwise say which way to move
+const quad = (x0, y0, x1, y1) => [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }]
+assert.deepEqual(assessFraming(quad(0.15, 0.1, 0.85, 0.9)), { cropSafe: true, hint: null })
+assert.deepEqual(assessFraming(quad(0.0, 0.1, 0.7, 0.9)), { cropSafe: false, hint: 'left' })
+assert.deepEqual(assessFraming(quad(0.3, 0.1, 0.995, 0.9)), { cropSafe: false, hint: 'right' })
+assert.deepEqual(assessFraming(quad(0.2, 0.01, 0.8, 0.8)), { cropSafe: false, hint: 'up' })
+assert.deepEqual(assessFraming(quad(0.2, 0.2, 0.8, 0.99)), { cropSafe: false, hint: 'down' })
+assert.deepEqual(assessFraming(quad(0.0, 0.1, 1.0, 0.9)), { cropSafe: false, hint: 'further' })
+assert.deepEqual(assessFraming(quad(0.4, 0.4, 0.6, 0.6)), { cropSafe: false, hint: 'closer' })
+assert.deepEqual(assessFraming([{ x: 0.3, y: 0.08 }, { x: 0.92, y: 0.3 }, { x: 0.7, y: 0.92 }, { x: 0.08, y: 0.7 }]), { cropSafe: true, hint: null }, 'a tilted page fully in view is safe to crop')
+assert.deepEqual(assessFraming(null), { cropSafe: false, hint: null })
 
 console.log('documentDetector: all checks passed')
