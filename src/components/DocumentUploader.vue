@@ -8,6 +8,8 @@ import { t, currentLang } from '../services/i18n'
 import { haptics } from '../services/haptics'
 import { sampleLibrary } from '../services/sampleDocs'
 import { tp } from '../services/talkback'
+import { DocumentTracker, detectDocument } from '../utils/documentDetector'
+import { cropPageFromCanvas, withMargin } from '../utils/perspectiveCrop'
 
 const props = defineProps({
   isProcessing: {
@@ -109,6 +111,78 @@ const stopCamera = () => {
     clearInterval(guidanceTimer)
     guidanceTimer = null
   }
+  stopPageDetection()
+}
+
+// --- Page outline (same detector as the phone app): a red line that follows the page in the live picture ---
+const GRID_W = 72
+const GRID_H = 96
+const DETECT_INTERVAL_MS = 110
+const OUTLINE_COLOR = '#EF4444'
+const pageOutline = ref(null) // 4 corners as 0..1 fractions of the viewfinder, or null
+const pageSteady = ref(false)
+const pageTracker = new DocumentTracker()
+const detectCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
+if (detectCanvas) {
+  detectCanvas.width = GRID_W
+  detectCanvas.height = GRID_H
+}
+let detectTimer = null
+
+// The part of the sensor frame the viewfinder shows (the <video> is object-fit: cover)
+const visibleRect = (video) => {
+  const vw = video.videoWidth
+  const vh = video.videoHeight
+  const box = video.getBoundingClientRect()
+  if (!box.width || !box.height) return { sx: 0, sy: 0, sw: vw, sh: vh }
+  const scale = Math.max(box.width / vw, box.height / vh)
+  const sw = Math.min(vw, Math.round(box.width / scale))
+  const sh = Math.min(vh, Math.round(box.height / scale))
+  return { sx: Math.round((vw - sw) / 2), sy: Math.round((vh - sh) / 2), sw, sh }
+}
+
+const pageFoundMessage = () => (currentLang.value === 'km' ? 'ឃើញឯកសារហើយ សូមចុចថត' : 'Document found: press capture')
+
+const detectPage = () => {
+  const v = videoRef.value
+  if (!v || !detectCanvas || v.readyState < 2 || !v.videoWidth || props.isProcessing || selectedFile.value) return
+  try {
+    const r = visibleRect(v)
+    const ctx = detectCanvas.getContext('2d', { willReadFrequently: true })
+    ctx.drawImage(v, r.sx, r.sy, r.sw, r.sh, 0, 0, GRID_W, GRID_H)
+    const rgba = ctx.getImageData(0, 0, GRID_W, GRID_H).data
+    const luma = new Uint8Array(GRID_W * GRID_H)
+    for (let i = 0; i < luma.length; i++) luma[i] = (rgba[i * 4] * 77 + rgba[i * 4 + 1] * 150 + rgba[i * 4 + 2] * 29) >> 8
+    const { corners, steady } = pageTracker.update(detectDocument(luma, GRID_W, GRID_H))
+    pageOutline.value = corners
+    if (steady !== pageSteady.value) {
+      pageSteady.value = steady
+      if (steady) {
+        guidanceState.value = 'detected'
+        guidanceMessage.value = pageFoundMessage()
+        triggerHaptic([40, 30])
+        sayGuidance('found', pageFoundMessage())
+      } else {
+        guidanceState.value = 'position'
+        guidanceMessage.value = t('alignCameraPrompt')
+      }
+    }
+  } catch (e) {
+    // A frame that can't be read (camera still starting) is simply skipped
+  }
+}
+
+const startPageDetection = () => {
+  stopPageDetection()
+  detectTimer = setInterval(detectPage, DETECT_INTERVAL_MS)
+}
+
+function stopPageDetection() {
+  if (detectTimer) clearInterval(detectTimer)
+  detectTimer = null
+  pageTracker.reset()
+  pageOutline.value = null
+  pageSteady.value = false
 }
 
 // Real Camera Luminosity & Framing Assistance for Visually Impaired Users
@@ -138,6 +212,7 @@ const startGuidanceSimulation = () => {
   guidanceState.value = 'position'
   guidanceMessage.value = t('alignCameraPrompt')
   lastSpokenGuidance = ''
+  startPageDetection()
   
   let checks = 0
   guidanceTimer = setInterval(() => {
@@ -172,10 +247,12 @@ const startGuidanceSimulation = () => {
             : 'Too much glare. Please tilt camera slightly'
           guidanceMessage.value = msg
           if (checks % 3 === 0 && sayGuidance('glare', msg)) triggerHaptic([60, 40, 60])
-        } else {
+        } else if (!pageSteady.value) {
           guidanceState.value = 'ready'
-          guidanceMessage.value = t('cameraReadyCapture')
-          if (sayGuidance('ready', t('cameraReadyCapture'))) triggerHaptic([40, 30])
+          guidanceMessage.value = t('alignCameraPrompt')
+          sayGuidance('ready', t('alignCameraPrompt'))
+        } else {
+          guidanceMessage.value = pageFoundMessage()
         }
       }
     } catch (e) {
@@ -220,7 +297,17 @@ const captureAndScan = () => {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
   }
 
-  canvas.toBlob((blob) => {
+  // A page has been lined up steadily: keep just the page, straightened (like the phone app)
+  let shot = canvas
+  if (pageSteady.value && pageTracker.corners) {
+    try {
+      shot = cropPageFromCanvas(canvas, withMargin(pageTracker.corners))
+    } catch (e) {
+      console.warn('Page crop failed, using the whole picture:', e)
+    }
+  }
+
+  shot.toBlob((blob) => {
     if (blob) {
       const file = new File([blob], `scan_${Date.now()}.jpg`, { type: 'image/jpeg' })
       selectedFile.value = file
@@ -345,6 +432,18 @@ onBeforeUnmount(() => {
         <div class="viewfinder-frame">
           <video ref="videoRef" autoplay playsinline class="live-video-stream"></video>
           <canvas ref="canvasRef" style="display: none;"></canvas>
+
+          <!-- Red outline that follows the page found in the live picture -->
+          <svg v-if="pageOutline" class="page-outline" viewBox="0 0 1 1" preserveAspectRatio="none" aria-hidden="true">
+            <polygon
+              :points="pageOutline.map((p) => `${p.x},${p.y}`).join(' ')"
+              fill="none"
+              :stroke="OUTLINE_COLOR"
+              stroke-width="4"
+              stroke-linejoin="round"
+              vector-effect="non-scaling-stroke"
+            />
+          </svg>
 
           <!-- Conversational Spoken Guidance Overlay Banner (near the top, out of the shutter's way) -->
           <div class="guidance-banner khmer-font" role="status" aria-live="assertive">

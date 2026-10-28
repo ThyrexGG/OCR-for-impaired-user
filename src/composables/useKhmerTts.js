@@ -153,9 +153,14 @@ export function useKhmerTts({ getText, activeWordIndex }) {
   const setVoice = (name) => {
     if (!KHMER_VOICES.some(v => v.name === name)) return
     const wasActive = isSpeaking.value || isPaused.value
+    const from = Math.max(0, activeWordIndex.value)
     selectedVoiceName.value = name
     safeSet(VOICE_STORAGE_KEY, name)
-    if (wasActive) stop()
+    // Heard straight away: carry on from the same word in the new voice
+    if (wasActive) {
+      stop()
+      start(from)
+    }
   }
 
   const setAssistivePacing = (on) => {
