@@ -15,8 +15,9 @@ const MAX_BASE64_LENGTH = 4_200_000
 
 // Every call costs money upstream, so cap each caller. This is per warm function instance (it is not shared
 // across instances), so it only blunts casual abuse; a Vercel firewall rate-limit rule is the real guard.
+// Generous on purpose: testers on one Wi-Fi share a single public IP.
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
-const MAX_REQUESTS_PER_WINDOW = 20
+const MAX_REQUESTS_PER_WINDOW = 60
 const callers = new Map()
 
 export default async function handler(req, res) {
