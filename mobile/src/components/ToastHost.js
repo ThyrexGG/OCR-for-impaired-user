@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { AlertCircle, CheckCircle2, Info, RotateCcw, X, Zap } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useApp } from '../context/AppContext'
 import AccessiblePressable from './AccessiblePressable'
+import { navigationRef } from '../navigation/navigationRef'
 
 const ICONS = { cache: Zap, success: CheckCircle2, warning: AlertCircle, info: Info }
 const ICON_COLOR_KEY = { cache: 'accent', success: 'success', warning: 'warning', info: 'info' }
@@ -17,11 +19,17 @@ export default function ToastHost() {
   const { toasts, dismissToast } = useApp()
   const insets = useSafeAreaInsets()
   const styles = createStyles(colors)
+  // The reader has a taller player bar than the tab bar: keep toasts above it, off the progress bar and buttons
+  const [onReader, setOnReader] = useState(false)
+  useEffect(
+    () => navigationRef.addListener('state', () => setOnReader(navigationRef.getCurrentRoute()?.name === 'Reader')),
+    []
+  )
 
   if (toasts.length === 0) return null
 
   return (
-    <View style={[styles.container, { bottom: 84 + insets.bottom }]} pointerEvents="box-none">
+    <View style={[styles.container, { bottom: (onReader ? 210 : 84) + insets.bottom }]} pointerEvents="box-none">
       {toasts.map((t) => {
         const Icon = ICONS[t.type] || Info
         const iconColor = t.type === 'warning' ? '#F59E0B' : t.type === 'info' ? '#60A5FA' : t.type === 'success' ? colors.success : colors.accent

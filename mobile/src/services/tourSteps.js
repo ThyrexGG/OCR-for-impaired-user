@@ -1,4 +1,4 @@
-import { BookOpen, Camera, Fingerprint, HelpCircle, History, Languages, Play, Settings, Sparkles, Trash2, Upload, Volume2 } from 'lucide-react-native'
+import { BookOpen, Camera, Fingerprint, HelpCircle, History, Languages, Play, Settings, Sliders, Sparkles, Trash2, Upload, Volume2 } from 'lucide-react-native'
 
 /**
  * The guided tour, in order. Each step points at one control: `target` is the id that control
@@ -143,8 +143,8 @@ export const TOUR_STEPS = [
     Icon: Fingerprint,
     titleKm: 'មុខងារបន្ថែម',
     titleEn: 'Extra actions',
-    descKm: 'ចុចប៊ូតុងនេះដើម្បីសង្ខេបខ្លឹមសារ ឬចម្លងអត្ថបទយ៉ាងរហ័ស។',
-    descEn: 'Tap this button to summarise the document or copy its text.',
+    descKm: 'សង្កត់ប៊ូតុងនេះឱ្យជាប់ ដើម្បីបើកមុខងារសង្ខេបខ្លឹមសារ ឬចម្លងអត្ថបទ។',
+    descEn: 'Press and hold this button to summarise the document or copy its text.',
   },
   {
     id: 'history-row',
@@ -182,9 +182,13 @@ export const TOUR_STEPS = [
   },
 ]
 
+// First-launch welcome, word for word the website's WelcomeOverlay.vue
 export const TOUR_OFFER = {
-  titleKm: 'ចង់មើលការណែនាំជាជំហានៗទេ?',
-  titleEn: 'Want a quick guided tour?',
-  descKm: 'ការណែនាំខ្លីនេះបង្ហាញមុខងារសំខាន់ៗ ម្តងមួយៗ។ អ្នកអាចរំលង ឬមើលម្តងទៀតពីប៊ូតុង ? នៅខាងលើ។',
-  descEn: 'This short tour shows the main features one at a time. You can skip it, or replay it from the ? button at the top.',
+  titleKm: 'សូមស្វាគមន៍មកកាន់ SongKhem',
+  descKm: 'ស្កេន និងស្តាប់ការអានឯកសារជាភាសាខ្មែរ ដោយផ្ទាល់ពីកាមេរ៉ារបស់អ្នក។',
+  features: [
+    { Icon: Camera, titleKm: 'ស្កេនឯកសារ', descKm: 'ប្រើកាមេរ៉ា ឬផ្ទុកឯកសារឡើងដើម្បីបំប្លែងជាសំឡេង' },
+    { Icon: BookOpen, titleKm: 'អានតាមពាក្យ', descKm: 'បន្លិចពាក្យតាមចង្វាក់សំឡេង និងឧបករណ៍បញ្ជា' },
+    { Icon: Sliders, titleKm: 'ជំនួយការប្រើប្រាស់', descKm: 'កម្រិតពណ៌ខ្ពស់ អក្សរធំ និងបញ្ជាដោយសំឡេង' },
+  ],
 }

@@ -1,7 +1,8 @@
+// Kept identical to src/utils/documentDetector.js (the website's copy): fix both together.
 /**
  * Finds a page in a small greyscale picture of the camera view, for the red outline drawn around it.
  *
- * The native camera view hands over a ~72x96 brightness grid (not the full frame: this runs several times a
+ * The camera view (native view in the app, the <video> on the website) hands over a ~72x96 brightness grid (not the full frame: this runs several times a
  * second). A page is the biggest blob that is clearly brighter, or darker, than what surrounds it, so the
  * picture is split in two with Otsu's threshold, each side is cut into connected blobs, and the blob whose
  * outline is closest to a four-cornered shape wins. Everything is in grid cells, results are 0..1 fractions

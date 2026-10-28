@@ -10,6 +10,7 @@ import SettingsModal from '../components/SettingsModal'
 import HelpModal from '../components/HelpModal'
 import TourOverlay from '../components/TourOverlay'
 import { useTour, useTourTarget } from '../context/TourContext'
+import { shellFor } from '../theme/shell'
 import CameraScreen from '../screens/CameraScreen'
 import UploadScreen from '../screens/UploadScreen'
 import ReaderScreen from '../screens/ReaderScreen'
@@ -22,9 +23,9 @@ const Tab = createBottomTabNavigator()
 const TAB_ICONS = { Camera, Upload, Recent: History }
 
 function ShellHeader() {
-  const { colors, currentTheme } = useTheme()
+  const { currentTheme } = useTheme()
   return (
-    <SafeAreaView edges={['top']} style={{ backgroundColor: currentTheme === 'dark' ? colors.surfaces.surface1 : '#FFFFFF' }}>
+    <SafeAreaView edges={['top']} style={{ backgroundColor: shellFor(currentTheme).headerBg }}>
       <AppHeader />
     </SafeAreaView>
   )
@@ -66,9 +67,9 @@ export default function MainTabs() {
 // The web's `.bottom-nav-bar`: icon + label per tab, the active tab gets a soft
 // pill behind its icon. Hidden on the reader, which brings its own bottom bar.
 function PillTabBar({ state, descriptors, navigation }) {
-  const { fonts, colors, currentTheme } = useTheme()
+  const { currentTheme } = useTheme()
   const insets = useSafeAreaInsets()
-  const s = colors.surfaces
+  const shell = shellFor(currentTheme)
   const tabsTourRef = useTourTarget('tabs')
 
   if (state.routes[state.index].name === 'Reader') return null
@@ -80,18 +81,21 @@ function PillTabBar({ state, descriptors, navigation }) {
       style={[
         tabStyles.bar,
         {
-          backgroundColor: currentTheme === 'dark' ? s.surface1 : '#FFFFFF',
-          borderTopColor: s.divider,
-          paddingBottom: 8 + insets.bottom,
+          backgroundColor: shell.navBg,
+          borderTopColor: shell.navBorder,
+          borderTopWidth: shell.navBorderWidth,
+          height: 80 + insets.bottom,
+          paddingBottom: insets.bottom,
         },
       ]}
     >
+      <View style={tabStyles.inner}>
       {state.routes.map((route, index) => {
         const Icon = TAB_ICONS[route.name]
         if (!Icon) return null
         const { options } = descriptors[route.key]
         const focused = state.index === index
-        const color = focused ? s.primary : s.onSurfaceMuted
+        const color = focused ? shell.pillIcon : shell.tab
 
         const onPress = () => {
           const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true })
@@ -107,15 +111,16 @@ function PillTabBar({ state, descriptors, navigation }) {
             onPress={onPress}
             style={tabStyles.tab}
           >
-            <View style={[tabStyles.iconPill, focused && { backgroundColor: currentTheme === 'dark' ? s.surface2 : '#E8ECF4' }]}>
+            <View style={[tabStyles.iconPill, focused && { backgroundColor: shell.pill, borderWidth: shell.pillBorder ? 1 : 0, borderColor: shell.pillBorder || 'transparent' }]}>
               <Icon size={24} color={color} />
             </View>
-            <Text style={[tabStyles.label, { color, fontFamily: fonts.khmer, fontWeight: focused ? '800' : '600' }]} numberOfLines={1}>
+            <Text style={[tabStyles.label, { color: focused ? shell.labelActive : shell.tab, fontWeight: focused ? '600' : '500' }]} numberOfLines={1}>
               {options.tabBarLabel}
             </Text>
           </AccessiblePressable>
         )
       })}
+      </View>
     </View>
   )
 }
@@ -123,8 +128,9 @@ function PillTabBar({ state, descriptors, navigation }) {
 const styles = StyleSheet.create({ flex: { flex: 1 } })
 
 const tabStyles = StyleSheet.create({
-  bar: { flexDirection: 'row', paddingTop: 8, paddingHorizontal: 8, borderTopWidth: 1 },
-  tab: { flex: 1, minHeight: 60, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  iconPill: { width: 56, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  label: { fontSize: 12, lineHeight: 18 },
+  bar: { paddingHorizontal: 16, elevation: 2 },
+  inner: { flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  tab: { flex: 1, maxWidth: 120, height: '100%', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8 },
+  iconPill: { width: 64, height: 32, borderRadius: 9999, alignItems: 'center', justifyContent: 'center' },
+  label: { fontSize: 12, lineHeight: 16, letterSpacing: 0.1 },
 })

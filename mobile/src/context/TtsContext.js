@@ -2,6 +2,7 @@ import { Platform } from 'react-native'
 import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Speech from 'expo-speech'
 import { createAudioPlayer } from 'expo-audio'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useApp } from './AppContext'
 import { useOcr } from './OcrContext'
 import { synthesizeTextAzureTTS, synthesizeTextCloudTTS } from '../services/tts'
@@ -15,6 +16,8 @@ const DUCKED_VOLUME = 0.2
 const APP_VOICE_FAILED = 'មិនអាចភ្ជាប់សំឡេង songKHEM បានទេ។ សូមពិនិត្យអ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។'
 
 export const SPEED_PRESETS = [0.75, 1.0, 1.25, 1.5, 2.0]
+
+const VOICE_STORAGE_KEY = 'songkhem_reader_voice'
 
 const TtsContext = createContext(null)
 
@@ -75,7 +78,8 @@ export function TtsProvider({ children }) {
           { name: 'km-KH-VitsOffline', lang: 'km-KH', label: 'songKHEM-VITS (ម៉ូដែលរបស់យើង)', gender: 'Male' },
         ]
         setVoices(azureVoices)
-        setSelectedVoiceName(azureVoices[0].name)
+        const saved = await AsyncStorage.getItem(VOICE_STORAGE_KEY).catch(() => null)
+        setSelectedVoiceName(azureVoices.some((v) => v.name === saved) ? saved : azureVoices[0].name)
         return
       }
 
@@ -220,7 +224,8 @@ export function TtsProvider({ children }) {
     [stopSpeech, startHighlighting, setPaused, addToast, speakAccessibility]
   )
 
-  const startSpeech = useCallback(async () => {
+  const startSpeech = useCallback(async (startAt = 0) => {
+    const firstWord = Number.isInteger(startAt) && startAt > 0 ? startAt : 0
     if (!extractedText) {
       speakAccessibility('មិនទាន់មានអត្ថបទសម្រាប់អាននៅឡើយទេ')
       return
@@ -248,6 +253,7 @@ export function TtsProvider({ children }) {
     }
 
     stopSpeech()
+    if (firstWord > 0) pendingSeekRef.current = firstWord
     const session = speechSessionRef.current
     setIsSpeaking(true)
     setPaused(false)
@@ -316,14 +322,14 @@ export function TtsProvider({ children }) {
         if (speechSessionRef.current !== session) return
         await whenSilent()
         if (speechSessionRef.current !== session) return
-        fallbackWebSpeech(extractedText, Math.max(0, activeWordRef.current))
+        fallbackWebSpeech(extractedText, firstWord)
         return
       }
     }
 
     await whenSilent()
     if (speechSessionRef.current !== session) return
-    fallbackWebSpeech(extractedText)
+    fallbackWebSpeech(extractedText, firstWord)
   }, [extractedText, stopSpeech, startHighlighting, triggerHaptic, speakAccessibility, fallbackWebSpeech, indexForFraction, setPaused, ocrConfig])
 
   const pauseSpeech = useCallback(() => {
@@ -348,7 +354,7 @@ export function TtsProvider({ children }) {
 
   const togglePlayback = useCallback(() => {
     if (isSpeaking) pauseSpeech()
-    else startSpeech()
+    else startSpeech(Math.max(0, activeWordRef.current))
   }, [isSpeaking, pauseSpeech, startSpeech])
 
   const restartSpeech = useCallback(() => {
@@ -415,7 +421,23 @@ export function TtsProvider({ children }) {
     [triggerHaptic, speakAccessibility]
   )
 
-  const selectVoice = useCallback((name) => setSelectedVoiceName(name), [])
+  // A new voice is heard straight away: if reading (or paused), carry on from the same word in the new voice
+  const selectVoice = useCallback(
+    (name) => {
+      if (name === selectedVoiceNameRef.current) return
+      selectedVoiceNameRef.current = name
+      setSelectedVoiceName(name)
+      AsyncStorage.setItem(VOICE_STORAGE_KEY, name).catch(() => {})
+      triggerHaptic('light')
+      if (isSpeaking || isPausedRef.current) {
+        startSpeech(Math.max(0, activeWordRef.current))
+      } else {
+        const voice = voicesRef.current.find((v) => v.name === name)
+        if (voice) announce(voice.label)
+      }
+    },
+    [isSpeaking, startSpeech, triggerHaptic, announce]
+  )
 
   // Re-tokenize and stop any playback whenever the underlying text changes —
   // mirrors the web app's `watch(() => props.text, ..., { immediate: true })`.

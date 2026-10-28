@@ -39,7 +39,7 @@ const withMargin = (corners) => {
  * expo-camera's plain viewfinder stays as the fallback everywhere else.
  */
 export default function CameraCapture() {
-  const { colors, fonts } = useTheme()
+  const { colors, fonts, currentTheme } = useTheme()
   const { speakAccessibility, triggerHaptic } = useApp()
   const { captureAndScan, isProcessing } = useOcr()
   const isFocused = useIsFocused()
@@ -62,6 +62,7 @@ export default function CameraCapture() {
   const guidanceTimerRef = useRef(null)
 
   const styles = createStyles(colors)
+  const isContrast = currentTheme === 'contrast'
   const isGranted = permission?.granted
   const useDocCamera = isDocCameraSupported && !docCameraFailed
 
@@ -264,12 +265,16 @@ export default function CameraCapture() {
         </Svg>
       )}
 
-      {/* Guidance banner (no scan border: the whole viewfinder is captured) */}
-      <View style={styles.guidanceBanner} accessibilityLiveRegion="assertive">
-        <View style={[styles.guidancePulseIcon, { backgroundColor: colors.accentSubtle }]}>
-          <Scan size={20} color={colors.accent} />
+      {/* Guidance chip (DocumentUploader.css .guidance-banner): a centred pill, one line */}
+      <View style={styles.guidanceWrap} pointerEvents="none">
+        <View style={[styles.guidanceBanner, isContrast && styles.guidanceBannerContrast]} accessibilityLiveRegion="assertive">
+          <View style={styles.guidancePulseIcon}>
+            <Scan size={18} color={isContrast ? '#FFFF00' : '#A8C7FA'} />
+          </View>
+          <Text style={[styles.guidanceText, isContrast && { color: '#FFFF00' }]} numberOfLines={1}>
+            {guidanceMessage}
+          </Text>
         </View>
-        <Text style={[styles.guidanceText, { fontFamily: fonts.khmer }]}>{guidanceMessage}</Text>
       </View>
 
       {/* Circular iPhone-style shutter button */}
@@ -294,62 +299,67 @@ const createStyles = (colors) =>
   StyleSheet.create({
     frame: {
       flex: 1,
-      borderRadius: colors.radii.xl,
+      borderRadius: colors.radii.md,
       overflow: 'hidden',
       backgroundColor: '#000000',
+      borderWidth: 2,
+      borderColor: colors.borderSubtle,
     },
     centered: { alignItems: 'center', justifyContent: 'center' },
+    guidanceWrap: { position: 'absolute', top: 14, left: 12, right: 12, alignItems: 'center' },
     guidanceBanner: {
-      position: 'absolute',
-      top: 14,
-      left: 14,
-      right: 14,
-      backgroundColor: '#0B111E',
-      borderWidth: 1.5,
-      borderColor: '#4466F6',
-      borderRadius: 999,
-      paddingVertical: 10,
-      paddingHorizontal: 16,
+      maxWidth: '100%',
+      backgroundColor: 'rgba(23,27,34,0.85)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.16)',
+      borderRadius: 9999,
+      paddingVertical: 8,
+      paddingHorizontal: 14,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
+      gap: 8,
+      elevation: 6,
     },
+    guidanceBannerContrast: { backgroundColor: '#000000', borderWidth: 2, borderColor: '#FFFF00', elevation: 0 },
     guidancePulseIcon: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+      width: 26,
+      height: 26,
+      borderRadius: 13,
       alignItems: 'center',
       justifyContent: 'center',
+      backgroundColor: 'rgba(168,199,250,0.16)',
     },
     guidanceText: {
-      flex: 1,
-      fontSize: 16,
-      fontWeight: '700',
+      flexShrink: 1,
+      fontSize: 13.6,
+      fontWeight: '500',
       color: '#FFFFFF',
-      lineHeight: 23,
+      lineHeight: 18,
+      letterSpacing: 0.1,
     },
     actionsDeck: {
       position: 'absolute',
-      bottom: 20,
+      bottom: 14,
       left: 0,
       right: 0,
       alignItems: 'center',
     },
     shutterButton: {
-      width: 76,
-      height: 76,
-      padding: 5,
+      width: 64,
+      height: 64,
+      padding: 4,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: 'rgba(255,255,255,0.15)',
+      backgroundColor: 'rgba(255,255,255,0.2)',
       borderWidth: 4,
       borderColor: '#FFFFFF',
-      borderRadius: 38,
+      borderRadius: 32,
+      elevation: 6,
     },
     shutterRing: {
       width: '100%',
       height: '100%',
-      borderRadius: 34,
+      borderRadius: 28,
       backgroundColor: '#FFFFFF',
     },
     // DocumentUploader.css `.camera-error-box` at ≤640px (column, 20/16 pad).
