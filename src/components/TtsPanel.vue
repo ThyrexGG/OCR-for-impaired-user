@@ -162,7 +162,7 @@ const loadVoices = () => {
     }
   ]
   if (!selectedVoiceName.value || !voices.value.find(v => v.name === selectedVoiceName.value)) {
-    selectedVoiceName.value = 'km-KH-PisethNeural'
+    selectedVoiceName.value = 'km-KH-SokhaMedical' // default voice: Dr. Sokha
   }
 }
 

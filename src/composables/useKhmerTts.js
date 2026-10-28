@@ -18,6 +18,9 @@ export const KHMER_VOICES = [
 
 export const SPEED_PRESETS = [0.75, 1.0, 1.25, 1.5, 2.0]
 
+// Voice used until the reader picks another one
+export const DEFAULT_VOICE = 'km-KH-SokhaMedical'
+
 const VOICE_STORAGE_KEY = 'songkhem_reader_voice'
 const PACING_STORAGE_KEY = 'songkhem_reader_pacing'
 
@@ -125,7 +128,7 @@ export function useKhmerTts({ getText, activeWordIndex }) {
 
   const savedVoice = safeGet(VOICE_STORAGE_KEY)
   const selectedVoiceName = ref(
-    KHMER_VOICES.some(v => v.name === savedVoice) ? savedVoice : 'km-KH-PisethNeural'
+    KHMER_VOICES.some(v => v.name === savedVoice) ? savedVoice : DEFAULT_VOICE
   )
   const assistivePacing = ref(safeGet(PACING_STORAGE_KEY) === '1')
   const rate = ref(1.0)

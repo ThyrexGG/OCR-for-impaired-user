@@ -18,6 +18,8 @@ const APP_VOICE_FAILED = 'មិនអាចភ្ជាប់សំឡេង so
 export const SPEED_PRESETS = [0.75, 1.0, 1.25, 1.5, 2.0]
 
 const VOICE_STORAGE_KEY = 'songkhem_reader_voice'
+// Voice used until the reader picks another one
+const DEFAULT_VOICE = 'km-KH-SokhaMedical'
 
 const TtsContext = createContext(null)
 
@@ -79,7 +81,7 @@ export function TtsProvider({ children }) {
         ]
         setVoices(azureVoices)
         const saved = await AsyncStorage.getItem(VOICE_STORAGE_KEY).catch(() => null)
-        setSelectedVoiceName(azureVoices.some((v) => v.name === saved) ? saved : azureVoices[0].name)
+        setSelectedVoiceName(azureVoices.some((v) => v.name === saved) ? saved : DEFAULT_VOICE)
         return
       }
 
