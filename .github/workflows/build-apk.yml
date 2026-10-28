@@ -14,6 +14,8 @@ jobs:
   build:
     name: Build Standalone APK
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -60,3 +62,18 @@ jobs:
           name: songKHEM-Android-APK
           path: build-output/songKHEM-v1.0.0.apk
           retention-days: 30
+
+      - name: Publish APK to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0-preview
+          name: "songKHEM Mobile v1.0.0 (Latest APK)"
+          body: |
+            ## songKHEM Mobile - Android APK Build
+            Automated build from branch `${{ github.ref_name }}` (Commit: `${{ github.sha }}`).
+            
+            - Standalone Android APK for assistive Khmer document OCR & speech reading.
+            - Includes on-device Tesseract OCR and offline voice pack.
+          files: build-output/songKHEM-v1.0.0.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
