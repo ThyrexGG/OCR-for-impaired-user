@@ -15,7 +15,7 @@
  */
 
 import { currentLang } from './i18n'
-import { synthesizeLocalKhmerTTS } from './tts'
+import { isAppVoiceOnly, synthesizeLocalKhmerTTS } from './tts'
 import { spokenForm, voiceKey } from './talkPhrases'
 
 const UI_VOICE = 'km-KH-SreymomNeural'
@@ -180,7 +180,9 @@ class AnnouncerService {
 
   // Resolves one segment to something playable: a pack file, a synthesized blob, or "use speechSynthesis".
   async _resolve(text) {
-    if (!KHMER.test(text)) return { kind: 'synth', lang: 'en-US' }
+    // "songKHEM voice only": English goes through our voice too, and nothing falls back to the browser's
+    const appVoiceOnly = isAppVoiceOnly()
+    if (!KHMER.test(text) && !appVoiceOnly) return { kind: 'synth', lang: 'en-US' }
     const key = voiceKey(text)
     const keys = await this._loadPackIndex()
     if (keys.has(key)) return { kind: 'audio', url: `/voice/${key}.mp3` }
@@ -195,7 +197,7 @@ class AnnouncerService {
     try {
       return { kind: 'audio', url: await pending }
     } catch (_) {
-      return { kind: 'synth', lang: 'km-KH' }
+      return appVoiceOnly ? { kind: 'skip' } : { kind: 'synth', lang: 'km-KH' }
     }
   }
 
@@ -251,7 +253,7 @@ class AnnouncerService {
       const resolved = await fetched[i]
       if (gen !== this._generation) return
       if (resolved.kind === 'audio') await this._playAudio(resolved.url, gen)
-      else await this._speakSynth(segments[i], resolved.lang, gen)
+      else if (resolved.kind === 'synth') await this._speakSynth(segments[i], resolved.lang, gen)
     }
   }
 

@@ -19,6 +19,7 @@ import { vFocusTrap } from './services/focusTrap'
 import { useA11yPreferences } from './composables/useA11yPreferences'
 import { clearOcrCache } from './services/cache'
 import { CLOUD_API_AVAILABLE } from './services/cloudApi'
+import { isAppVoiceOnly, setAppVoiceOnly } from './services/tts'
 import { voiceCommands } from './services/voiceCommands'
 
 
@@ -119,6 +120,14 @@ const closeSettings = () => {
   isSettingsOpen.value = false
   haptics.pulse('tap')
   speakAccessibility(t('closeSettings'))
+}
+
+// --- Testing switch: speak only in songKHEM's voice, never the browser's / phone's ---
+const appVoiceOnly = ref(isAppVoiceOnly())
+const toggleAppVoiceOnly = () => {
+  appVoiceOnly.value = !appVoiceOnly.value
+  setAppVoiceOnly(appVoiceOnly.value)
+  haptics.pulse('tap')
 }
 
 // --- Feature Guidelines Walkthrough ---
@@ -765,6 +774,25 @@ onMounted(() => {
               :aria-checked="isHapticsEnabled"
               role="switch"
               :aria-label="t('haptics')"
+            >
+              <span class="switch-thumb"></span>
+            </button>
+          </div>
+
+          <!-- Testing: songKHEM voice only -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">{{ currentLang === 'km' ? 'ប្រើតែសំឡេង songKHEM (សម្រាប់សាកល្បង)' : 'songKHEM voice only (for testing)' }}</span>
+              <span class="setting-desc khmer-font">{{ currentLang === 'km' ? 'បើកពេលសំឡេងរបស់ទូរស័ព្ទ ឬកម្មវិធីរុករកមិនអានភាសាខ្មែរ ឬអានមិនត្រឹមត្រូវ។ គេហទំព័រនឹងនិយាយដោយសំឡេង songKHEM ជានិច្ច (ត្រូវការអ៊ីនធឺណិត)' : "Turn on when the phone's or browser's voice can't read Khmer properly. The site then always speaks in songKHEM's own voice (needs internet)." }}</span>
+            </div>
+            <button
+              type="button"
+              class="accessible-switch"
+              :class="{ 'switch-on': appVoiceOnly }"
+              @click="toggleAppVoiceOnly"
+              :aria-checked="appVoiceOnly"
+              role="switch"
+              :aria-label="currentLang === 'km' ? 'ប្រើតែសំឡេង songKHEM' : 'songKHEM voice only'"
             >
               <span class="switch-thumb"></span>
             </button>

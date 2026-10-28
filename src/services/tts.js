@@ -6,6 +6,23 @@ const escapeXml = (s) =>
 
 const LOCAL_KHMER_ENGINE_URL = import.meta.env.VITE_LOCAL_TTS_URL || '/api/tts'
 
+// Testing switch (Settings, off by default): speak only in songKHEM's own voice, never the browser's or
+// phone's, for devices whose Khmer voice is missing or broken.
+const APP_VOICE_ONLY_KEY = 'songkhem_app_voice_only'
+export const APP_VOICE_FAILED_KM = 'មិនអាចភ្ជាប់សំឡេង songKHEM បានទេ។ សូមពិនិត្យអ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។'
+export const isAppVoiceOnly = () => {
+  try {
+    return localStorage.getItem(APP_VOICE_ONLY_KEY) === 'true'
+  } catch (_) {
+    return false
+  }
+}
+export const setAppVoiceOnly = (on) => {
+  try {
+    localStorage.setItem(APP_VOICE_ONLY_KEY, on ? 'true' : 'false')
+  } catch (_) {}
+}
+
 /**
  * Synthesize Khmer speech via same-origin /api/tts (proxied to KhmerNeuralTTS engine or Vercel api/tts.js).
  * Works on iPhone (iOS Safari), Android, and Desktop with zero paid API keys.

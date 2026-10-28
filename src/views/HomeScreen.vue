@@ -84,7 +84,7 @@ const isCached = ref(false)
 
 // Karaoke Highlighting Sync State
 const activeWordIndex = ref(-1)
-const highlightMode = ref('word') // 'word' | 'sentence' | 'paragraph'
+const highlightMode = ref('paragraph') // 'word' | 'sentence' | 'paragraph'
 
 // Toast System
 const toasts = ref([])

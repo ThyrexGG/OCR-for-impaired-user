@@ -4,7 +4,7 @@ import {
   Play, Pause, Square, RotateCcw, Volume2, Sparkles, 
   Sliders, Music2, SkipBack, SkipForward, Repeat
 } from 'lucide-vue-next'
-import { synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts'
+import { APP_VOICE_FAILED_KM, isAppVoiceOnly, synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts'
 import { normalizeKhmerForSpeech, analyzeKhmerG2P, saveCustomLexiconEntry } from '../services/khmerNormalizer'
 import { CLOUD_API_AVAILABLE, cloudTts } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
@@ -448,6 +448,11 @@ const speakSingleWord = async (word) => {
 
 const fallbackWebSpeech = () => {
   stopSpeech()
+  // Testing switch "songKHEM voice only": never hand the document to the browser's voice
+  if (isAppVoiceOnly()) {
+    speakAccessibility(APP_VOICE_FAILED_KM)
+    return
+  }
   isSpeaking.value = true
   isPaused.value = false
 
