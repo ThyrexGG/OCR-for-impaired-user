@@ -13,10 +13,29 @@ import {
 // Vercel caps request bodies at 4.5MB; clients downscale photos before sending.
 const MAX_BASE64_LENGTH = 4_200_000
 
+// Every call costs money upstream, so cap each caller. This is per warm function instance (it is not shared
+// across instances), so it only blunts casual abuse; a Vercel firewall rate-limit rule is the real guard.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000
+const MAX_REQUESTS_PER_WINDOW = 20
+const callers = new Map()
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  const now = Date.now()
+  const caller = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim()
+  const entry = callers.get(caller)
+  if (!entry || now > entry.resetTime) {
+    callers.set(caller, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS })
+  } else if (++entry.count > MAX_REQUESTS_PER_WINDOW) {
+    res.setHeader('Retry-After', String(Math.ceil((entry.resetTime - now) / 1000)))
+    return res.status(429).json({ error: 'Too many requests' })
+  }
+  if (callers.size > 5000) {
+    for (const [ip, e] of callers) if (now > e.resetTime) callers.delete(ip)
   }
 
   const apiKey = process.env.GOOGLE_VISION_API_KEY

@@ -6,7 +6,7 @@ songKHEM is an accessibility-focused application that lets blind and low-vision 
 
 1. A document is captured from a live camera feed, an uploaded image (PNG/JPG/WEBP), or a multi-page PDF.
 2. Text is extracted either on-device with Tesseract.js, or via a Google Cloud Vision OCR proxy for higher accuracy.
-3. The recognized Khmer text is read aloud using Microsoft Azure Neural TTS (`km-KH-PisethNeural` / `km-KH-SreymomNeural`), with a Web Speech API fallback when Azure isn't configured.
+3. The recognized Khmer text is read aloud with Khmer neural voices (`km-KH-PisethNeural` / `km-KH-SreymomNeural`) through the `api/tts.js` function: a paid Azure Speech key when one is set, otherwise a zero-key stream. If both fail, the device's own voice is used.
 4. Words are highlighted in sync with playback, and recent scans are kept in a local history for quick replay.
 
 ## Tech stack
@@ -74,6 +74,8 @@ GOOGLE_VISION_ENDPOINT=https://vision.googleapis.com/v1/images:annotate
 AZURE_TTS_ENDPOINT=https://<your-region>.tts.speech.microsoft.com/cognitiveservices/v1
 ```
 
+Without `AZURE_TTS_API_KEY` the TTS function still works through a zero-key stream, an unofficial endpoint that may stop working without notice. `api/ocr.js` and `api/tts.js` rate-limit per caller, but only per warm instance; add a Vercel firewall rate-limit rule for a hard limit.
+
 These must not be prefixed with `VITE_`, since Vite would bundle any `VITE_*` variable into the public client-side JavaScript.
 
 `npm run dev` does not run the serverless functions locally. To use a deployed instance of them from the dev server, create a `.env` file with:
@@ -95,6 +97,19 @@ npx expo start
 ```
 
 From there, run on Android/iOS/web via Expo (`npm run android`, `npm run ios`, `npm run web`), or scan the QR code with the Expo Go app. See `mobile/.env.example` for the environment variables it expects (pointing at the same OCR/TTS API endpoints as the web app).
+
+### Android camera and release builds
+
+On Android the Camera tab uses a native module (`mobile/modules/songkhem-docscan`) that outlines the page in red and crops the photo to it, so it needs a development or release build; Expo Go does not include it. Build a standalone APK:
+
+```bash
+cd mobile
+npx expo prebuild --platform android
+cd android
+NODE_ENV=production EXPO_PUBLIC_API_BASE_URL=https://<your-app>.vercel.app ./gradlew assembleRelease
+```
+
+The APK is `app/build/outputs/apk/release/app-release.apk`. It is signed with the debug key, which is fine for sideloading but not for the Play Store. The GitHub Actions workflow `build-apk.yml` does the same and publishes the APK to Releases.
 
 ## Accessibility features
 

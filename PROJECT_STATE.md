@@ -172,23 +172,22 @@ Local Cache Hit?            Cloud OCR Call        HTML5 Audio      Karaoke Word 
 
 ## 7. Configuration & Environment Variables
 
-Configuration is handled via `.env` (derived from `.env.example`):
+Cloud OCR and TTS keys live **only on the server**. They are read by the Vercel functions in `api/` and must never be prefixed with `VITE_` (Vite would bundle them into the public website). See `.env.example`.
 
 ```bash
-# Google Cloud Vision API
-VITE_GOOGLE_VISION_ENDPOINT=https://vision.googleapis.com/v1/images:annotate
-VITE_GOOGLE_VISION_API_KEY=your_google_cloud_api_key_here
+# Vercel -> Project Settings -> Environment Variables (server side only)
+GOOGLE_VISION_API_KEY=...       # api/ocr.js; mark as Sensitive
+AZURE_TTS_API_KEY=...           # optional; api/tts.js. Without it the function streams a zero-key voice
+GOOGLE_VISION_ENDPOINT=...      # optional override
+AZURE_TTS_ENDPOINT=...          # optional override
 
-# Microsoft Azure Computer Vision (Image Analysis 4.0)
-VITE_AZURE_VISION_ENDPOINT=https://<your-region>.api.cognitive.microsoft.com/
-VITE_AZURE_VISION_API_KEY=your_azure_vision_key_here
-
-# Microsoft Azure Speech Service (TTS)
-VITE_AZURE_TTS_ENDPOINT=https://<your-region>.tts.speech.microsoft.com/cognitiveservices/v1
-VITE_AZURE_TTS_API_KEY=your_azure_tts_key_here
+# Local web dev only (.env): use a deployed site's functions
+VITE_API_PROXY=https://<your-app>.vercel.app
 ```
 
-*Note: If no keys are configured, songKHEM runs seamlessly in offline/simulation mode.*
+The mobile app is pointed at the same functions with `EXPO_PUBLIC_API_BASE_URL` at build time (see `mobile/.env.example`; CI sets it in `.github/workflows/build-apk.yml`). Without it the app falls back to on-device Tesseract, which is poor for Khmer.
+
+*Note: users may also paste their own Google/Azure keys in Settings; those stay in their own browser/phone.*
 
 ---
 
@@ -196,7 +195,7 @@ VITE_AZURE_TTS_API_KEY=your_azure_tts_key_here
 
 * **Build Status**: Passing (`vite build` production-ready).
 * **Package Structure**: Clean, zero superfluous npm dependencies.
-* **Security**: API keys are client-configurable; all inputs are validated before DOM insertion.
+* **Security**: Provider keys are server-side only (Vercel functions). `api/ocr.js` and `api/tts.js` rate-limit per caller (per warm instance; add a Vercel firewall rule for a hard limit). All inputs are validated before DOM insertion.
 * **Browser Compatibility**: Modern Evergreen Browsers (Chrome 90+, Edge 90+, Safari 14+, Firefox 88+).
 
 ---
@@ -211,3 +210,7 @@ VITE_AZURE_TTS_API_KEY=your_azure_tts_key_here
 * **[COMPLETED] PWA Offline Support & Service Worker**: `manifest.json` and `sw.js` enable direct home screen installation and offline asset caching.
 * **[COMPLETED] Serverless Safety Quotas & Edge Caching**: Protected `api/tts.js` with sliding-window rate limiting, 3,000 character capping, and public edge caching headers.
 * **[COMPLETED] Mobile App Codebase Tracked**: Integrated and committed complete Expo React Native codebase under `mobile/`.
+* **[COMPLETED] Mobile reading modes**: The phone app has the same Word / Sentence / Paragraph highlight switch as the web app (default Paragraph), saved on the device.
+* **[COMPLETED] Mobile live document camera (Android)**: `mobile/modules/songkhem-docscan` is a CameraX view that streams a small brightness picture; `src/utils/documentDetector.js` finds the page, a red outline follows it, and the shutter crops and straightens the photo to just the page. iOS and any failure fall back to the plain camera. Detection is contrast-based (a white page on a white table will not outline).
+* **[COMPLETED] Mobile guided tour**: First launch offers a step-by-step spotlight tour (Khmer + English) across Camera, Upload, Reader and History; replay from the ? dialog. It opens a sample for the reader steps and removes it again afterwards.
+* **[COMPLETED] "songKHEM voice only" testing switch (app + website, off by default)**: speaks everything in songKHEM's own voice instead of the phone/browser voice (including TalkBack announcements in the app), for devices whose Khmer voice is missing or broken.
