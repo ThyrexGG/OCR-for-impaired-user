@@ -20,6 +20,12 @@ export const cloudOcr = async (base64Image) => {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     console.warn('Cloud OCR error:', response.status, body.error)
+    if (body.code === 'monthly_limit') {
+      throw new Error('ការស្កេនសម្រាប់ខែនេះបានគ្រប់ចំនួនកំណត់ហើយ។ សូមព្យាយាមម្តងទៀតនៅខែក្រោយ។ (This month\'s scanning limit has been reached. Please try again next month.)')
+    }
+    if (response.status === 429) {
+      throw new Error('ស្កេនច្រើនពេកក្នុងពេលខ្លី។ សូមរង់ចាំពីរបីនាទី ហើយព្យាយាមម្តងទៀត។ (Too many scans in a short time. Please wait a few minutes and try again.)')
+    }
     throw new Error('មិនអាចទាក់ទងម៉ាស៊ីនស្កេន Google Vision បានទេ។ សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។ (Unable to reach the OCR service. Check your connection and try again.)')
   }
   const data = await response.json()

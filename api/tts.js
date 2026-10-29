@@ -12,6 +12,7 @@ import crypto from 'node:crypto'
 import tls from 'node:tls'
 import { normalizeKhmerForSpeech, applyAssistivePacing } from '../src/services/khmerNormalizer.js'
 import { isAllowedCaller, rejectCaller } from './_appAccess.js'
+import { record } from './_stats.js'
 
 const VOICES = {
   'km-KH-PisethNeural': { baseVoice: 'km-KH-PisethNeural', pitch: '+0Hz', rate: '+0%', pace: false },
@@ -513,7 +514,10 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ error: 'Method not allowed' })
   }
-  if (!isAllowedCaller(req)) return rejectCaller(res)
+  if (!isAllowedCaller(req)) {
+    await record(req, 'tts', 'denied')
+    return rejectCaller(res)
+  }
 
   const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown'
   const now = Date.now()
@@ -528,6 +532,7 @@ export default async function handler(req, res) {
   rateLimitMap.set(clientIp, clientData)
 
   if (clientData.count > MAX_REQUESTS_PER_WINDOW) {
+    await record(req, 'tts', 'limited')
     return res.status(429).json({ error: 'Too many requests. សូមរង់ចាំបន្តិចមុននឹងព្យាយាមម្តងទៀត។' })
   }
 
@@ -553,6 +558,8 @@ export default async function handler(req, res) {
     `</speak>`
 
   const apiKey = process.env.AZURE_TTS_API_KEY
+  const started = Date.now()
+  const usage = { voice, chars: cappedText.length }
 
   // Mode 1: Paid Azure REST API (if configured)
   if (apiKey) {
@@ -570,6 +577,7 @@ export default async function handler(req, res) {
 
       if (upstream.ok) {
         const audio = Buffer.from(await upstream.arrayBuffer())
+        await record(req, 'tts', 'ok', { ...usage, ms: Date.now() - started, via: 'azure' })
         res.setHeader('Content-Type', 'audio/mpeg')
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400')
         return res.status(200).send(audio)
@@ -591,11 +599,13 @@ export default async function handler(req, res) {
     if (!audioBuffer || audioBuffer.length === 0) {
       throw new Error('Empty audio stream returned')
     }
+    await record(req, 'tts', 'ok', { ...usage, ms: Date.now() - started, via: 'edge' })
     res.setHeader('Content-Type', 'audio/mpeg')
     res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400')
     return res.status(200).send(audioBuffer)
   } catch (error) {
     console.error('Serverless Khmer TTS fallback failed:', error)
+    await record(req, 'tts', 'fail', { ...usage, ms: Date.now() - started })
     return res.status(502).json({ error: 'TTS provider unreachable' })
   }
 }

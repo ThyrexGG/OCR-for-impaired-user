@@ -23,6 +23,15 @@ export const cloudOcr = async (base64Image) => {
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     console.warn('Cloud OCR error:', response.status, body.error)
+    if (body.code === 'monthly_limit') {
+      throw new Error('ការស្កេនសម្រាប់ខែនេះបានគ្រប់ចំនួនកំណត់ហើយ។ សូមព្យាយាមម្តងទៀតនៅខែក្រោយ។ (This month\'s scanning limit has been reached. Please try again next month.)')
+    }
+    if (response.status === 429) {
+      throw new Error('ស្កេនច្រើនពេកក្នុងពេលខ្លី។ សូមរង់ចាំពីរបីនាទី ហើយព្យាយាមម្តងទៀត។ (Too many scans in a short time. Please wait a few minutes and try again.)')
+    }
+    if (response.status === 403) {
+      throw new Error('កម្មវិធីនេះហួសសម័យហើយ។ សូមដំឡើងកំណែថ្មី។ (This copy of the app is out of date. Please install the latest version.)')
+    }
     throw new Error(
       'មិនអាចទាក់ទងម៉ាស៊ីនស្កេនបានទេ។ សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។ (Unable to connect to OCR service. Please check your network and try again.)'
     )
