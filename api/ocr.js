@@ -9,6 +9,7 @@ import {
   postProcessKhmerOcr,
   extractCleanTextFromVisionAnnotation,
 } from '../src/services/khmerOcrCorrector.js'
+import { isAllowedCaller, rejectCaller } from './_appAccess.js'
 
 // Vercel caps request bodies at 4.5MB; clients downscale photos before sending.
 const MAX_BASE64_LENGTH = 4_200_000
@@ -25,6 +26,7 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ error: 'Method not allowed' })
   }
+  if (!isAllowedCaller(req)) return rejectCaller(res)
 
   const now = Date.now()
   const caller = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim()

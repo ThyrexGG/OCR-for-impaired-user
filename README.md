@@ -106,10 +106,12 @@ On Android the Camera tab uses a native module (`mobile/modules/songkhem-docscan
 cd mobile
 npx expo prebuild --platform android
 cd android
-NODE_ENV=production EXPO_PUBLIC_API_BASE_URL=https://<your-app>.vercel.app ./gradlew assembleRelease
+NODE_ENV=production EXPO_PUBLIC_API_BASE_URL=https://<your-app>.vercel.app EXPO_PUBLIC_APP_KEY=<pass> ./gradlew assembleRelease
 ```
 
-The APK is `app/build/outputs/apk/release/app-release.apk`. It is signed with the debug key, which is fine for sideloading but not for the Play Store. The GitHub Actions workflow `build-apk.yml` does the same and publishes the APK to Releases.
+The APK is `app/build/outputs/apk/release/app-release.apk`. It is signed with the debug key, which is fine for sideloading but not for the Play Store.
+
+The server only answers app builds that carry its pass: `EXPO_PUBLIC_APP_KEY` must be one of the comma-separated values in the Vercel env var `SONGKHEM_APP_KEY` (the website's own pages need no pass). To cut off APKs that were shared too widely, change `SONGKHEM_APP_KEY`, redeploy, and build new APKs with the new pass. Because this repository is public, the GitHub Actions workflow `build-apk.yml` only checks that the app builds and publishes nothing; share working APKs privately.
 
 ## Accessibility features
 

@@ -180,12 +180,15 @@ GOOGLE_VISION_API_KEY=...       # api/ocr.js; mark as Sensitive
 AZURE_TTS_API_KEY=...           # optional; api/tts.js. Without it the function streams a zero-key voice
 GOOGLE_VISION_ENDPOINT=...      # optional override
 AZURE_TTS_ENDPOINT=...          # optional override
+SONGKHEM_APP_KEY=...            # pass(es) the Android app must send, comma-separated; mark as Sensitive
 
 # Local web dev only (.env): use a deployed site's functions
 VITE_API_PROXY=https://<your-app>.vercel.app
 ```
 
-The mobile app is pointed at the same functions with `EXPO_PUBLIC_API_BASE_URL` at build time (see `mobile/.env.example`; CI sets it in `.github/workflows/build-apk.yml`). Without it the app falls back to on-device Tesseract, which is poor for Khmer.
+The mobile app is pointed at the same functions with `EXPO_PUBLIC_API_BASE_URL` at build time (see `mobile/.env.example`). Without it the app falls back to on-device Tesseract, which is poor for Khmer.
+
+The functions only answer the website's own pages (Origin header matching the host) and app builds whose `EXPO_PUBLIC_APP_KEY` is listed in `SONGKHEM_APP_KEY` (`api/_appAccess.js`). Changing `SONGKHEM_APP_KEY` and redeploying cuts off every APK built with an old pass. The repo is public, so CI (`.github/workflows/build-apk.yml`) only checks the build and publishes no APK; working APKs are built locally and shared privately.
 
 *Note: users may also paste their own Google/Azure keys in Settings; those stay in their own browser/phone.*
 
@@ -195,7 +198,7 @@ The mobile app is pointed at the same functions with `EXPO_PUBLIC_API_BASE_URL` 
 
 * **Build Status**: Passing (`vite build` production-ready).
 * **Package Structure**: Clean, zero superfluous npm dependencies.
-* **Security**: Provider keys are server-side only (Vercel functions). `api/ocr.js` and `api/tts.js` rate-limit per caller (per warm instance; add a Vercel firewall rule for a hard limit). All inputs are validated before DOM insertion.
+* **Security**: Provider keys are server-side only (Vercel functions). App requests need the current app pass (`SONGKHEM_APP_KEY`). `api/ocr.js` and `api/tts.js` rate-limit per caller (per warm instance; add a Vercel firewall rule for a hard limit). All inputs are validated before DOM insertion.
 * **Browser Compatibility**: Modern Evergreen Browsers (Chrome 90+, Edge 90+, Safari 14+, Firefox 88+).
 
 ---

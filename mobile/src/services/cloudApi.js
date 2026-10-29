@@ -5,6 +5,8 @@
  * at build time (e.g. https://<app>.vercel.app).
  */
 const API_BASE = (process.env.EXPO_PUBLIC_API_BASE_URL || '').replace(/\/+$/, '')
+// The server only serves app builds that carry its current pass (SONGKHEM_APP_KEY on Vercel)
+const HEADERS = { 'Content-Type': 'application/json', 'X-SongKHEM-App-Key': process.env.EXPO_PUBLIC_APP_KEY || '' }
 
 export const CLOUD_API_AVAILABLE = !!API_BASE
 
@@ -15,7 +17,7 @@ export const CLOUD_API_AVAILABLE = !!API_BASE
 export const cloudOcr = async (base64Image) => {
   const response = await fetch(`${API_BASE}/api/ocr`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: HEADERS,
     body: JSON.stringify({ image: base64Image }),
   })
   if (!response.ok) {
@@ -37,7 +39,7 @@ export const cloudOcr = async (base64Image) => {
 export const cloudTts = async (text, voiceName) => {
   const response = await fetch(`${API_BASE}/api/tts`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: HEADERS,
     body: JSON.stringify({ text, voice: voiceName }),
   })
   if (!response.ok) {

@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Check Android build
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
     name: Build Standalone APK
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -46,7 +46,8 @@ jobs:
         run: npx expo prebuild --platform android --clean
 
       # Release, not debug: a debug APK leaves the JavaScript to a dev server, so it would not start on its own.
-      # The API URL is baked in at build time; without it the app has no cloud OCR/TTS.
+      # This only checks that the app still builds. The repo is public, so nothing is published from here: an APK
+      # that works needs the server's pass (EXPO_PUBLIC_APP_KEY), and those are built locally and shared privately.
       - name: Build Android APK
         working-directory: mobile/android
         env:
@@ -55,30 +56,3 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
-
-      - name: Prepare APK Artifact
-        run: |
-          mkdir -p build-output
-          cp mobile/android/app/build/outputs/apk/release/app-release.apk build-output/songKHEM-v1.0.0.apk
-
-      - name: Upload APK to GitHub Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: songKHEM-Android-APK
-          path: build-output/songKHEM-v1.0.0.apk
-          retention-days: 30
-
-      - name: Publish APK to GitHub Releases
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v1.0.0-preview
-          name: "songKHEM Mobile v1.0.0 (Latest APK)"
-          body: |
-            ## songKHEM Mobile - Android APK Build
-            Automated build from branch `${{ github.ref_name }}` (Commit: `${{ github.sha }}`).
-            
-            - Standalone Android APK for assistive Khmer document OCR & speech reading.
-            - Includes on-device Tesseract OCR and offline voice pack.
-          files: build-output/songKHEM-v1.0.0.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

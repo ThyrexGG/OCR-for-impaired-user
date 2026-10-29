@@ -11,6 +11,7 @@
 import crypto from 'node:crypto'
 import tls from 'node:tls'
 import { normalizeKhmerForSpeech, applyAssistivePacing } from '../src/services/khmerNormalizer.js'
+import { isAllowedCaller, rejectCaller } from './_appAccess.js'
 
 const VOICES = {
   'km-KH-PisethNeural': { baseVoice: 'km-KH-PisethNeural', pitch: '+0Hz', rate: '+0%', pace: false },
@@ -512,6 +513,7 @@ export default async function handler(req, res) {
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ error: 'Method not allowed' })
   }
+  if (!isAllowedCaller(req)) return rejectCaller(res)
 
   const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown'
   const now = Date.now()
