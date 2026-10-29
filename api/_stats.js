@@ -63,7 +63,7 @@ export async function takeScan() {
 
 export const callerTag = (req) => {
   const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim()
-  const salt = process.env.SONGKHEM_ADMIN_PASSWORD || 'songkhem'
+  const salt = process.env.SONGKHEM_ADMIN_PASSWORD || ''
   return crypto.createHash('sha256').update(`${salt}:${ip}`).digest('hex').slice(0, 8)
 }
 

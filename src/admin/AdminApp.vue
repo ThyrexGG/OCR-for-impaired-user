@@ -8,20 +8,21 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { AlertTriangle, CheckCircle2, LogOut, RefreshCw, XCircle } from 'lucide-vue-next'
 import DailyBars from './DailyBars.vue'
 
-const PASSWORD_KEY = 'songkhem_admin_pw'
+// Name of this tab's sessionStorage slot that holds what the admin typed
+const SESSION_SLOT = 'songkhem_admin_session'
 const AUTO_REFRESH_MS = 60 * 1000
 
 const readSaved = () => {
   try {
-    return sessionStorage.getItem(PASSWORD_KEY) || ''
+    return sessionStorage.getItem(SESSION_SLOT) || ''
   } catch (_) {
     return ''
   }
 }
 const save = (value) => {
   try {
-    if (value) sessionStorage.setItem(PASSWORD_KEY, value)
-    else sessionStorage.removeItem(PASSWORD_KEY)
+    if (value) sessionStorage.setItem(SESSION_SLOT, value)
+    else sessionStorage.removeItem(SESSION_SLOT)
   } catch (_) {}
 }
 
