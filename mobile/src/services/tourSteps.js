@@ -62,8 +62,8 @@ export const TOUR_STEPS = [
     Icon: Settings,
     titleKm: 'ការកំណត់',
     titleEn: 'Settings',
-    descKm: 'កែទំហំអក្សរ ពណ៌ សំឡេងណែនាំ ការញ័រ និងជម្រើសស្កេន តាមតម្រូវការរបស់អ្នក។',
-    descEn: 'Change text size, colours, voice guidance, vibration and scan options to suit you.',
+    descKm: 'កែទំហំអក្សរ ពណ៌ ការអាន និងការញ័រ តាមតម្រូវការរបស់អ្នក។',
+    descEn: 'Change text size, colours, reading and vibration to suit you.',
   },
   {
     id: 'tabs',

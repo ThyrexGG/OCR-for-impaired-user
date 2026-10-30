@@ -2,7 +2,7 @@ import { createContext, useContext, useCallback, useEffect, useMemo, useRef, use
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useApp } from './AppContext'
 import { detectTextGoogleVision, detectTextAzureVision, detectTextOnDevice } from '../services/ocr'
-import { getFileFingerprint, getOcrCache, setOcrCache } from '../services/cache'
+import { clearOcrCache, getFileFingerprint, getOcrCache, setOcrCache } from '../services/cache'
 import { CLOUD_API_AVAILABLE } from '../services/cloudApi'
 import { sampleLibrary } from '../services/sampleLibrary'
 import { navigateToReader } from '../navigation/navigationRef'
@@ -184,7 +184,8 @@ export function OcrProvider({ children }) {
             name: fileName || 'ឯកសារស្កេនថ្មី',
             text: resultText.trim(),
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            date: 'ថ្ងៃនេះ',
+            // The real day (a fixed "today" would still say today tomorrow)
+            date: new Date().toLocaleDateString('km-KH', { month: 'short', day: 'numeric' }),
             wordsCount: wordCount(resultText),
           }
           const idx = prev.findIndex((i) => i.id === pendingId)
@@ -430,6 +431,9 @@ export function OcrProvider({ children }) {
   )
 
   const clearHistory = useCallback(() => {
+    // Saved scan results go too, so the same file is read afresh next time (Undo brings back the history, which
+    // keeps its own copy of the text)
+    clearOcrCache()
     setHistoryList((prev) => {
       const previousHistory = prev
       saveHistory([])

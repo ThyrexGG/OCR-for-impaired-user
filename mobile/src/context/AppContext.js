@@ -75,14 +75,20 @@ const EFFECT_STEPS = {
   test: [[EFFECT.HEAVY_CLICK, 0], [EFFECT.HEAVY_CLICK, 700], [EFFECT.HEAVY_CLICK, 1400]],
 }
 
+// The in-app talk-back (speaks each control on touch) and its explore-by-touch mode are hidden for now: the phone's
+// own TalkBack / VoiceOver does that job. Both stay off whatever an earlier build saved; set true to bring them back.
+const IN_APP_TALKBACK = false
+// Settings no longer offers a scan engine or the user's own API keys, so ones saved by earlier builds are ignored and
+// every scan goes through songKHEM's own service. Set true to bring the choice back.
+const USER_ENGINE_SETTINGS = false
+
 let toastIdCounter = 0
 
 const AppContext = createContext(null)
 
 export function AppProvider({ children }) {
-  // Talk-back is on by default: this app is built for people who may not see the screen,
-  // In-app talk-back is OFF by default so songKHEM functions as a normal app unless the user
-  // explicitly turns it on, or uses their device's native TalkBack (Android) / VoiceOver (iOS).
+  // In-app talk-back is off (see IN_APP_TALKBACK): songKHEM works as a normal app, and people who
+  // can't see the screen use their phone's TalkBack (Android) / VoiceOver (iOS).
   const [isUiVoiceEnabled, setIsUiVoiceEnabled] = useState(false)
   const [isExploreEnabled, setIsExploreEnabled] = useState(false)
   const [voiceRate, setVoiceRateState] = useState(1.25)
@@ -148,8 +154,8 @@ export function AppProvider({ children }) {
           AsyncStorage.getItem(STORAGE_KEYS.azureTtsKey),
           AsyncStorage.getItem(STORAGE_KEYS.azureTtsEndpoint),
         ])
-      setIsUiVoiceEnabled(voice === 'true')
-      setIsExploreEnabled(explore === 'true')
+      setIsUiVoiceEnabled(IN_APP_TALKBACK && voice === 'true')
+      setIsExploreEnabled(IN_APP_TALKBACK && explore === 'true')
       const rateNum = parseFloat(savedRate)
       if (rateNum >= 0.75 && rateNum <= 2.5) {
         setVoiceRateState(rateNum)
@@ -172,15 +178,19 @@ export function AppProvider({ children }) {
         await AsyncStorage.setItem('songkhem_cloud_ocr_v1', '1')
       }
 
-      setOcrConfig({
-        provider: savedProvider,
-        googleApiKey: googleApiKey || '',
-        googleEndpoint: googleEndpoint || '',
-        azureVisionKey: azureVisionKey || '',
-        azureVisionEndpoint: azureVisionEndpoint || '',
-        azureTtsKey: azureTtsKey || '',
-        azureTtsEndpoint: azureTtsEndpoint || '',
-      })
+      setOcrConfig(
+        USER_ENGINE_SETTINGS
+          ? {
+              provider: savedProvider,
+              googleApiKey: googleApiKey || '',
+              googleEndpoint: googleEndpoint || '',
+              azureVisionKey: azureVisionKey || '',
+              azureVisionEndpoint: azureVisionEndpoint || '',
+              azureTtsKey: azureTtsKey || '',
+              azureTtsEndpoint: azureTtsEndpoint || '',
+            }
+          : EMPTY_OCR_CONFIG
+      )
       setPrefsLoaded(true)
     })()
   }, [])

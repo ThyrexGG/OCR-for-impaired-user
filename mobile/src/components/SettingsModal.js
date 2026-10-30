@@ -1,45 +1,15 @@
-import { useEffect, useState } from 'react'
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Check, Contrast, Eye, Headphones, Moon, RotateCcw, Scan, Sliders, Sun, X, ZoomIn, ZoomOut } from 'lucide-react-native'
+import { Check, Contrast, Eye, Headphones, Moon, RotateCcw, Sliders, Sun, Vibrate, X, ZoomIn, ZoomOut } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useApp } from '../context/AppContext'
 import AccessiblePressable from './AccessiblePressable'
 import AccessibleSwitch from './AccessibleSwitch'
 import PillSegmented from './PillSegmented'
-import NeoButton from './NeoButton'
-import { clearOcrCache } from '../services/cache'
-import { CLOUD_API_AVAILABLE } from '../services/cloudApi'
 
-const TABS = [
-  { key: 'visual', label: 'ការមើលឃើញ', Icon: Eye },
-  { key: 'audio', label: 'ការស្តាប់ & សំឡេង', Icon: Headphones },
-  { key: 'ocr', label: 'ម៉ាស៊ីនស្កេន', Icon: Scan },
-  { key: 'interaction', label: 'ការញ័រ', Icon: Sliders },
-]
-
-// App.vue's OCR engine radio cards (Settings > OCR tab).
-const OCR_ENGINES = [
-  {
-    value: 'tesseract',
-    free: true,
-    badge: 'ឥតគិតថ្លៃ (Default)',
-    name: 'Tesseract.js (ស្កេនក្នុងម៉ាស៊ីន)',
-    desc: 'ដំណើរការផ្ទាល់ក្នុងទូរស័ព្ទ មិនត្រូវការ API Key និងមិនបាត់បង់ឯកជនភាព',
-  },
-  {
-    value: 'google-vision',
-    badge: 'Cloud API',
-    name: 'Google Cloud Vision API',
-    desc: 'កម្រិតភាពជាក់លាក់ខ្ពស់បំផុតសម្រាប់អក្សរពុម្ពខ្មែរស្មុគស្មាញ (ត្រូវការអ៊ីនធឺណិត)',
-  },
-  {
-    value: 'azure-read',
-    badge: 'Cloud API',
-    name: 'Microsoft Azure AI Vision',
-    desc: 'សមត្ថភាពអានឯកសារក្រដាស និងវិក័យប័ត្រ (ត្រូវការ Subscription Key)',
-  },
-]
+// Only what a user needs: how the app looks, how it reads, and vibration. One scrolling page (no tabs), so a
+// TalkBack user can swipe through every setting in order. The scan engine, API keys, in-app talk-back and
+// explore-by-touch are hidden for now (see IN_APP_TALKBACK / USER_ENGINE_SETTINGS in AppContext).
 
 const VOICE_RATE_OPTIONS = [
   { value: 1, label: '1x' },
@@ -54,61 +24,28 @@ const LINE_SPACING_OPTIONS = [
   { value: 2.1, label: '2.1x' },
 ]
 
+const THEMES = [
+  { key: 'light', label: 'ផ្ទៃភ្លឺច្បាស់', Icon: Sun },
+  { key: 'contrast', label: 'កម្រិតពណ៌ខ្ពស់', Icon: Contrast },
+  { key: 'dark', label: 'ងងឹតរលោង', Icon: Moon },
+]
+
 export default function SettingsModal() {
   const { colors, fonts, currentTheme, setTheme, fontScale, changeFontScale, resetFontScale, lineSpacing, setLineSpacing, isBoldText, toggleBoldText } = useTheme()
   const {
     isSettingsOpen,
     closeSettings,
-    isUiVoiceEnabled,
-    toggleUiVoice,
-    isExploreEnabled,
-    toggleExplore,
     voiceRate,
     setVoiceRate,
-    isScreenReaderOn,
     isAutoReadEnabled,
     toggleAutoRead,
     isHapticsEnabled,
     toggleHaptics,
     isAppVoiceOnly,
     toggleAppVoiceOnly,
-    testHaptics,
-    ocrConfig,
-    saveOcrConfig,
-    triggerHaptic,
-    speakAccessibility,
-    addToast,
   } = useApp()
-  const [activeTab, setActiveTab] = useState('visual')
-  const [draftConfig, setDraftConfig] = useState(ocrConfig)
   const insets = useSafeAreaInsets()
   const styles = createStyles(colors, insets)
-
-  // Reset the draft form fields to the persisted values each time the sheet opens.
-  useEffect(() => {
-    if (isSettingsOpen) setDraftConfig(ocrConfig)
-  }, [isSettingsOpen, ocrConfig])
-
-  const patchDraft = (field) => (text) => setDraftConfig((prev) => ({ ...prev, [field]: text }))
-
-  const effectiveProvider = draftConfig.provider || (CLOUD_API_AVAILABLE ? 'google-vision' : 'tesseract')
-
-  // Fields auto-save on blur and engine cards on tap, like App.vue's
-  // `@blur` / `@change="saveOcrConfig"` (no separate Save button there).
-  const commitDraft = () => saveOcrConfig({ ...draftConfig, provider: effectiveProvider })
-
-  const selectEngine = (value) => {
-    const next = { ...draftConfig, provider: value }
-    setDraftConfig(next)
-    saveOcrConfig(next)
-  }
-
-  const handleClearCache = async () => {
-    await clearOcrCache()
-    triggerHaptic('light')
-    speakAccessibility('បានសម្អាត Cache ឯកសារស្កេនរួចរាល់')
-    addToast('បានសម្អាត Cache ឯកសារស្កេនរួចរាល់', 'success')
-  }
 
   return (
     <Modal visible={isSettingsOpen} transparent animationType="slide" onRequestClose={closeSettings}>
@@ -117,260 +54,85 @@ export default function SettingsModal() {
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <Sliders size={22} color={colors.accent} />
-              <Text style={[styles.title, { fontFamily: fonts.khmer }]}>ការកំណត់លទ្ធភាពប្រើប្រាស់</Text>
+              <Text style={[styles.title, { fontFamily: fonts.khmer }]} accessibilityRole="header">ការកំណត់</Text>
             </View>
             <AccessiblePressable style={styles.closeBtn} accessibilityLabel="បិទផ្ទាំងការកំណត់" onPress={closeSettings}>
               <X size={22} color={colors.textSecondary} />
             </AccessiblePressable>
           </View>
 
-          <View style={styles.tabs}>
-            {TABS.map(({ key, label, Icon }) => (
-              <AccessiblePressable
-                key={key}
-                style={[styles.tabPill, activeTab === key && styles.tabPillActive]}
-                accessibilityLabel={label}
-                onPress={() => setActiveTab(key)}
-              >
-                <Icon size={16} color={activeTab === key ? colors.accentText : colors.textSecondary} />
-                <Text style={[styles.tabPillText, activeTab === key && { color: colors.accentText }, { fontFamily: fonts.khmer }]}>{label}</Text>
-              </AccessiblePressable>
-            ))}
-          </View>
+          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+            <SectionHeader Icon={Eye} label="ការមើលឃើញ" colors={colors} fonts={fonts} />
+            <SettingItem title="ទំហំអក្សរ" desc="ពង្រីក ឬបង្រួមអក្សរទាំងអស់ក្នុងកម្មវិធី" colors={colors} fonts={fonts}>
+              <View style={styles.scalerRow}>
+                <AccessiblePressable style={styles.scaleBtn} disabled={fontScale <= 0.9} accessibilityLabel="បន្ថយទំហំអក្សរ" onPress={() => changeFontScale(-0.1)}>
+                  <ZoomOut size={18} color={colors.textPrimary} />
+                </AccessiblePressable>
+                <AccessiblePressable style={styles.scaleIndicator} accessibilityLabel="កំណត់ទំហំអក្សរឡើងវិញ ១០០%" onPress={resetFontScale}>
+                  <RotateCcw size={14} color={colors.textPrimary} />
+                  <Text style={styles.scaleIndicatorText}>{Math.round(fontScale * 100)}%</Text>
+                </AccessiblePressable>
+                <AccessiblePressable style={styles.scaleBtn} disabled={fontScale >= 1.6} accessibilityLabel="បង្កើនទំហំអក្សរ" onPress={() => changeFontScale(0.1)}>
+                  <ZoomIn size={18} color={colors.textPrimary} />
+                </AccessiblePressable>
+              </View>
+            </SettingItem>
 
-          <ScrollView style={styles.body} contentContainerStyle={{ gap: 18 }}>
-            {activeTab === 'visual' && (
-              <>
-                <SettingItem title="ទំហំអក្សរទូទៅ (Text Scaling)" desc="ពង្រីក ឬបង្រួមអក្សរទាំងអស់ក្នុងកម្មវិធី" fonts={fonts}>
-                  <View style={styles.scalerRow}>
-                    <AccessiblePressable style={styles.scaleBtn} disabled={fontScale <= 0.9} accessibilityLabel="បន្ថយទំហំអក្សរ" onPress={() => changeFontScale(-0.1)}>
-                      <ZoomOut size={18} color={colors.textPrimary} />
-                    </AccessiblePressable>
-                    <AccessiblePressable style={styles.scaleIndicator} accessibilityLabel="កំណត់ទំហំអក្សរឡើងវិញ ១០០%" onPress={resetFontScale}>
-                      <RotateCcw size={14} color={colors.textPrimary} />
-                      <Text style={styles.scaleIndicatorText}>{Math.round(fontScale * 100)}%</Text>
-                    </AccessiblePressable>
-                    <AccessiblePressable style={styles.scaleBtn} disabled={fontScale >= 1.6} accessibilityLabel="បង្កើនទំហំអក្សរ" onPress={() => changeFontScale(0.1)}>
-                      <ZoomIn size={18} color={colors.textPrimary} />
-                    </AccessiblePressable>
-                  </View>
-                </SettingItem>
-
-                <SettingItem title="ទម្រង់ពណ៌កម្រិតខ្ពស់ (Contrast Themes)" desc="ជ្រើសរើសកម្រិតពណ៌ដែលស័ក្តិសមនឹងភ្នែករបស់អ្នក" fonts={fonts}>
-                  <View style={styles.themeGrid}>
-                    {[
-                      { key: 'light', label: 'ផ្ទៃភ្លឺច្បាស់', sub: 'Royal Light', Icon: Sun },
-                      { key: 'contrast', label: 'កម្រិតពណ៌ខ្ពស់', sub: 'Ultra Contrast', Icon: Contrast },
-                      { key: 'dark', label: 'ងងឹតរលោង', sub: 'Midnight Dark', Icon: Moon },
-                    ].map(({ key, label, sub, Icon }) => (
-                      <AccessiblePressable
-                        key={key}
-                        style={[styles.themeCard, currentTheme === key && styles.themeCardActive]}
-                        accessibilityLabel={label}
-                        onPress={() => setTheme(key)}
-                      >
-                        <Icon size={20} color={currentTheme === key ? colors.accent : colors.textSecondary} />
-                        <Text style={[styles.themeCardLabel, { fontFamily: fonts.khmer }]}>{label}</Text>
-                        <Text style={styles.themeCardSub}>{sub}</Text>
-                      </AccessiblePressable>
-                    ))}
-                  </View>
-                </SettingItem>
-
-                <SettingItem title="អក្សរដិតច្បាស់ (Bold Typography)" desc="បង្កើនកម្រាស់អក្សរខ្មែរឱ្យងាយអានជាងមុន" fonts={fonts} row>
-                  <AccessibleSwitch value={isBoldText} onValueChange={toggleBoldText} accessibilityLabel="បើកបិទអក្សរដិត" />
-                </SettingItem>
-
-                <SettingItem title="គម្លាតជួរដេក (Line Spacing)" desc="ផ្តល់គម្លាតធំទូលាយសម្រាប់ជើងអក្សរ និងស្រៈខ្មែរ" fonts={fonts}>
-                  <PillSegmented options={LINE_SPACING_OPTIONS} value={lineSpacing} onChange={setLineSpacing} />
-                </SettingItem>
-              </>
-            )}
-
-            {activeTab === 'audio' && (
-              <>
-                <SettingItem
-                  title={`សំឡេងណែនាំ (${Platform.OS === 'ios' ? 'VoiceOver' : 'TalkBack'})`}
-                  desc={isScreenReaderOn 
-                    ? `កំពុងប្រើ ${Platform.OS === 'ios' ? 'VoiceOver' : 'TalkBack'} របស់ទូរស័ព្ទ ដូច្នេះសំឡេងណែនាំក្នុងកម្មវិធីនឹងសម្ងំ (ជៀសវាងសំឡេងជាន់គ្នា)` 
-                    : 'អានឈ្មោះប៊ូតុង ទំព័រ និងលទ្ធផលជាសំឡេងភ្លាមៗ'}
-                  fonts={fonts}
-                  row
-                >
-                  <AccessibleSwitch value={isUiVoiceEnabled} onValueChange={toggleUiVoice} accessibilityLabel={`សំឡេងណែនាំ ${Platform.OS === 'ios' ? 'VoiceOver' : 'TalkBack'}`} />
-                </SettingItem>
-                <SettingItem title="ចុចម្តងស្តាប់ ចុចពីរដងបើក (Explore by Touch)" desc="ចុចលើប៊ូតុងម្តងដើម្បីស្តាប់ថាវាជាអ្វី ចុចម្តងទៀតដើម្បីបើក ការពារកុំឱ្យចុចខុស" fonts={fonts} row>
-                  <AccessibleSwitch value={isExploreEnabled} onValueChange={toggleExplore} accessibilityLabel="ចុចម្តងស្តាប់ ចុចពីរដងបើក" />
-                </SettingItem>
-                <SettingItem title="ល្បឿនសំឡេងណែនាំ (Guidance Speed)" desc="ល្បឿននិយាយរបស់សំឡេងណែនាំ មិនប៉ះពាល់ល្បឿនអានឯកសារទេ" fonts={fonts}>
-                  <PillSegmented options={VOICE_RATE_OPTIONS} value={voiceRate} onChange={setVoiceRate} />
-                </SettingItem>
-                <SettingItem title="អានស្វ័យប្រវត្តិ (Auto-Read After Scan)" desc="ចាប់ផ្តើមអានជាសំឡេងភ្លាមៗបន្ទាប់ពីស្កេនឯកសាររួច" fonts={fonts} row>
-                  <AccessibleSwitch value={isAutoReadEnabled} onValueChange={toggleAutoRead} accessibilityLabel="បើកបិទការអានស្វ័យប្រវត្តិ" />
-                </SettingItem>
-                <SettingItem
-                  title="ប្រើតែសំឡេង songKHEM (សម្រាប់សាកល្បង)"
-                  desc="បើកពេលសំឡេងរបស់ទូរស័ព្ទមិនអានភាសាខ្មែរ ឬអានមិនត្រឹមត្រូវ។ កម្មវិធីនឹងនិយាយដោយសំឡេង songKHEM ជានិច្ច សូម្បីពេលបើក TalkBack ក៏ដោយ (ត្រូវការអ៊ីនធឺណិត)"
-                  fonts={fonts}
-                  row
-                >
-                  <AccessibleSwitch value={isAppVoiceOnly} onValueChange={toggleAppVoiceOnly} accessibilityLabel="ប្រើតែសំឡេង songKHEM" />
-                </SettingItem>
-                <SettingItem
-                  title="សំឡេងខ្មែរ Neural កម្រិតខ្ពស់ (Azure Speech - ស្រេចចិត្ត)"
-                  desc="សំឡេង Piseth & Sreymom មានស្រាប់។ បញ្ចូល Key តែពេលចង់ប្រើគណនី Azure ផ្ទាល់ខ្លួនប៉ុណ្ណោះ"
-                  fonts={fonts}
-                >
-                  <View style={styles.apiFields}>
-                    <TextInput
-                      style={styles.textInput}
-                      value={draftConfig.azureTtsKey}
-                      onChangeText={patchDraft('azureTtsKey')}
-                      onEndEditing={commitDraft}
-                      placeholder="Azure TTS Subscription Key"
-                      placeholderTextColor={colors.textMuted}
-                      secureTextEntry
-                      autoCapitalize="none"
-                    />
-                    <TextInput
-                      style={styles.textInput}
-                      value={draftConfig.azureTtsEndpoint}
-                      onChangeText={patchDraft('azureTtsEndpoint')}
-                      onEndEditing={commitDraft}
-                      placeholder="Azure TTS Endpoint (ស្រេចចិត្ត)"
-                      placeholderTextColor={colors.textMuted}
-                      autoCapitalize="none"
-                      keyboardType="url"
-                    />
-                  </View>
-                </SettingItem>
-              </>
-            )}
-
-            {activeTab === 'ocr' && (
-              <>
-                <SettingItem
-                  title="ម៉ាស៊ីនស្រង់អត្ថបទ (OCR Engine)"
-                  desc="ជ្រើសរើសបច្ចេកវិទ្យាសម្រាប់ស្កេនស្រង់អក្សរខ្មែរ និងអង់គ្លេស"
-                  fonts={fonts}
-                >
-                  <View style={styles.engineOptions}>
-                    {OCR_ENGINES.map((engine) => {
-                      const selected = effectiveProvider === engine.value
-                      return (
-                        <AccessiblePressable
-                          key={engine.value}
-                          accessibilityRole="radio"
-                          accessibilityState={{ selected }}
-                          accessibilityLabel={engine.name}
-                          style={[styles.engineCard, selected && styles.engineCardSelected]}
-                          onPress={() => selectEngine(engine.value)}
-                        >
-                          <View style={[styles.engineBadge, engine.free ? styles.engineBadgeFree : styles.engineBadgeCloud]}>
-                            <Text style={[styles.engineBadgeText, engine.free ? styles.engineBadgeFreeText : styles.engineBadgeCloudText, { fontFamily: fonts.khmer }]}>
-                              {engine.badge}
-                            </Text>
-                          </View>
-                          <Text style={[styles.engineName, { fontFamily: fonts.khmer }]}>{engine.name}</Text>
-                          <Text style={[styles.engineDesc, { fontFamily: fonts.khmer }]}>{engine.desc}</Text>
-                        </AccessiblePressable>
-                      )
-                    })}
-                  </View>
-                </SettingItem>
-
-                {effectiveProvider === 'google-vision' && (
-                  <SettingItem title="Google Vision API Credentials" desc="ស្រេចចិត្ត — ទុកទទេដើម្បីប្រើម៉ាស៊ីនស្កេនរបស់ songKHEM" fonts={fonts}>
-                    <TextInput
-                      style={styles.textInput}
-                      value={draftConfig.googleApiKey}
-                      onChangeText={patchDraft('googleApiKey')}
-                      onEndEditing={commitDraft}
-                      placeholder="Google Vision API Key (AIza...)"
-                      placeholderTextColor={colors.textMuted}
-                      secureTextEntry
-                      autoCapitalize="none"
-                    />
-                  </SettingItem>
-                )}
-
-                {effectiveProvider === 'azure-read' && (
-                  <SettingItem title="Azure Computer Vision Credentials" desc="បញ្ចូល Subscription Key និង Endpoint ពី Azure Portal" fonts={fonts}>
-                    <View style={styles.apiFields}>
-                      <TextInput
-                        style={styles.textInput}
-                        value={draftConfig.azureVisionKey}
-                        onChangeText={patchDraft('azureVisionKey')}
-                        onEndEditing={commitDraft}
-                        placeholder="Azure Computer Vision Key"
-                        placeholderTextColor={colors.textMuted}
-                        secureTextEntry
-                        autoCapitalize="none"
-                      />
-                      <TextInput
-                        style={styles.textInput}
-                        value={draftConfig.azureVisionEndpoint}
-                        onChangeText={patchDraft('azureVisionEndpoint')}
-                        onEndEditing={commitDraft}
-                        placeholder="Endpoint URL (ឧ. https://eastus.api.cognitive.microsoft.com/)"
-                        placeholderTextColor={colors.textMuted}
-                        autoCapitalize="none"
-                        keyboardType="url"
-                      />
-                    </View>
-                  </SettingItem>
-                )}
-
-                <SettingItem
-                  title="សម្អាត Cache ឯកសារ (Clear Scanned Cache)"
-                  desc="លុបចោលលទ្ធផលស្កេនដែលបានរក្សាទុកក្នុងទូរស័ព្ទ ដើម្បីស្កេនឡើងវិញថ្មីស្រឡាង"
-                  fonts={fonts}
-                >
-                  <NeoButton
-                    style={styles.clearCacheWrap}
-                    offsetX={-3}
-                    offsetY={3}
-                    bg="#FFFFFF"
-                    borderColor="#0F172A"
-                    shadowColor="#4466F6"
-                    contentStyle={styles.clearCacheBtn}
-                    accessibilityLabel="សម្អាត Cache ឯកសារស្កេនទាំងអស់"
-                    onPress={handleClearCache}
+            <SettingItem title="ពណ៌" desc="ជ្រើសរើសកម្រិតពណ៌ដែលស័ក្តិសមនឹងភ្នែករបស់អ្នក" colors={colors} fonts={fonts}>
+              <View style={styles.themeGrid}>
+                {THEMES.map(({ key, label, Icon }) => (
+                  <AccessiblePressable
+                    key={key}
+                    style={[styles.themeCard, currentTheme === key && styles.themeCardActive]}
+                    accessibilityLabel={label}
+                    accessibilityState={{ selected: currentTheme === key }}
+                    onPress={() => setTheme(key)}
                   >
-                    <RotateCcw size={16} color="#0F172A" />
-                    <Text style={[styles.clearCacheText, { fontFamily: fonts.khmer }]}>សម្អាត Cache</Text>
-                  </NeoButton>
-                </SettingItem>
-              </>
+                    <Icon size={20} color={currentTheme === key ? colors.accent : colors.textSecondary} />
+                    <Text style={[styles.themeCardLabel, { fontFamily: fonts.khmer }]}>{label}</Text>
+                  </AccessiblePressable>
+                ))}
+              </View>
+            </SettingItem>
+
+            <SettingItem title="អក្សរដិត" desc="បង្កើនកម្រាស់អក្សរខ្មែរឱ្យងាយអានជាងមុន" colors={colors} fonts={fonts} row>
+              <AccessibleSwitch value={isBoldText} onValueChange={toggleBoldText} accessibilityLabel="អក្សរដិត" />
+            </SettingItem>
+
+            <SettingItem title="គម្លាតជួរ" desc="ផ្តល់គម្លាតធំទូលាយសម្រាប់ជើងអក្សរ និងស្រៈខ្មែរ" colors={colors} fonts={fonts}>
+              <PillSegmented options={LINE_SPACING_OPTIONS} value={lineSpacing} onChange={setLineSpacing} />
+            </SettingItem>
+
+            <SectionHeader Icon={Headphones} label="ការស្តាប់" colors={colors} fonts={fonts} />
+            <SettingItem title="អានស្វ័យប្រវត្តិ" desc="ចាប់ផ្តើមអានជាសំឡេងភ្លាមៗបន្ទាប់ពីស្កេនឯកសាររួច" colors={colors} fonts={fonts} row>
+              <AccessibleSwitch value={isAutoReadEnabled} onValueChange={toggleAutoRead} accessibilityLabel="អានស្វ័យប្រវត្តិ" />
+            </SettingItem>
+            <SettingItem
+              title="ប្រើតែសំឡេង songKHEM"
+              desc="បើកពេលសំឡេងរបស់ទូរស័ព្ទមិនអានភាសាខ្មែរ ឬអានមិនត្រឹមត្រូវ។ កម្មវិធីនឹងនិយាយដោយសំឡេង songKHEM ជានិច្ច សូម្បីពេលបើក TalkBack ក៏ដោយ"
+              colors={colors}
+              fonts={fonts}
+              row
+            >
+              <AccessibleSwitch value={isAppVoiceOnly} onValueChange={toggleAppVoiceOnly} accessibilityLabel="ប្រើតែសំឡេង songKHEM" />
+            </SettingItem>
+            {/* Only the songKHEM voice follows this speed; with the phone's voice, TalkBack's own speed applies */}
+            {isAppVoiceOnly && (
+              <SettingItem title="ល្បឿនសំឡេងណែនាំ" desc="ល្បឿននិយាយរបស់សំឡេងណែនាំ មិនប៉ះពាល់ល្បឿនអានឯកសារទេ" colors={colors} fonts={fonts}>
+                <PillSegmented options={VOICE_RATE_OPTIONS} value={voiceRate} onChange={setVoiceRate} />
+              </SettingItem>
             )}
 
-            {activeTab === 'interaction' && (
-              <>
-              <SettingItem title="ការញ័រផ្តល់ដំណឹង (Haptic Feedback)" desc="ញ័រទូរស័ព្ទពេលចាប់បានឯកសារ និងពេលចុចប៊ូតុង" fonts={fonts} row>
-                <AccessibleSwitch value={isHapticsEnabled} onValueChange={toggleHaptics} accessibilityLabel="បើកបិទការញ័រផ្តល់ដំណឹង" />
-              </SettingItem>
-              <SettingItem title="សាកល្បងការញ័រ (Test Vibration)" desc="ចុចដើម្បីពិនិត្យថាទូរស័ព្ទញ័រឬអត់" fonts={fonts}>
-                <NeoButton
-                  bg="#FFFFFF"
-                  borderColor="#0F172A"
-                  shadowColor="#4466F6"
-                  contentStyle={styles.clearCacheBtn}
-                  accessibilityLabel="សាកល្បងការញ័រ"
-                  onPress={testHaptics}
-                  speakOnPress={false}
-                >
-                  <Sliders size={16} color="#0F172A" />
-                  <Text style={[styles.clearCacheText, { fontFamily: fonts.khmer }]}>សាកល្បងការញ័រ</Text>
-                </NeoButton>
-              </SettingItem>
-              </>
-            )}
+            <SectionHeader Icon={Vibrate} label="ការញ័រ" colors={colors} fonts={fonts} />
+            <SettingItem title="ការញ័រ" desc="ញ័រទូរស័ព្ទពេលចាប់បានឯកសារ និងពេលចុចប៊ូតុង" colors={colors} fonts={fonts} row>
+              <AccessibleSwitch value={isHapticsEnabled} onValueChange={toggleHaptics} accessibilityLabel="ការញ័រ" />
+            </SettingItem>
           </ScrollView>
 
           <View style={styles.footer}>
-            <AccessiblePressable style={styles.doneBtn} accessibilityLabel="រួចរាល់ (Done)" hapticIntensity="light" onPress={closeSettings}>
+            <AccessiblePressable style={styles.doneBtn} accessibilityLabel="រួចរាល់" hapticIntensity="light" onPress={closeSettings}>
               <Check size={18} color={colors.accentText} />
-              <Text style={[styles.doneBtnText, { fontFamily: fonts.khmer }]}>រួចរាល់ (Done)</Text>
+              <Text style={[styles.doneBtnText, { fontFamily: fonts.khmer }]}>រួចរាល់</Text>
             </AccessiblePressable>
           </View>
         </Pressable>
@@ -379,12 +141,23 @@ export default function SettingsModal() {
   )
 }
 
-function SettingItem({ title, desc, fonts, row, children }) {
+function SectionHeader({ Icon, label, colors, fonts }) {
+  return (
+    <View style={[itemStyles.section, { borderBottomColor: colors.borderSubtle }]}>
+      <Icon size={18} color={colors.accent} />
+      <Text style={[itemStyles.sectionText, { color: colors.accent, fontFamily: fonts.khmer }]} accessibilityRole="header">
+        {label}
+      </Text>
+    </View>
+  )
+}
+
+function SettingItem({ title, desc, colors, fonts, row, children }) {
   return (
     <View style={[itemStyles.item, row && itemStyles.itemRow]}>
       <View style={itemStyles.labelCol}>
-        <Text style={[itemStyles.title, { fontFamily: fonts.khmer }]}>{title}</Text>
-        <Text style={[itemStyles.desc, { fontFamily: fonts.khmer }]}>{desc}</Text>
+        <Text style={[itemStyles.title, { color: colors.textPrimary, fontFamily: fonts.khmer }]}>{title}</Text>
+        <Text style={[itemStyles.desc, { color: colors.textSecondary, fontFamily: fonts.khmer }]}>{desc}</Text>
       </View>
       {children}
     </View>
@@ -392,11 +165,13 @@ function SettingItem({ title, desc, fonts, row, children }) {
 }
 
 const itemStyles = StyleSheet.create({
+  section: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: 10, paddingBottom: 8, borderBottomWidth: 1.5 },
+  sectionText: { fontSize: 16, fontWeight: '800' },
   item: { gap: 10 },
   itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   labelCol: { flex: 1, gap: 2 },
-  title: { fontSize: 14, fontWeight: '700' },
-  desc: { fontSize: 12, opacity: 0.7 },
+  title: { fontSize: 15, fontWeight: '700' },
+  desc: { fontSize: 13, lineHeight: 20 },
 })
 
 const createStyles = (colors, insets) =>
@@ -413,25 +188,10 @@ const createStyles = (colors, insets) =>
     },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18, borderBottomWidth: 2, borderBottomColor: colors.borderSubtle },
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    title: { fontSize: 16, fontWeight: '700', color: colors.textPrimary },
-    closeBtn: { minWidth: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: colors.radii.sm },
-    tabs: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 },
-    tabPill: {
-      flexGrow: 1,
-      minWidth: '45%',
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      minHeight: 40,
-      backgroundColor: colors.bgSurfaceElevated,
-      borderWidth: 1.5,
-      borderColor: colors.borderSubtle,
-      borderRadius: colors.radii.sm,
-    },
-    tabPillActive: { backgroundColor: colors.accent, borderColor: colors.accent },
-    tabPillText: { fontSize: 11, fontWeight: '700', color: colors.textSecondary },
-    body: { paddingHorizontal: 18, paddingTop: 4 },
+    title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+    closeBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: colors.radii.sm },
+    body: { paddingHorizontal: 18 },
+    bodyContent: { gap: 18, paddingTop: 4, paddingBottom: 18 },
     scalerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     scaleBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgSurfaceElevated, borderWidth: 1.5, borderColor: colors.borderSubtle, borderRadius: colors.radii.sm },
     scaleIndicator: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 72, height: 44, justifyContent: 'center', backgroundColor: colors.bgSurfaceElevated, borderWidth: 1.5, borderColor: colors.borderSubtle, borderRadius: colors.radii.sm },
@@ -439,40 +199,7 @@ const createStyles = (colors, insets) =>
     themeGrid: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
     themeCard: { flexGrow: 1, minWidth: 96, alignItems: 'center', gap: 4, paddingVertical: 14, backgroundColor: colors.bgSurfaceElevated, borderWidth: 1.5, borderColor: colors.borderMedium, borderRadius: colors.radii.md },
     themeCardActive: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
-    themeCardLabel: { fontSize: 12, fontWeight: '700', color: colors.textPrimary },
-    themeCardSub: { fontSize: 10, color: colors.textMuted },
-    textInput: {
-      minHeight: 46,
-      paddingHorizontal: 14,
-      backgroundColor: colors.bgSurfaceElevated,
-      borderWidth: 1.5,
-      borderColor: colors.borderMedium,
-      borderRadius: colors.radii.sm,
-      color: colors.textPrimary,
-      fontSize: 14,
-    },
-    apiFields: { gap: 10 },
-    engineOptions: { gap: 10 },
-    engineCard: {
-      gap: 4,
-      padding: 14,
-      backgroundColor: colors.bgSurfaceElevated,
-      borderWidth: 2,
-      borderColor: colors.borderSubtle,
-      borderRadius: 16,
-    },
-    engineCardSelected: { borderColor: colors.accent, backgroundColor: colors.accentSubtle },
-    engineBadge: { alignSelf: 'flex-start', paddingVertical: 2, paddingHorizontal: 8, borderRadius: 16 },
-    engineBadgeFree: { backgroundColor: colors.successSubtle },
-    engineBadgeCloud: { backgroundColor: colors.accentSubtle },
-    engineBadgeText: { fontSize: 12, fontWeight: '800' },
-    engineBadgeFreeText: { color: colors.success },
-    engineBadgeCloudText: { color: colors.accent },
-    engineName: { fontSize: 15, fontWeight: '800', color: colors.textPrimary },
-    engineDesc: { fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
-    clearCacheWrap: { alignSelf: 'flex-start', marginLeft: 3 },
-    clearCacheBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 42, paddingHorizontal: 16 },
-    clearCacheText: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+    themeCardLabel: { fontSize: 13, fontWeight: '700', color: colors.textPrimary },
     // The sheet is drawn behind the system navigation bar / gesture pill, so the Done button needs that clearance
     footer: { padding: 18, paddingBottom: 18 + Math.max(insets.bottom, 16), borderTopWidth: 1.5, borderTopColor: colors.borderSubtle },
     doneBtn: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.accent, borderRadius: colors.radii.md },

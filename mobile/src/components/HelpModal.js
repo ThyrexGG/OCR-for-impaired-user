@@ -16,15 +16,15 @@ const STEPS = [
   },
   {
     heading: 'ចុចប៊ូតុងថតរូបភាព',
-    desc: 'ពេលមានការញ័រស្រាល ចុចប៊ូតុងថតមូលនៅខាងក្រោម។ រូបថតនឹងកាត់យកតែឯកសារ (When you feel a light buzz, press the round capture button; the photo is cropped to the page).',
+    desc: 'ពេលមានការញ័រស្រាល ចុចប៊ូតុងថតមូលនៅខាងក្រោម ឬចុចប៊ូតុងសំឡេងនៅចំហៀងទូរស័ព្ទ។ រូបថតនឹងកាត់យកតែឯកសារ (When you feel a light buzz, press the round capture button or a volume button on the side of the phone; the photo is cropped to the page).',
   },
   {
     heading: 'រង់ចាំការស្រង់អត្ថបទ',
-    desc: 'ប្រព័ន្ធនឹងវិភាគអក្សរខ្មែរដោយស្វ័យប្រវត្តិក្នុងរយៈពេលខ្លី (Wait for the text to be extracted).',
+    desc: 'ពេលកំពុងស្រង់អត្ថបទ អ្នកនឹងឮសំឡេងប៊ីបតិចៗ (While the text is being extracted you hear soft beeps).',
   },
   {
-    heading: 'ចុចប៊ូតុង អានជាសំឡេង',
-    desc: 'ចុចប៊ូតុង "អានជាសំឡេង (Read Aloud)" ដើម្បីស្តាប់អត្ថបទ និងតាមដានពាក្យរំលេច (Press Read Aloud).',
+    heading: 'ស្តាប់ការអាន',
+    desc: 'កម្មវិធីនឹងចាប់ផ្តើមអានឱ្យអ្នកស្តាប់ដោយស្វ័យប្រវត្តិ។ ចុចប៊ូតុងធំ ដើម្បីផ្អាក ឬបន្តការអាន (The app starts reading aloud by itself; tap the big button to pause or continue).',
   },
 ]
 

@@ -35,6 +35,8 @@ export function TtsProvider({ children }) {
   const [rate, setRate] = useState(1.0)
   const [voices, setVoices] = useState([])
   const [selectedVoiceName, setSelectedVoiceName] = useState('')
+  // Length of the current document's audio at 1x, in seconds, once the player knows it (0 = not known yet)
+  const [audioDuration, setAudioDuration] = useState(0)
 
   const tokensRef = useRef([])
   const highlightIntervalRef = useRef(null)
@@ -310,6 +312,7 @@ export function TtsProvider({ children }) {
           }
           const duration = status.duration
           if (!(duration > 0)) return
+          setAudioDuration((prev) => (Math.abs(prev - duration) < 0.5 ? prev : duration))
           // A skip tapped before the duration was known is applied as soon as it is
           if (pendingSeekRef.current !== null) {
             const pending = pendingSeekRef.current
@@ -437,6 +440,7 @@ export function TtsProvider({ children }) {
       if (name === selectedVoiceNameRef.current) return
       selectedVoiceNameRef.current = name
       setSelectedVoiceName(name)
+      setAudioDuration(0)
       AsyncStorage.setItem(VOICE_STORAGE_KEY, name).catch(() => {})
       triggerHaptic('light')
       if (isSpeaking || isPausedRef.current) {
@@ -461,6 +465,7 @@ export function TtsProvider({ children }) {
       consumed += w.length
       return start
     })
+    setAudioDuration(0)
     stopSpeech()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extractedText])
@@ -480,6 +485,7 @@ export function TtsProvider({ children }) {
       rate,
       voices,
       selectedVoiceName,
+      audioDuration,
       speedPresets: SPEED_PRESETS,
       togglePlayback,
       startSpeech,
@@ -498,6 +504,7 @@ export function TtsProvider({ children }) {
       rate,
       voices,
       selectedVoiceName,
+      audioDuration,
       togglePlayback,
       startSpeech,
       pauseSpeech,

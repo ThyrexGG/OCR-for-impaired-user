@@ -111,7 +111,7 @@ function PillTabBar({ state, descriptors, navigation }) {
             onPress={onPress}
             style={tabStyles.tab}
           >
-            <View style={[tabStyles.iconPill, focused && { backgroundColor: shell.pill, borderWidth: shell.pillBorder ? 1 : 0, borderColor: shell.pillBorder || 'transparent' }]}>
+            <View style={[tabStyles.iconPill, focused ? { backgroundColor: shell.pill, borderWidth: shell.pillBorder ? 1 : 0, borderColor: shell.pillBorder || 'transparent' } : tabStyles.iconPillIdle]}>
               <Icon size={24} color={color} />
             </View>
             <Text style={[tabStyles.label, { color: focused ? shell.labelActive : shell.tab, fontWeight: focused ? '600' : '500' }]} numberOfLines={1}>
@@ -131,6 +131,9 @@ const tabStyles = StyleSheet.create({
   bar: { paddingHorizontal: 16, elevation: 2 },
   inner: { flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
   tab: { flex: 1, maxWidth: 120, height: '100%', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8 },
-  iconPill: { width: 64, height: 32, borderRadius: 9999, alignItems: 'center', justifyContent: 'center' },
+  iconPill: { width: 64, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  // Android can lose the rounded corners when a background first appears on an already-drawn view, so the pill
+  // always has one (transparent while its tab is not selected)
+  iconPillIdle: { backgroundColor: 'transparent', borderWidth: 0 },
   label: { fontSize: 12, lineHeight: 16, letterSpacing: 0.1 },
 })

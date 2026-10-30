@@ -69,7 +69,7 @@ export default function ReaderScreen({ navigation }) {
   const { colors, fonts, currentTheme, fontScale, lineSpacing, isBoldText } = useTheme()
   const { triggerHaptic, speakAccessibility, announce, addToast, openSettings, isAutoReadEnabled } = useApp()
   const { extractedText } = useOcr()
-  const { isSpeaking, activeWordIndex, togglePlayback, stopSpeech, jumpWords, seekToWord, voices, selectedVoiceName, selectVoice, speedPresets, rate, setSpeedPreset } = useTts()
+  const { isSpeaking, activeWordIndex, togglePlayback, stopSpeech, jumpWords, seekToWord, voices, selectedVoiceName, selectVoice, speedPresets, rate, setSpeedPreset, audioDuration } = useTts()
   const insets = useSafeAreaInsets()
   const s = colors.surfaces
   const styles = useMemo(() => createStyles(s, currentTheme, insets), [s, currentTheme, insets])
@@ -139,7 +139,11 @@ export default function ReaderScreen({ navigation }) {
 
   const currentWordPos = Math.max(0, activeWordIndex)
   const progressRatio = dragRatio ?? (totalWords > 1 ? Math.min(1, currentWordPos / (totalWords - 1)) : 0)
-  const totalSecs = totalWords ? Math.max(1, Math.round(totalWords / 2.5 / (rate || 1))) : 0
+  // The real audio length once the player knows it; before that an estimate from the letters (Khmer barely uses
+  // spaces, so counting words made a page look a few seconds long). The voice says about 11 characters a second.
+  const spokenChars = useMemo(() => (extractedText || '').replace(/\s+/g, '').length, [extractedText])
+  const secsAt1x = audioDuration > 0 ? audioDuration : spokenChars / 11
+  const totalSecs = totalWords ? Math.max(1, Math.round(secsAt1x / (rate || 1))) : 0
   const elapsedSecs = Math.min(totalSecs, Math.round(progressRatio * totalSecs))
   const remainingSecs = Math.max(0, totalSecs - elapsedSecs)
   const activeLoc = useMemo(() => locateWord(paragraphs, activeWordIndex), [paragraphs, activeWordIndex])
