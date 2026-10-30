@@ -423,8 +423,9 @@ export default function ReaderScreen({ navigation }) {
 
       {/* Summary dialog */}
       <Modal visible={isSummaryOpen} transparent animationType="fade" onRequestClose={() => setIsSummaryOpen(false)}>
-        <Pressable accessible={false} style={styles.backdrop} onPress={() => setIsSummaryOpen(false)}>
-          <Pressable accessible={false} style={styles.sheet} onPress={() => {}}>
+        <View style={styles.backdrop}>
+          <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={() => setIsSummaryOpen(false)} />
+          <View style={styles.sheet}>
             <SheetHeader styles={styles} fonts={fonts} s={s} title="សង្ខេបខ្លឹមសារ" Icon={BookOpen} onClose={() => setIsSummaryOpen(false)} />
             <ScrollView style={styles.summaryScroll}>
               {summaryPoints.map((pt, i) => (
@@ -443,14 +444,15 @@ export default function ReaderScreen({ navigation }) {
               <Volume2 size={20} color="#FFFFFF" />
               <Text style={[styles.sheetCtaText, { fontFamily: fonts.khmerBold }]}>អានសង្ខេបជាសំឡេង</Text>
             </AccessiblePressable>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       {/* Voice & speed dialog */}
       <Modal visible={isVoiceOpen} transparent animationType="fade" onRequestClose={() => setIsVoiceOpen(false)}>
-        <Pressable accessible={false} style={styles.backdrop} onPress={() => setIsVoiceOpen(false)}>
-          <Pressable accessible={false} style={styles.sheet} onPress={() => {}}>
+        <View style={styles.backdrop}>
+          <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={() => setIsVoiceOpen(false)} />
+          <View style={styles.sheet}>
             <SheetHeader styles={styles} fonts={fonts} s={s} title="សំឡេង និងល្បឿនអាន" Icon={Volume2} onClose={() => setIsVoiceOpen(false)} />
             <ScrollView style={styles.voiceScroll}>
               {voices.map((v) => {
@@ -501,8 +503,8 @@ export default function ReaderScreen({ navigation }) {
                 </AccessiblePressable>
               ))}
             </View>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   )

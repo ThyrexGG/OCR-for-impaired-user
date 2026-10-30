@@ -36,8 +36,9 @@ export default function HelpModal() {
 
   return (
     <Modal visible={isHelpOpen} transparent animationType="fade" onRequestClose={closeHelp}>
-      <Pressable accessible={false} style={styles.backdrop} onPress={closeHelp}>
-        <Pressable accessible={false} style={styles.card} onPress={() => {}}>
+      <View style={styles.backdrop}>
+        <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={closeHelp} />
+        <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.titleGroup}>
               <View style={styles.iconBox}>
@@ -81,8 +82,8 @@ export default function HelpModal() {
               <Text style={[styles.gotItText, { fontFamily: fonts.khmer }]}>យល់ព្រម (Got it)</Text>
             </AccessiblePressable>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   )
 }

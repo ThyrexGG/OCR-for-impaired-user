@@ -50,6 +50,11 @@ class SongkhemDocScanModule : Module() {
         view.capture(corners, promise)
       }
 
+      // The torch, for a dark room
+      AsyncFunction("setTorch") { view: DocCameraView, on: Boolean ->
+        view.setTorch(on)
+      }
+
       OnViewDestroys { view: DocCameraView -> view.release() }
     }
   }

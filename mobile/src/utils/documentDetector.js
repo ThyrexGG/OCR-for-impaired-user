@@ -242,6 +242,12 @@ export function detectDocument(luma, w, h) {
   return best ? best.quad.map(([x, y]) => ({ x: x / w, y: y / h })) : null
 }
 
+// The outline stays this long after the page was last found: single frames miss the page edges often, and an
+// outline that blinks out on every miss is distracting
+const LINGER_MS = 1500
+// How far the outline moves toward each new sighting (lower = smoother glide, less jitter)
+const GLIDE = 0.35
+
 const maxCornerShift = (a, b) => Math.max(...a.map((p, i) => Math.hypot(p.x - b[i].x, p.y - b[i].y)))
 
 /**
@@ -258,19 +264,23 @@ export class DocumentTracker {
     this.pending = null
     this.misses = 0
     this.seen = 0
+    this.lastSeenAt = 0
   }
 
   /** @returns {{corners: {x:number,y:number}[] | null, steady: boolean}} */
   update(found) {
     if (!found) {
       this.pending = null
-      if (++this.misses >= 4) {
+      this.misses++
+      if (this.corners && Date.now() - this.lastSeenAt >= LINGER_MS) {
         this.corners = null
         this.seen = 0
       }
-      return { corners: this.corners, steady: this.corners !== null && this.seen >= 3 }
+      // Still drawn, but not steady: nothing is decided (or photographed) on an outline the camera has lost
+      return { corners: this.corners, steady: this.corners !== null && this.seen >= 3 && this.misses < 2 }
     }
     this.misses = 0
+    this.lastSeenAt = Date.now()
 
     if (!this.corners) {
       // First sighting: wait for a second frame that agrees before showing anything
@@ -282,7 +292,7 @@ export class DocumentTracker {
         this.pending = found
       }
     } else if (maxCornerShift(this.corners, found) < 0.15) {
-      this.corners = this.corners.map((p, i) => ({ x: p.x + (found[i].x - p.x) * 0.5, y: p.y + (found[i].y - p.y) * 0.5 }))
+      this.corners = this.corners.map((p, i) => ({ x: p.x + (found[i].x - p.x) * GLIDE, y: p.y + (found[i].y - p.y) * GLIDE }))
       this.seen++
       this.pending = null
     } else if (this.pending && maxCornerShift(this.pending, found) < 0.1) {

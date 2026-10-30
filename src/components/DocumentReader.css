@@ -790,7 +790,12 @@
 
 .summary-card-body {
   padding: 16px;
+  /* flex + min-height 0: shrink to the card's 80vh cap so a long summary scrolls instead of being cut off */
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .summary-points-list {

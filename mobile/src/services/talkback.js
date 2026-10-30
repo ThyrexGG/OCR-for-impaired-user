@@ -23,7 +23,7 @@ const UI_VOICE = 'km-KH-SreymomNeural'
 const MAX_LIVE_CACHE = 80
 const SEGMENT_TIMEOUT_MS = 15000
 
-let rate = 1.25
+let rate = 1
 let generation = 0
 let tail = Promise.resolve()
 let currentPlayer = null

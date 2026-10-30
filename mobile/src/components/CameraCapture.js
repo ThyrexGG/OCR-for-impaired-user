@@ -15,19 +15,39 @@ import { DocCamera, isDocCameraSupported, listenVolumeShutter } from '../service
 import { useTour, useTourTarget } from '../context/TourContext'
 import { DocumentTracker, assessFraming, detectDocument } from '../utils/documentDetector'
 
-const SEARCHING_MESSAGE = 'សូមតម្រង់កាមេរ៉ាទៅកាន់ឯកសារ...'
-const FOUND_MESSAGE = 'ឃើញឯកសារពេញលេញ សូមកាន់ឱ្យនឹង ហើយចុចថត'
-// Spoken directions (relative to the page, so they make sense with the phone held flat over it)
-const HINT_MESSAGES = {
-  left: 'មិនឃើញគែមខាងឆ្វេងនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅឆ្វេងបន្តិច',
-  right: 'មិនឃើញគែមខាងស្តាំនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅស្តាំបន្តិច',
-  up: 'មិនឃើញគែមខាងលើនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅខាងលើឯកសារបន្តិច',
-  down: 'មិនឃើញគែមខាងក្រោមនៃឯកសារ សូមរំកិលទូរស័ព្ទទៅខាងក្រោមឯកសារបន្តិច',
-  further: 'ឯកសារធំជាងរូបភាព សូមលើកទូរស័ព្ទឱ្យខ្ពស់ជាងនេះ',
-  closer: 'ឯកសារនៅឆ្ងាយពេក សូមដាក់ទូរស័ព្ទឱ្យជិតឯកសារជាងនេះ',
+const SEARCHING_MESSAGE = 'សូមតម្រង់កាមេរ៉ាទៅកាន់ឯកសារ'
+// What the camera tells the user, one short sentence each. Directions are relative to the page, so they make
+// sense with the phone held flat over it. All are short enough to be recorded into the voice pack, so they
+// play even without internet.
+const GUIDE = {
+  search: SEARCHING_MESSAGE,
+  left: 'រំកិលទូរស័ព្ទទៅឆ្វេងបន្តិច',
+  right: 'រំកិលទូរស័ព្ទទៅស្តាំបន្តិច',
+  up: 'រំកិលទូរស័ព្ទទៅខាងលើឯកសារបន្តិច',
+  down: 'រំកិលទូរស័ព្ទទៅខាងក្រោមឯកសារបន្តិច',
+  further: 'លើកទូរស័ព្ទឱ្យខ្ពស់បន្តិច',
+  closer: 'ដាក់ទូរស័ព្ទឱ្យជិតឯកសារបន្តិច',
+  blur: 'កាន់ទូរស័ព្ទឱ្យនឹង',
+  found: 'ល្អ កាន់ឱ្យនឹង កំពុងថត',
 }
-const SAY_AGAIN_MS = 4000 // the same direction is not repeated sooner than this
-const FRAMES_TO_CHANGE = 2 // a new state must hold this many frames (~0.2s) before it is announced
+const DARK_MESSAGE = 'ងងឹតពេក កំពុងបើកពន្លឺ'
+// Pacing, so the voice guides calmly instead of chattering:
+const FRAMES_TO_CHANGE = 2 // the on-screen banner follows a new state after ~0.2s
+const SPEAK_HOLD_MS = 1500 // a direction is only spoken once it has held this long (not for a passing wobble)
+const SPEAK_GAP_MS = 5000 // at least this long between two spoken directions
+const SAY_AGAIN_MS = 10000 // a direction that still applies is repeated no sooner than this
+const FOUND_SAY_MS = 600 // "good, hold still" comes quicker: the photo follows
+// Taking the photo by itself: page fully in view, outline steady and the picture sharp for this long (time to
+// hear "good, hold still, taking the photo" first)
+const AUTO_SHOT_MS = 2800
+const REARM_MS = 1000 // after an automatic photo, the page must be gone this long before the next one
+// Sharpness: a frame is crisp when it scores near the best seen lately (the scale differs between phones)
+const SHARP_RATIO = 0.6
+const SHARP_MIN = 2.5
+const SHARP_PEAK_DECAY = 0.985
+// Brightness (0-255 average of the picture) below this for DARK_FRAMES frames turns the torch on
+const DARK_LUMA = 55
+const DARK_FRAMES = 8
 const OUTLINE_COLOR = '#EF4444'
 // The detected outline can sit a little inside the paper; cut well outside it so edge text is never clipped
 const CROP_MARGIN = 1.06
@@ -51,7 +71,7 @@ const withMargin = (corners) => {
  */
 export default function CameraCapture() {
   const { colors, fonts, currentTheme } = useTheme()
-  const { speakAccessibility, triggerHaptic } = useApp()
+  const { speakGuidance, triggerHaptic } = useApp()
   const { captureAndScan, isProcessing } = useOcr()
   const isFocused = useIsFocused()
   const [permission, requestPermission] = useCameraPermissions()
@@ -70,8 +90,16 @@ export default function CameraCapture() {
   const cameraRef = useRef(null)
   const docRef = useRef(null)
   const trackerRef = useRef(new DocumentTracker())
-  // What the user was last told: 'search' | 'found' | a HINT_MESSAGES key
+  // What the banner shows now: 'search' | 'found' | 'blur' | a direction key in GUIDE
   const framingRef = useRef({ key: 'search', candidate: null, count: 0, spokenAt: {} })
+  // Speech pacing and the automatic photo: when the current state began, when anything was last said, the
+  // sharpness peak, dark-frame count, whether the torch is on and whether an automatic photo may be taken
+  const paceRef = useRef(null)
+  const resetPace = () => {
+    paceRef.current = { key: 'search', since: Date.now(), lastSpokeAt: 0, spokenAt: {}, peak: 0, darkFrames: 0, torch: false, armed: true, goneSince: 0 }
+  }
+  if (!paceRef.current) resetPace()
+  const autoShootRef = useRef(null)
   const guidanceTimerRef = useRef(null)
 
   const styles = createStyles(colors)
@@ -108,6 +136,7 @@ export default function CameraCapture() {
   useEffect(() => {
     trackerRef.current.reset()
     framingRef.current = { key: 'search', candidate: null, count: 0, spokenAt: {} }
+    resetPace()
     setOutline(null)
     setGuidanceMessage(SEARCHING_MESSAGE)
   }, [isFocused])
@@ -125,7 +154,7 @@ export default function CameraCapture() {
   // Without the camera there is nothing to see: say so, and say what to do
   useEffect(() => {
     if (isFocused && permission && !permission.granted && permission.status !== 'undetermined') {
-      speakAccessibility(TP.cameraDenied.km)
+      speakGuidance(TP.cameraDenied.km)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isFocused, permission?.granted, permission?.status])
@@ -156,39 +185,83 @@ export default function CameraCapture() {
     (event) => {
       if (isProcessing) return
       try {
-        const { width, height, data } = event.nativeEvent
+        const { width, height, data, sharpness = 0 } = event.nativeEvent
         const bin = globalThis.atob(data)
         const luma = new Uint8Array(bin.length)
-        for (let i = 0; i < bin.length; i++) luma[i] = bin.charCodeAt(i)
+        let lumaSum = 0
+        for (let i = 0; i < bin.length; i++) {
+          luma[i] = bin.charCodeAt(i)
+          lumaSum += luma[i]
+        }
         const { corners, steady } = trackerRef.current.update(detectDocument(luma, width, height))
         setOutline((prev) => (prev === null && corners === null ? prev : corners))
+        const now = Date.now()
+        const p = paceRef.current
 
-        // Tell the user how to move until the whole page is in view; only then say it is ready
-        const { cropSafe, hint } = assessFraming(corners)
+        // A dark room: turn the torch on once, and say so
+        p.darkFrames = lumaSum / luma.length < DARK_LUMA ? p.darkFrames + 1 : 0
+        if (!p.torch && p.darkFrames >= DARK_FRAMES) {
+          p.torch = true
+          docRef.current?.setTorch?.(true)
+          p.lastSpokeAt = now
+          speakGuidance(DARK_MESSAGE)
+        }
+
+        // Crisp or shaky: compared with the best this camera has managed lately
+        p.peak = Math.max(sharpness, p.peak * SHARP_PEAK_DECAY)
+        const sharp = sharpness >= SHARP_MIN && sharpness >= p.peak * SHARP_RATIO
+
+        // Tell the user how to move until the whole page is in view, then to hold still until the picture is sharp
+        const { hint } = assessFraming(corners)
         const f = framingRef.current
-        const key = !corners ? 'search' : hint || (steady && cropSafe ? 'found' : f.key)
+        const key = !corners ? 'search' : hint || (steady ? (sharp ? 'found' : 'blur') : f.key)
+
+        // The banner (and a light buzz) follows quickly
         if (key === f.key) {
           f.candidate = null
         } else if (key === f.candidate && ++f.count >= FRAMES_TO_CHANGE) {
           f.key = key
           f.candidate = null
-          const message = key === 'search' ? SEARCHING_MESSAGE : key === 'found' ? FOUND_MESSAGE : HINT_MESSAGES[key]
-          setGuidanceMessage(message)
+          setGuidanceMessage(GUIDE[key])
           triggerHaptic(key === 'found' ? 'success' : key === 'search' ? 'selection' : 'light')
-          const now = Date.now()
-          if (now - (f.spokenAt[key] || 0) > SAY_AGAIN_MS) {
-            f.spokenAt[key] = now
-            speakAccessibility(message)
-          }
         } else if (key !== f.candidate) {
           f.candidate = key
           f.count = 1
+        }
+
+        // The voice is slower: a state must have held a moment, never right after something else was said, and
+        // the same direction is only repeated while it still applies, every few seconds
+        if (f.key !== p.key) {
+          p.key = f.key
+          p.since = now
+        }
+        const held = now - p.since
+        const isNew = p.lastKey !== p.key
+        const due = isNew ? held >= (p.key === 'found' ? FOUND_SAY_MS : SPEAK_HOLD_MS) : p.key !== 'found' && now - (p.spokenAt[p.key] || 0) >= SAY_AGAIN_MS
+        if (due && (p.key === 'found' || now - p.lastSpokeAt >= SPEAK_GAP_MS)) {
+          p.lastKey = p.key
+          p.lastSpokeAt = now
+          p.spokenAt[p.key] = now
+          speakGuidance(GUIDE[p.key])
+        }
+
+        // Take the photo by itself once the page has been lined up, steady and sharp for a moment. After that,
+        // the next automatic photo waits until the page has been taken away, so it is not scanned twice.
+        if (p.key === 'search') {
+          if (!p.goneSince) p.goneSince = now
+          if (!p.armed && now - p.goneSince >= REARM_MS) p.armed = true
+        } else {
+          p.goneSince = 0
+        }
+        if (p.key === 'found' && p.armed && held >= AUTO_SHOT_MS && autoShootRef.current) {
+          p.armed = false
+          autoShootRef.current()
         }
       } catch (e) {
         console.warn('Page detection error:', e)
       }
     },
-    [isProcessing, triggerHaptic, speakAccessibility]
+    [isProcessing, triggerHaptic, speakGuidance]
   )
 
   const handleDocCameraError = useCallback((event) => {
@@ -203,7 +276,8 @@ export default function CameraCapture() {
       // Cut down to the page only when the whole page is steady and clearly inside the picture; otherwise keep the
       // whole photo, so no text can be cut away
       const page = trackerRef.current.corners
-      const safe = page && framingRef.current.key === 'found' && assessFraming(page).cropSafe
+      // 'blur' also has the whole page lined up (it only waits for a sharper picture)
+      const safe = page && ['found', 'blur'].includes(framingRef.current.key) && assessFraming(page).cropSafe
       const flat = safe ? withMargin(page).flatMap((p) => [p.x, p.y]) : null
       const { uri, fullUri } = await docRef.current.capture(flat)
       const result = await captureAndScan({ uri, name: `scan_${Date.now()}.jpg`, mimeType: 'image/jpeg' }, { quietNoText: !!fullUri })
@@ -223,6 +297,7 @@ export default function CameraCapture() {
   // easier to find by feel than the button on screen. Not during the guided tour, which is spoken.
   const shutterRef = useRef(null)
   shutterRef.current = isCapturing || isProcessing ? null : useDocCamera ? handleDocCapture : handleCapture
+  autoShootRef.current = useDocCamera && isFocused && tourPhase === 'closed' && !isCapturing && !isProcessing ? handleDocCapture : null
   useEffect(() => {
     if (!isFocused || !isGranted || tourPhase !== 'closed') return
     return listenVolumeShutter(() => {

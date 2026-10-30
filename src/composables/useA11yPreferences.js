@@ -24,7 +24,7 @@ const IN_APP_TALKBACK = false
 
 const isUiVoiceEnabled = ref(false)
 const isExploreEnabled = ref(false)
-const voiceRate = ref(1.25)
+const voiceRate = ref(1)
 const isAutoReadEnabled = ref(true)
 const isHapticsEnabled = ref(true)
 
@@ -212,8 +212,8 @@ export function useA11yPreferences() {
     isUiVoiceEnabled.value = IN_APP_TALKBACK && storage.getItem(STORAGE_KEYS.VOICE, 'false') === 'true'
     announcer.setVoiceEnabled(isUiVoiceEnabled.value)
     isExploreEnabled.value = IN_APP_TALKBACK && storage.getItem(STORAGE_KEYS.EXPLORE, 'false') === 'true'
-    const savedRate = parseFloat(storage.getItem(STORAGE_KEYS.VOICE_RATE, '1.25'))
-    voiceRate.value = savedRate >= 0.75 && savedRate <= 2.5 ? savedRate : 1.25
+    const savedRate = parseFloat(storage.getItem(STORAGE_KEYS.VOICE_RATE, '1'))
+    voiceRate.value = savedRate >= 0.75 && savedRate <= 2.5 ? savedRate : 1
     announcer.setRate(voiceRate.value)
 
     isAutoReadEnabled.value = storage.getItem(STORAGE_KEYS.AUTO_READ, 'true') !== 'false'

@@ -91,7 +91,7 @@ export function AppProvider({ children }) {
   // can't see the screen use their phone's TalkBack (Android) / VoiceOver (iOS).
   const [isUiVoiceEnabled, setIsUiVoiceEnabled] = useState(false)
   const [isExploreEnabled, setIsExploreEnabled] = useState(false)
-  const [voiceRate, setVoiceRateState] = useState(1.25)
+  const [voiceRate, setVoiceRateState] = useState(1)
   const [isScreenReaderOn, setIsScreenReaderOn] = useState(false)
   const [prefsLoaded, setPrefsLoaded] = useState(false)
   const [isAutoReadEnabled, setIsAutoReadEnabled] = useState(true)
@@ -161,7 +161,7 @@ export function AppProvider({ children }) {
         setVoiceRateState(rateNum)
         setSpeechRate(rateNum)
       } else {
-        setSpeechRate(1.25)
+        setSpeechRate(1)
       }
       setIsAutoReadEnabled(autoRead !== 'false')
       setIsHapticsEnabled(haptics !== 'false')
@@ -240,6 +240,20 @@ export function AppProvider({ children }) {
       }
       if (!isUiVoiceEnabledRef.current && !isScreenReaderOnRef.current) return
       speakNow(text, { interrupt })
+    },
+    [announceToScreenReader]
+  )
+
+  // Directions the user needs whatever the settings say (the camera telling them how to move): through TalkBack
+  // when it is on, otherwise in the songKHEM voice. Never cuts off what is already being said.
+  const speakGuidance = useCallback(
+    (text) => {
+      if (!text) return
+      if (isScreenReaderOnRef.current && !appVoiceOnlyRef.current) {
+        announceToScreenReader(Array.isArray(text) ? text.join('. ') : text)
+        return
+      }
+      speakNow(text, { interrupt: false })
     },
     [announceToScreenReader]
   )
@@ -426,6 +440,7 @@ export function AppProvider({ children }) {
       triggerHaptic,
       testHaptics,
       speakAccessibility,
+      speakGuidance,
       announce,
       toggleUiVoice,
       toggleExplore,
@@ -460,6 +475,7 @@ export function AppProvider({ children }) {
       triggerHaptic,
       testHaptics,
       speakAccessibility,
+      speakGuidance,
       announce,
       toggleUiVoice,
       toggleExplore,

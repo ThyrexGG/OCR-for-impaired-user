@@ -14,7 +14,9 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Base64
 import android.view.ViewGroup
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -38,6 +40,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
 
@@ -47,6 +51,10 @@ private const val FRAME_INTERVAL_MS = 110L
 private const val MAX_OUTPUT_SIDE = 3000f
 private const val VIEWPORT_RETRIES = 40
 private const val SCAN_KEEP_MS = 60 * 60 * 1000L
+// Sharpness is measured on this square at the middle of the full-size picture (every 2nd pixel)
+private const val SHARP_WINDOW = 240
+// Longest wait for the lens to settle on the page before the photo is taken anyway
+private const val FOCUS_WAIT_MS = 1200L
 
 @SuppressLint("ViewConstructor")
 class DocCameraView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
@@ -66,6 +74,7 @@ class DocCameraView(context: Context, appContext: AppContext) : ExpoView(context
   private val scope = CoroutineScope(Dispatchers.Main)
   private var provider: ProcessCameraProvider? = null
   private var imageCapture: ImageCapture? = null
+  private var camera: Camera? = null
   private var lastFrameAt = 0L
   private var released = false
   // The phone's own camera click, so the user hears that the photo was taken
@@ -100,6 +109,7 @@ class DocCameraView(context: Context, appContext: AppContext) : ExpoView(context
     } catch (_: Exception) {
     }
     imageCapture = null
+    camera = null
   }
 
   private fun fail(message: String) {
@@ -148,7 +158,7 @@ class DocCameraView(context: Context, appContext: AppContext) : ExpoView(context
           .build()
 
         cameraProvider.unbindAll()
-        cameraProvider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, group)
+        camera = cameraProvider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, group)
         imageCapture = capture
       } catch (e: CancellationException) {
         throw e
@@ -199,11 +209,85 @@ class DocCameraView(context: Context, appContext: AppContext) : ExpoView(context
       }
     }
 
-    val payload = mapOf("width" to GRID_W, "height" to GRID_H, "data" to Base64.encodeToString(out, Base64.NO_WRAP))
+    val payload = mapOf(
+      "width" to GRID_W,
+      "height" to GRID_H,
+      "data" to Base64.encodeToString(out, Base64.NO_WRAP),
+      "sharpness" to sharpness(image)
+    )
     mainHandler.post { if (!released) onFrame(payload) }
   }
 
+  // How crisp the middle of the picture is: the mean change in brightness between neighbouring pixels (a
+  // Laplacian). Text in focus has hard edges and scores high; a shaking or unfocused camera scores low.
+  private fun sharpness(image: ImageProxy): Double {
+    val plane = image.planes[0]
+    val buffer = plane.buffer
+    val rowStride = plane.rowStride
+    val pixelStride = plane.pixelStride
+    val crop = image.cropRect
+    val half = SHARP_WINDOW / 2
+    val x0 = (crop.centerX() - half).coerceAtLeast(1)
+    val y0 = (crop.centerY() - half).coerceAtLeast(1)
+    val x1 = (crop.centerX() + half).coerceAtMost(image.width - 2)
+    val y1 = (crop.centerY() + half).coerceAtMost(image.height - 2)
+    fun at(x: Int, y: Int) = buffer.get(y * rowStride + x * pixelStride).toInt() and 0xFF
+    var sum = 0L
+    var n = 0
+    var y = y0
+    while (y < y1) {
+      var x = x0
+      while (x < x1) {
+        sum += abs(4 * at(x, y) - at(x - 1, y) - at(x + 1, y) - at(x, y - 1) - at(x, y + 1))
+        n++
+        x += 2
+      }
+      y += 2
+    }
+    return if (n == 0) 0.0 else sum.toDouble() / n
+  }
+
+  // The phone's torch, for dark rooms. Ignored on phones without one.
+  fun setTorch(on: Boolean) {
+    mainHandler.post {
+      val cam = camera ?: return@post
+      if (cam.cameraInfo.hasFlashUnit()) cam.cameraControl.enableTorch(on)
+    }
+  }
+
+  // Focus on the page first (its middle, or the middle of the view), then take the photo. A phone held close
+  // over paper often has the lens still hunting; a photo taken then is soft and reads badly.
   fun capture(corners: List<Double>?, promise: Promise) {
+    if (imageCapture == null) {
+      promise.reject("E_NOT_READY", "The camera is not ready yet", null)
+      return
+    }
+    mainHandler.post {
+      val cam = camera
+      var taken = false
+      val shoot = Runnable {
+        if (!taken) {
+          taken = true
+          takePhoto(corners, promise)
+        }
+      }
+      try {
+        if (cam == null || previewView.width == 0) throw IllegalStateException("no camera")
+        val cx = if (corners != null && corners.size == 8) (corners[0] + corners[2] + corners[4] + corners[6]) / 4 else 0.5
+        val cy = if (corners != null && corners.size == 8) (corners[1] + corners[3] + corners[5] + corners[7]) / 4 else 0.5
+        val point = previewView.meteringPointFactory.createPoint((cx * previewView.width).toFloat(), (cy * previewView.height).toFloat())
+        val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE)
+          .setAutoCancelDuration(3, TimeUnit.SECONDS)
+          .build()
+        cam.cameraControl.startFocusAndMetering(action).addListener(shoot, ContextCompat.getMainExecutor(context))
+        mainHandler.postDelayed(shoot, FOCUS_WAIT_MS)
+      } catch (_: Exception) {
+        shoot.run()
+      }
+    }
+  }
+
+  private fun takePhoto(corners: List<Double>?, promise: Promise) {
     val capture = imageCapture
     if (capture == null) {
       promise.reject("E_NOT_READY", "The camera is not ready yet", null)
