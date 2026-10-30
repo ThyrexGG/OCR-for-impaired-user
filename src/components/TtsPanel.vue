@@ -54,7 +54,7 @@ const g2pAnalysis = computed(() => {
 
 const activeModelBadge = computed(() => {
   if (selectedVoiceName.value === 'km-KH-VitsOffline') {
-    return 'songKHEM-VITS v2.0 (PyTorch 36.29M Params · 384 Steps · Loss: 7.43 → 6.02)'
+    return 'Sopheap (Piseth Neural, lighter pitch) + Khmer Closed-Syllable G2P'
   }
   if (selectedVoiceName.value === 'km-KH-SokhaMedical') {
     return 'Dr. Sokha Assistive Persona (-10Hz Baritone · Smart Dosage/Currency Pacing)'
@@ -135,14 +135,14 @@ const loadVoices = () => {
     {
       name: 'km-KH-PisethNeural',
       lang: 'km-KH',
-      label: 'ពិសិដ្ឋ (Piseth — សំឡេងប្រុស Neural ច្បាស់ៗ)',
+      label: 'ពិសិដ្ឋ (Piseth — សំឡេងប្រុស)',
       gender: 'Male',
       isAzure: true
     },
     {
       name: 'km-KH-SreymomNeural',
       lang: 'km-KH',
-      label: 'ស្រីមុំ (Sreymom — សំឡេងស្រី Neural ស្រទន់)',
+      label: 'ស្រីមុំ (Sreymom — សំឡេងស្រី)',
       gender: 'Female',
       isAzure: true
     },
@@ -156,7 +156,7 @@ const loadVoices = () => {
     {
       name: 'km-KH-VitsOffline',
       lang: 'km-KH',
-      label: 'songKHEM-VITS (Offline Model — ម៉ូដែលក្នុងម៉ាស៊ីនផ្ទាល់)',
+      label: 'សុភាព (Sopheap — សំឡេងប្រុស ស្រាល)',
       gender: 'Male',
       isAzure: true
     }

@@ -16,12 +16,26 @@ import { postProcessKhmerOcr } from './khmerOcrCorrector'
 import { getFileFingerprint, getOcrCache, setOcrCache } from './cache'
 import { CLOUD_API_AVAILABLE } from './cloudApi'
 import { t } from './i18n'
+import { SCAN_ERRORS, classifyScanError } from './scanErrors'
+
+// What went wrong and what to do, in plain words (same list as the app); `kind` lets the screen speak it
+const scanFailure = (kind) => ({
+  ok: false,
+  error: { kind, code: kind, title: SCAN_ERRORS[kind].title, say: SCAN_ERRORS[kind].say, message: `${SCAN_ERRORS[kind].title}។ ${SCAN_ERRORS[kind].say}` }
+})
+
+const USER_ENGINE_SETTINGS = false
 
 class OcrService {
   /**
    * Determine available OCR provider configuration from localStorage and environment
    */
   getProviderConfig() {
+    // Same as the app: Settings no longer offers a scan engine or keys, so saved ones are ignored and every
+    // scan goes through the api/ocr proxy (Google Vision). true brings the user's own choice back.
+    if (!USER_ENGINE_SETTINGS && CLOUD_API_AVAILABLE) {
+      return { provider: 'google-vision', googleApiKey: '', googleEndpoint: '', azureApiKey: '', azureEndpoint: '' }
+    }
     // Keys come only from the user's own Settings entries. With none, Google
     // Vision runs through the api/ocr serverless proxy (keys stay server-side).
     const storedOcrEngine = (typeof window !== 'undefined' && localStorage.getItem('songkhem_ocr_engine')) ||
@@ -48,10 +62,7 @@ class OcrService {
    */
   async recognize(file, options = {}) {
     if (!file) {
-      return {
-        ok: false,
-        error: { message: t('ocrErrorInvalidFile') || 'ឯកសារមិនត្រឹមត្រូវ', code: 'INVALID_FILE' }
-      }
+      return scanFailure('bad_file')
     }
 
     // 1. Check Cache first (Fingerprint match)
@@ -85,10 +96,7 @@ class OcrService {
       const text = postProcessKhmerOcr((rawText || '').trim())
 
       if (!text) {
-        return {
-          ok: false,
-          error: { message: t('ocrErrorNoText') || 'មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ', code: 'NO_TEXT' }
-        }
+        return scanFailure('no_text')
       }
 
       // 3. Cache Result
@@ -107,14 +115,9 @@ class OcrService {
         }
       }
     } catch (err) {
-      console.error('OCR Extraction Error:', err)
-      return {
-        ok: false,
-        error: {
-          message: err.message || t('ocrErrorFailed') || 'មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ',
-          code: 'OCR_FAILED'
-        }
-      }
+      const kind = classifyScanError(err)
+      console.warn(`Scan failed (${kind}): ${SCAN_ERRORS[kind].en}`, err?.message)
+      return scanFailure(kind)
     }
   }
 }

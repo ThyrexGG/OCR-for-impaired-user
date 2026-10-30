@@ -126,7 +126,7 @@ export const GUIDELINE_STEPS = [
     fallbackSelector: '.spotify-scrub-header',
     titleKm: 'ជម្រើសសំឡេង (...)',
     titleEn: 'Voice & Speed Options (...)',
-    descKm: 'ចុចសញ្ញាចុចបី (...) នៅលើរបារវឌ្ឍនភាព ដើម្បីប្តូរសំឡេង AI ខ្មែរ (ស្រីមុំ, ពិសិដ្ឋ, សុខា, songKHEM-VITS) និងកែសម្រួលល្បឿនអាន។',
+    descKm: 'ចុចសញ្ញាចុចបី (...) នៅលើរបារវឌ្ឍនភាព ដើម្បីប្តូរសំឡេង AI ខ្មែរ (ស្រីមុំ, ពិសិដ្ឋ, សុខា, សុភាព) និងកែសម្រួលល្បឿនអាន។',
     descEn: 'Tap the three dots (...) above the progress bar to switch between Khmer AI voices and adjust reading speed.',
     preferredDock: 'top'
   },

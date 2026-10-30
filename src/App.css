@@ -618,6 +618,23 @@
   color: #000000;
 }
 
+.settings-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 0;
+  padding: 4px 2px 8px;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--accent);
+  border-bottom: 1.5px solid var(--divider, #E2E8F0);
+}
+
 .tab-pane {
   padding: 16px;
   overflow-y: auto;

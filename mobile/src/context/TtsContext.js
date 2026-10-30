@@ -78,10 +78,10 @@ export function TtsProvider({ children }) {
     ;(async () => {
       if (ocrConfig.azureTtsKey || CLOUD_API_AVAILABLE) {
         const azureVoices = [
-          { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'Piseth (សំឡេងប្រុស)', gender: 'Male' },
-          { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'Sreymom (សំឡេងស្រី)', gender: 'Female' },
-          { name: 'km-KH-SokhaMedical', lang: 'km-KH', label: 'Dr. Sokha (គ្រូពេទ្យ សុខា - វេជ្ជបញ្ជា)', gender: 'Male' },
-          { name: 'km-KH-VitsOffline', lang: 'km-KH', label: 'songKHEM-VITS (ម៉ូដែលរបស់យើង)', gender: 'Male' },
+          { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth — សំឡេងប្រុស)', gender: 'Male' },
+          { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom — សំឡេងស្រី)', gender: 'Female' },
+          { name: 'km-KH-SokhaMedical', lang: 'km-KH', label: 'គ្រូពេទ្យ សុខា (Dr. Sokha — អានវេជ្ជបញ្ជា/វិក្កយបត្រ)', gender: 'Male' },
+          { name: 'km-KH-VitsOffline', lang: 'km-KH', label: 'សុភាព (Sopheap — សំឡេងប្រុស ស្រាល)', gender: 'Male' },
         ]
         setVoices(azureVoices)
         const saved = await AsyncStorage.getItem(VOICE_STORAGE_KEY).catch(() => null)
@@ -108,8 +108,8 @@ export function TtsProvider({ children }) {
           setSelectedVoiceName(mapped[0].name)
         } else {
           const defaultKhmer = [
-            { name: 'km-KH-Piseth', lang: 'km-KH', label: 'Piseth (សំឡេងប្រុស)', gender: 'Male' },
-            { name: 'km-KH-Sreymom', lang: 'km-KH', label: 'Sreymom (សំឡេងស្រី)', gender: 'Female' },
+            { name: 'km-KH-Piseth', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth — សំឡេងប្រុស)', gender: 'Male' },
+            { name: 'km-KH-Sreymom', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom — សំឡេងស្រី)', gender: 'Female' },
           ]
           setVoices(defaultKhmer)
           setSelectedVoiceName(defaultKhmer[0].name)
@@ -281,7 +281,7 @@ export function TtsProvider({ children }) {
         const selectedVoice = voicesRef.current.find((v) => v.name === selectedVoiceNameRef.current)
         const voiceName = selectedVoice ? selectedVoice.name : 'km-KH-PisethNeural'
         const gender = selectedVoice?.gender || 'Male'
-        // Sokha / songKHEM-VITS are songKHEM personas served by api/tts, not real Azure voice names
+        // Sokha / Sopheap are songKHEM personas served by api/tts, not real Azure voice names
         const isPersona = voiceName === 'km-KH-VitsOffline' || voiceName === 'km-KH-SokhaMedical'
         const useAzureDirect = Boolean(azureKey) && !isPersona
 

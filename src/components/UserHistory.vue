@@ -59,11 +59,12 @@ const handleClearAll = () => {
   }
 }
 
-// Estimate listening duration based on word count (~120 words/min)
-const estimateDuration = (wordsCount) => {
-  if (!wordsCount) return `~30 ${t('secondsApprox')}`
-  const minutes = Math.ceil(wordsCount / 120)
-  return `~${minutes} ${t('minutesApprox')}`
+// How long the reading takes, from the letters: Khmer barely uses spaces, so a word count was far too low.
+// The voice says about 11 characters a second.
+const estimateDuration = (text) => {
+  const secs = Math.round((text || '').replace(/s+/g, '').length / 11)
+  if (secs < 60) return `~${Math.max(5, Math.round(secs / 5) * 5)} ${t('secondsApprox')}`
+  return `~${Math.round(secs / 60)} ${t('minutesApprox')}`
 }
 </script>
 
@@ -127,8 +128,7 @@ const estimateDuration = (wordsCount) => {
               <div class="row-doc-meta khmer-font">
                 <span class="meta-time">{{ item.date || item.timestamp }}</span>
                 <span class="meta-separator">•</span>
-                <span class="meta-words">{{ item.wordsCount || 0 }} {{ t('wordsCount') }} ({{ estimateDuration(item.wordsCount) }})</span>
-                <span v-if="item.cached" class="meta-cached-tag">Cache</span>
+                <span class="meta-words">{{ item.pending ? item.timestamp : estimateDuration(item.text) }}</span>
               </div>
             </div>
 

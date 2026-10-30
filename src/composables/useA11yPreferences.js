@@ -18,6 +18,10 @@ const isBoldText = ref(false)
 
 // In-app talk-back is OFF by default so songKHEM functions as a normal app unless the user
 // explicitly turns it on, or uses their device's native TalkBack (Android) / VoiceOver (iOS).
+// Same as the app: the in-app talk-back and explore-by-touch are hidden for now and kept off whatever an
+// older version saved; the system screen reader (TalkBack / VoiceOver / NVDA) does that job. true brings them back.
+const IN_APP_TALKBACK = false
+
 const isUiVoiceEnabled = ref(false)
 const isExploreEnabled = ref(false)
 const voiceRate = ref(1.25)
@@ -205,9 +209,9 @@ export function useA11yPreferences() {
       storage.setItem('songkhem_voice_default_v3', '1')
     }
 
-    isUiVoiceEnabled.value = storage.getItem(STORAGE_KEYS.VOICE, 'false') === 'true'
+    isUiVoiceEnabled.value = IN_APP_TALKBACK && storage.getItem(STORAGE_KEYS.VOICE, 'false') === 'true'
     announcer.setVoiceEnabled(isUiVoiceEnabled.value)
-    isExploreEnabled.value = storage.getItem(STORAGE_KEYS.EXPLORE, 'false') === 'true'
+    isExploreEnabled.value = IN_APP_TALKBACK && storage.getItem(STORAGE_KEYS.EXPLORE, 'false') === 'true'
     const savedRate = parseFloat(storage.getItem(STORAGE_KEYS.VOICE_RATE, '1.25'))
     voiceRate.value = savedRate >= 0.75 && savedRate <= 2.5 ? savedRate : 1.25
     announcer.setRate(voiceRate.value)

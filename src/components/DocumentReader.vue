@@ -43,10 +43,22 @@ let holdTimer = null
 let holdTriggered = false
 let retractTimer = null
 const HOLD_TRIGGER_MS = 420
+// Same as the app: after the menu opens the finger can stay down and slide onto an option; letting go there
+// runs it (like Telegram's hold-to-record). The option under the finger lights up, buzzes and says its name.
+const PILL_LABELS = {
+  summary: { km: 'សង្ខេបខ្លឹមសារ', en: 'Summarize' },
+  copy: { km: 'ចម្លងអត្ថបទ', en: 'Copy text' }
+}
+const dragTarget = ref(null)
+let isDragging = false
 
 const startHold = (e) => {
   // Only primary mouse button or touch
   if (e.pointerType === 'mouse' && e.button !== 0) return
+  // Keep receiving the finger's moves after it leaves the button, so it can slide onto an option
+  try { e.currentTarget.setPointerCapture(e.pointerId) } catch (_) {}
+  isDragging = false
+  dragTarget.value = null
   if (retractTimer) {
     clearTimeout(retractTimer)
     retractTimer = null
@@ -63,10 +75,39 @@ const startHold = (e) => {
     isHolding.value = false
     // Tactile double vibration pattern when jelly pops out
     triggerHaptic([45, 30, 50])
+    isDragging = true
     speakAccessibility(currentLang.value === 'km' 
-      ? 'បានបើកម៉ឺនុយមុខងារ: សង្ខេប និងចម្លង' 
-      : 'Menu opened: summarize and copy')
+      ? 'អូសម្រាមដៃឡើងទៅ សង្ខេប ឬចម្លង រួចលែងដៃ' 
+      : 'Slide up to Summarize or Copy, then let go')
   }, HOLD_TRIGGER_MS)
+}
+
+const pillAt = (x, y) => {
+  const el = document.elementFromPoint(x, y)
+  const pill = el && el.closest ? el.closest('[data-pill]') : null
+  return pill ? pill.dataset.pill : null
+}
+
+const onFabMove = (e) => {
+  if (!isDragging) return
+  const id = pillAt(e.clientX, e.clientY)
+  if (id === dragTarget.value) return
+  dragTarget.value = id
+  if (id) {
+    triggerHaptic(15)
+    speakAccessibility(PILL_LABELS[id][currentLang.value === 'km' ? 'km' : 'en'])
+  }
+}
+
+// Letting go on an option runs it; anywhere else leaves the menu open to tap
+const onFabRelease = () => {
+  cancelHold()
+  if (!isDragging) return
+  isDragging = false
+  const id = dragTarget.value
+  dragTarget.value = null
+  if (id === 'summary') handleOpenSummary()
+  else if (id === 'copy') handleCopy()
 }
 
 const cancelHold = () => {
@@ -178,11 +219,16 @@ const summaryPoints = computed(() => {
     .map(s => s.trim())
     .filter(s => s.length > 8)
 
-  if (rawSentences.length > 0) {
-    return rawSentences.slice(0, 4)
+  // A scanned page often has no ។ at all, only line breaks: without this the whole page came back as one point
+  const byLine = lines.filter(l => l.length > 8)
+  const pieces = rawSentences.length < 2 && byLine.length >= 2 ? byLine : rawSentences
+  const clip = s => (s.length > 180 ? s.slice(0, 180).trim() + '...' : s)
+
+  if (pieces.length > 0) {
+    return pieces.slice(0, 4).map(clip)
   }
 
-  return [clean.slice(0, 180) + '...']
+  return [clip(clean)]
 })
 
 const handleOpenSummary = () => {
@@ -207,7 +253,7 @@ const handleReadSummaryAloud = () => {
   speakAccessibility(fullSummary)
 }
 
-// --- Khmer TTS Engine (songKHEM-VITS / Neural personas, assistive pacing, audio-locked highlight) ---
+// --- Khmer TTS Engine (Neural personas, assistive pacing, audio-locked highlight) ---
 const activeWordIndex = ref(-1)
 
 const tts = useKhmerTts({
@@ -270,12 +316,13 @@ const progressPercent = computed(() => {
   return Math.min(100, Math.max(0, (currentWordPos.value / (tokensCount.value - 1)) * 100))
 })
 
-// Estimated audio duration based on word count (~2.5 words/sec at 1.0x rate)
+// The real audio length once it is known, else an estimate from the letters: Khmer barely uses spaces,
+// so counting words made a 30-second document look like 6 seconds. The voice says about 11 characters a second.
+const spokenChars = computed(() => (props.text || '').replace(/s+/g, '').length)
 const totalDurationSecs = computed(() => {
-  const w = tokensCount.value
-  if (!w) return 0
-  const spd = rate.value || 1.0
-  return Math.max(1, Math.round((w / 2.5) / spd))
+  if (!tokensCount.value) return 0
+  const secsAt1x = tts.audioDuration.value > 0 ? tts.audioDuration.value : spokenChars.value / 11
+  return Math.max(1, Math.round(secsAt1x / (rate.value || 1.0)))
 })
 
 const elapsedSecs = computed(() => {
@@ -306,7 +353,7 @@ const handleScrub = (e) => {
   seekToWord(targetIndex)
 }
 
-// --- Voice & Speed Picker (4 Khmer personas incl. trained songKHEM-VITS) ---
+// --- Voice & Speed Picker (4 Khmer personas) ---
 const isVoiceModalOpen = ref(false)
 
 const openVoiceModal = () => {
@@ -466,6 +513,8 @@ onBeforeUnmount(() => {
         <button 
           type="button" 
           class="action-pill-btn pill-summarize khmer-font"
+          :class="{ 'pill-hot': dragTarget === 'summary' }"
+          data-pill="summary"
           @click="handleOpenSummary"
           @mouseenter="onPillHover"
           :tabindex="isActionsOpen ? 0 : -1"
@@ -480,6 +529,8 @@ onBeforeUnmount(() => {
         <button 
           type="button" 
           class="action-pill-btn pill-copy khmer-font"
+          :class="{ 'pill-hot': dragTarget === 'copy' }"
+          data-pill="copy"
           @click="handleCopy"
           @mouseenter="onPillHover"
           :tabindex="isActionsOpen ? 0 : -1"
@@ -497,8 +548,9 @@ onBeforeUnmount(() => {
         class="reader-fab-trigger"
         :class="{ 'fab-active': isActionsOpen, 'fab-holding': isHolding, 'fab-hint': isHinting }"
         @pointerdown="startHold"
-        @pointerup="cancelHold"
-        @pointerleave="cancelHold"
+        @pointermove="onFabMove"
+        @pointerup="onFabRelease"
+        @pointercancel="onFabRelease"
         @click="handleClick"
         @keydown.enter.prevent="toggleByKeyboard"
         @keydown.space.prevent="toggleByKeyboard"
@@ -506,8 +558,8 @@ onBeforeUnmount(() => {
         aria-haspopup="menu"
         :aria-expanded="isActionsOpen"
         :aria-label="currentLang === 'km' 
-          ? 'មុខងារបន្ថែម (សង្ខេប និងចម្លង) - សង្កត់ដើម្បីបើក' 
-          : 'Additional features (summarize and copy) - hold to open'"
+          ? 'មុខងារបន្ថែម (សង្ខេប និងចម្លង) - សង្កត់ រួចអូសទៅជម្រើស' 
+          : 'Additional features (summarize and copy) - hold, then slide to an option'"
       >
         <img :src="signalIconUrl" alt="" class="fab-signal-icon" draggable="false" />
       </button>
@@ -528,7 +580,7 @@ onBeforeUnmount(() => {
             @keydown.space.prevent="openVoiceModal"
           >
             <Volume2 :size="15" />
-            <span>{{ selectedVoiceName.includes('Sreymom') ? 'ស្រីមុំ' : selectedVoiceName.includes('Piseth') ? 'ពិសិដ្ឋ' : selectedVoiceName.includes('Sokha') ? 'សុខា' : 'songKHEM-VITS' }}</span>
+            <span>{{ selectedVoiceName.includes('Sreymom') ? 'ស្រីមុំ' : selectedVoiceName.includes('Piseth') ? 'ពិសិដ្ឋ' : selectedVoiceName.includes('Sokha') ? 'សុខា' : 'សុភាព' }}</span>
           </div>
           <button 
             type="button" 

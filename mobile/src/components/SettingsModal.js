@@ -49,8 +49,11 @@ export default function SettingsModal() {
 
   return (
     <Modal visible={isSettingsOpen} transparent animationType="slide" onRequestClose={closeSettings}>
-      <Pressable accessible={false} style={styles.backdrop} onPress={closeSettings}>
-        <Pressable accessible={false} style={styles.sheet} onPress={() => {}}>
+      {/* The tap-outside area sits behind the sheet, not around it: a Pressable wrapping the
+          ScrollView fights it for the finger on Android and makes scrolling stutter */}
+      <View style={styles.backdrop}>
+        <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={closeSettings} />
+        <View style={styles.sheet}>
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <Sliders size={22} color={colors.accent} />
@@ -135,8 +138,8 @@ export default function SettingsModal() {
               <Text style={[styles.doneBtnText, { fontFamily: fonts.khmer }]}>រួចរាល់</Text>
             </AccessiblePressable>
           </View>
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </Modal>
   )
 }
@@ -190,7 +193,8 @@ const createStyles = (colors, insets) =>
     titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
     closeBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: colors.radii.sm },
-    body: { paddingHorizontal: 18 },
+    // Shrink to the sheet's 85% cap so the list scrolls inside it instead of pushing the footer off
+    body: { paddingHorizontal: 18, flexShrink: 1 },
     bodyContent: { gap: 18, paddingTop: 4, paddingBottom: 18 },
     scalerRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     scaleBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bgSurfaceElevated, borderWidth: 1.5, borderColor: colors.borderSubtle, borderRadius: colors.radii.sm },

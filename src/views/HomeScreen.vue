@@ -13,6 +13,9 @@ import TtsPanel from '../components/TtsPanel.vue'
 import UserHistory from '../components/UserHistory.vue'
 import AppToast from '../components/AppToast.vue'
 import { ocrService } from '../services/ocrService'
+import { clearOcrCache } from '../services/cache'
+import { startWaitingCue, stopWaitingCue } from '../services/waitingCue'
+import { announcer } from '../services/announcer'
 import { storage, STORAGE_KEYS } from '../services/storage'
 import { haptics } from '../services/haptics'
 import { t, currentLang } from '../services/i18n'
@@ -69,6 +72,7 @@ let processingTickId = null
 // While a scan runs, say so now and then: a user who cannot see the spinner has no other way
 // to tell "working" from "stuck".
 const clearProcessingTimers = () => {
+  stopWaitingCue()
   clearTimeout(processingTimeoutId)
   clearInterval(processingTickId)
   processingTimeoutId = null
@@ -231,18 +235,15 @@ const handleTriggerOcr = async () => {
   isLongProcessing.value = false
   isProcessing.value = true
   haptics.pulse('shutter')
-  speakAccessibility(t('scanningDesc'))
 
-  // Timeout warning after 5 seconds per §6.4
+  // Like the app: a soft looping du-du-du while the page is read, instead of spoken "please wait" messages
   clearProcessingTimers()
+  announcer.stop()
+  startWaitingCue()
   processingTimeoutId = setTimeout(() => {
     if (isProcessing.value) {
       isLongProcessing.value = true
-      speakAccessibility(t('longProcessingNotice'), false)
-      processingTickId = setInterval(() => {
-        haptics.pulse('tap')
-        speakAccessibility(tp('scanning'), false)
-      }, 9000)
+      processingTickId = setInterval(() => haptics.pulse('tap'), 9000)
     }
   }, 5000)
 
@@ -297,7 +298,8 @@ const handleTriggerOcr = async () => {
         name: selectedFileName.value || t('scannedDocTitle'),
         text: text.trim(),
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        date: currentLang.value === 'km' ? 'ថ្ងៃនេះ' : 'Today',
+        // The real date: a fixed "today" still said today a week later
+        date: new Date().toLocaleDateString(currentLang.value === 'km' ? 'km-KH' : 'en-US', { month: 'short', day: 'numeric' }),
         wordsCount,
         cached
       }
@@ -336,7 +338,9 @@ const handleTriggerOcr = async () => {
     ocrProgress.value = 0
     ocrError.value = result.error.message
     haptics.pulse('error')
-    speakAccessibility(`${t('ocrErrorTitle')} - ${result.error.message}`)
+    // What went wrong, then what to do, each sentence on its own so all of it comes from the voice pack
+    const { title, say } = result.error
+    speakAccessibility(title ? [title, ...say.split('។').map((part) => part.trim()).filter(Boolean)] : result.error.message)
     nextTick(() => {
       scanAgainErrorBtnRef.value?.focus()
     })
@@ -405,6 +409,8 @@ const onClearHistory = () => {
   const previousHistory = [...historyList.value]
   historyList.value = []
   saveHistory()
+  // Saved scan results go too, so a rescan reads the page afresh (Settings no longer has its own button)
+  clearOcrCache()
   
   addToast({
     message: currentLang.value === 'km' ? 'បានសម្អាត' : 'Cleared',

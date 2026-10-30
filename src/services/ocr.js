@@ -1,6 +1,7 @@
 import Tesseract from 'tesseract.js'
 import * as pdfjsLib from 'pdfjs-dist'
 import { CLOUD_API_AVAILABLE, cloudOcr } from './cloudApi'
+import { ScanError } from './scanErrors'
 import {
   preprocessImageForKhmerOcr,
   postProcessKhmerOcr,
@@ -86,7 +87,7 @@ export const detectTextTesseract = async (fileOrBlob, onProgress) => {
     const rawText = extractCleanTextFromTesseract(result?.data)
     const text = postProcessKhmerOcr(rawText)
     if (!text || text.length === 0) {
-      throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងរូបភាពនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected by OCR. Try better lighting or hold the camera closer.)')
+      throw new ScanError('no_text')
     }
 
     return text
@@ -95,7 +96,7 @@ export const detectTextTesseract = async (fileOrBlob, onProgress) => {
     if (error.message && error.message.includes('មិនអាច')) {
       throw error
     }
-    throw new Error(`មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ៖ ${error.message || 'សូមព្យាយាមស្កេនម្តងទៀត'}`)
+    throw error instanceof ScanError ? error : new ScanError('bad_file', error.message)
   }
 }
 
@@ -163,7 +164,7 @@ export const extractTextFromPdf = async (file, onProgress) => {
     if (err.message && err.message.includes('មិនអាច')) {
       throw err
     }
-    throw new Error('មិនអាចស្រង់អត្ថបទពីឯកសារ PDF នេះបានទេ។ សូមពិនិត្យឯកសារ ហើយព្យាយាមម្តងទៀត។')
+    throw new ScanError('bad_file', 'PDF could not be read')
   }
 }
 
@@ -177,7 +178,7 @@ export const extractTextFromPdf = async (file, onProgress) => {
 export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
   try {
     if (!apiKey && !CLOUD_API_AVAILABLE) {
-      throw new Error('សូមបញ្ចូល Google Cloud Vision API Key ក្នុងផ្ទាំងការកំណត់ជាមុនសិន។ (Please configure your Google Vision API Key in Settings.)')
+      throw new ScanError('settings', 'Google Vision API key missing')
     }
 
     const base64Image = await imageToBase64ForCloud(file)
@@ -186,7 +187,7 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
     if (!apiKey) {
       const proxiedText = postProcessKhmerOcr(await cloudOcr(base64Image))
       if (!proxiedText.trim()) {
-        throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងឯកសារនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected. Try better lighting or hold the camera closer.)')
+        throw new ScanError('no_text')
       }
       return proxiedText.trim()
     }
@@ -222,7 +223,7 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
     if (!response.ok) {
       const errBody = await response.text().catch(() => '')
       console.warn('Google Vision HTTP error:', response.status, errBody)
-      throw new Error('មិនអាចទាក់ទងម៉ាស៊ីនស្កេន Google Vision បានទេ។ សូមពិនិត្យ API Key និងការតភ្ជាប់អ៊ីនធឺណិត។ (Unable to connect to Google Vision OCR service. Check your API key.)')
+      throw new ScanError('server', 'Google Vision unreachable')
     }
 
     const data = await response.json()
@@ -230,7 +231,7 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
     const fullText = postProcessKhmerOcr(rawFullText)
 
     if (!fullText || !fullText.trim()) {
-      throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងឯកសារនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected. Try better lighting or hold the camera closer.)')
+      throw new ScanError('no_text')
     }
 
     return fullText.trim()
@@ -250,10 +251,10 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
 export const detectTextAzureVision = async (file, apiKey, endpoint) => {
   try {
     if (!apiKey) {
-      throw new Error('សូមបញ្ចូល Azure Computer Vision Key ក្នុងផ្ទាំងការកំណត់ជាមុនសិន។ (Please configure your Azure Vision Key in Settings.)')
+      throw new ScanError('settings', 'Azure Vision key missing')
     }
     if (!endpoint) {
-      throw new Error('សូមបញ្ចូល Azure Vision Endpoint ក្នុងផ្ទាំងការកំណត់ជាមុនសិន។ (Azure Vision endpoint is required.)')
+      throw new ScanError('settings', 'Azure Vision endpoint missing')
     }
 
     // Ensure endpoint doesn't end with a slash
@@ -273,13 +274,13 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
     })
 
     if (!response.ok) {
-      throw new Error('មិនអាចទាក់ទងម៉ាស៊ីនស្កេន Azure បានទេ។ សូមពិនិត្យ Subscription Key និងការតភ្ជាប់អ៊ីនធឺណិត។ (Unable to connect to Azure OCR service.)')
+      throw new ScanError('server', 'Azure Vision unreachable')
     }
 
     const data = await response.json()
 
     if (!data.readResult || !data.readResult.blocks) {
-      throw new Error('មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ។ សូមពិនិត្យពន្លឺ និងតម្រង់កាមេរ៉ាឱ្យចំអត្ថបទ។ (No readable text was detected.)')
+      throw new ScanError('no_text')
     }
 
     // Extract text from blocks while preserving paragraph lines
@@ -293,7 +294,7 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
 
     const trimmed = postProcessKhmerOcr(fullText)
     if (!trimmed) {
-      throw new Error('មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ។ សូមព្យាយាមស្កេនម្តងទៀត។')
+      throw new ScanError('no_text')
     }
 
     return trimmed
@@ -315,7 +316,7 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
  */
 export const extractDocumentText = async (file, config = {}, onProgress) => {
   if (!file) {
-    throw new Error('សូមជ្រើសរើសឯកសារ ឬថតរូបភាពជាមុនសិន។')
+    throw new ScanError('bad_file', 'No file selected')
   }
 
   const isPdf = file.type === 'application/pdf' || (file.name && file.name.toLowerCase().endsWith('.pdf'))

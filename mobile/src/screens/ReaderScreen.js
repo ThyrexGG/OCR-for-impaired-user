@@ -24,7 +24,7 @@ const SIGNAL_ICON = `<svg width="41" height="51" viewBox="0 0 41 51" fill="none"
 
 // Short voice names for the player's voice tag (DocumentReader.vue's spotify-voice-tag)
 const shortVoiceName = (name = '') =>
-  name.includes('Sreymom') ? 'ស្រីមុំ' : name.includes('Piseth') ? 'ពិសិដ្ឋ' : name.includes('Sokha') ? 'សុខា' : 'songKHEM-VITS'
+  name.includes('Sreymom') ? 'ស្រីមុំ' : name.includes('Piseth') ? 'ពិសិដ្ឋ' : name.includes('Sokha') ? 'សុខា' : 'សុភាព'
 
 // Same estimate as the website's reader: ~2.5 words a second at 1x
 const formatTime = (secs) => {

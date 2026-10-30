@@ -5,31 +5,40 @@
  * an origin; in `npm run dev`, Vite proxies /api to VITE_API_PROXY (see
  * vite.config.js), so local runs can use the deployed functions.
  */
+import { ScanError } from './scanErrors'
+
 export const CLOUD_API_AVAILABLE = import.meta.env.PROD || !!import.meta.env.VITE_API_PROXY
+
+const OCR_TIMEOUT_MS = 45000
 
 /**
  * @param {string} base64Image - Raw base64 (no data-url prefix)
  * @returns {Promise<string>} - Detected text (may be empty)
  */
 export const cloudOcr = async (base64Image) => {
-  const response = await fetch('/api/ocr', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ image: base64Image })
-  })
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}))
-    console.warn('Cloud OCR error:', response.status, body.error)
-    if (body.code === 'monthly_limit') {
-      throw new Error('ការស្កេនសម្រាប់ខែនេះបានគ្រប់ចំនួនកំណត់ហើយ។ សូមព្យាយាមម្តងទៀតនៅខែក្រោយ។ (This month\'s scanning limit has been reached. Please try again next month.)')
+  // A stalled upload would otherwise leave the user listening to the waiting sound forever
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), OCR_TIMEOUT_MS)
+  try {
+    const response = await fetch('/api/ocr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64Image }),
+      signal: controller.signal
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      console.warn('Cloud OCR error:', response.status, body.error)
+      if (body.code === 'monthly_limit') throw new ScanError('monthly_limit')
+      if (response.status === 429) throw new ScanError('busy')
+      if (response.status === 400 || response.status === 413) throw new ScanError('bad_file', body.error)
+      throw new ScanError('server', body.error)
     }
-    if (response.status === 429) {
-      throw new Error('ស្កេនច្រើនពេកក្នុងពេលខ្លី។ សូមរង់ចាំពីរបីនាទី ហើយព្យាយាមម្តងទៀត។ (Too many scans in a short time. Please wait a few minutes and try again.)')
-    }
-    throw new Error('មិនអាចទាក់ទងម៉ាស៊ីនស្កេន Google Vision បានទេ។ សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។ (Unable to reach the OCR service. Check your connection and try again.)')
+    const data = await response.json()
+    return data.text || ''
+  } finally {
+    clearTimeout(timer)
   }
-  const data = await response.json()
-  return data.text || ''
 }
 
 /**
