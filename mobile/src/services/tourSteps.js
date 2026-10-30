@@ -143,8 +143,8 @@ export const TOUR_STEPS = [
     Icon: Fingerprint,
     titleKm: 'មុខងារបន្ថែម',
     titleEn: 'Extra actions',
-    descKm: 'សង្កត់ប៊ូតុងនេះឱ្យជាប់ ដើម្បីបើកមុខងារសង្ខេបខ្លឹមសារ ឬចម្លងអត្ថបទ។',
-    descEn: 'Press and hold this button to summarise the document or copy its text.',
+    descKm: 'សង្កត់ប៊ូតុងនេះឱ្យជាប់ រួចអូសម្រាមដៃឡើងទៅ សង្ខេប ឬចម្លង ហើយលែងដៃ ដើម្បីជ្រើសរើស។',
+    descEn: 'Press and hold this button, slide your finger up to Summary or Copy, and let go to choose it.',
   },
   {
     id: 'history-row',

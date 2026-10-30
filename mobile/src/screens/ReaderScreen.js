@@ -44,6 +44,13 @@ const DEFAULT_HIGHLIGHT_MODE = 'paragraph'
 const HIGHLIGHT_STORAGE_KEY = 'songkhem_highlight_mode'
 // Long enough that a tap never opens the fingerprint menu by accident (Android's standard long press)
 const HOLD_TO_OPEN_MS = 500
+// How far outside an option the finger can be and still count as on it, so a slightly crooked slide still lands
+const DRAG_SLOP = 16
+// The fingerprint menu, top to bottom (the finger slides up from the button through them)
+const PILL_OPTIONS = [
+  { id: 'summary', label: 'សង្ខេបខ្លឹមសារ', short: 'សង្ខេប' },
+  { id: 'copy', label: 'ចម្លងអត្ថបទ', short: 'ចម្លង' },
+]
 
 // Paragraph and sentence the spoken word belongs to (-1 when nothing is being read)
 function locateWord(paragraphs, wordIndex) {
@@ -173,11 +180,47 @@ export default function ReaderScreen({ navigation }) {
     setTimeout(() => setIsCopied(false), 2500)
   }
 
-  // The fingerprint button opens its menu on press-and-hold (as on the website); a plain tap only explains that
+  // The fingerprint button opens its menu on press-and-hold (as on the website); a plain tap only explains that.
+  // Like Telegram's hold-to-record: keep the finger down after the menu opens, slide it onto an option (it lights
+  // up, buzzes and says its name) and let go there to choose it. Letting go anywhere else leaves the menu open.
+  const [dragTarget, setDragTarget] = useState(null)
+  const isDragging = useRef(false)
+  const dragTargetRef = useRef(null)
+  const pillRefs = useRef({})
+  const pillBoxes = useRef({})
+  const measurePill = (id) =>
+    pillRefs.current[id]?.measureInWindow((x, y, w, h) => (pillBoxes.current[id] = { x, y, w, h }))
+
   const openActions = () => {
     setIsActionsOpen(true)
+    isDragging.current = true
     triggerHaptic('medium')
-    announce('បានបើកម៉ឺនុយមុខងារ៖ សង្ខេប និងចម្លង')
+    announce('អូសម្រាមដៃឡើងទៅ សង្ខេប ឬចម្លង រួចលែងដៃ')
+  }
+  const pillAt = (x, y) =>
+    PILL_OPTIONS.find(({ id }) => {
+      const b = pillBoxes.current[id]
+      return b && x >= b.x - DRAG_SLOP && x <= b.x + b.w + DRAG_SLOP && y >= b.y - DRAG_SLOP && y <= b.y + b.h + DRAG_SLOP
+    })?.id ?? null
+  const handleFabDrag = (e) => {
+    if (!isDragging.current) return
+    const id = pillAt(e.nativeEvent.pageX, e.nativeEvent.pageY)
+    if (id === dragTargetRef.current) return
+    dragTargetRef.current = id
+    setDragTarget(id)
+    if (id) {
+      triggerHaptic('selection')
+      announce(PILL_OPTIONS.find((p) => p.id === id).label)
+    }
+  }
+  const handleFabRelease = () => {
+    if (!isDragging.current) return
+    isDragging.current = false
+    const id = dragTargetRef.current
+    dragTargetRef.current = null
+    setDragTarget(null)
+    if (id === 'summary') openSummary()
+    else if (id === 'copy') handleCopy()
   }
   const handleFabTap = () => {
     if (isActionsOpen) {
@@ -260,17 +303,33 @@ export default function ReaderScreen({ navigation }) {
 
       {/* 3. Floating actions (summarize / copy) */}
       {hasText && (
-        <View style={[styles.fabAnchor, playerBarH > 0 && { bottom: playerBarH + 16 }]} pointerEvents="box-none">
+        <View
+          style={[styles.fabAnchor, playerBarH > 0 && { bottom: playerBarH + 16 }]}
+          pointerEvents="box-none"
+          onTouchMove={handleFabDrag}
+          onTouchEnd={handleFabRelease}
+          onTouchCancel={handleFabRelease}
+        >
           {isActionsOpen && (
             <View style={styles.pills}>
-              <AccessiblePressable style={styles.pill} accessibilityLabel="សង្ខេបខ្លឹមសារ" speakOnPress={false} onPress={openSummary}>
-                <BookOpen size={18} color={s.primary} />
-                <Text style={[styles.pillText, { fontFamily: fonts.khmerBold }]}>សង្ខេប</Text>
-              </AccessiblePressable>
-              <AccessiblePressable style={styles.pill} accessibilityLabel="ចម្លងអត្ថបទ" speakOnPress={false} onPress={handleCopy}>
-                {isCopied ? <Check size={18} color={s.primary} /> : <Copy size={18} color={s.primary} />}
-                <Text style={[styles.pillText, { fontFamily: fonts.khmerBold }]}>ចម្លង</Text>
-              </AccessiblePressable>
+              {PILL_OPTIONS.map(({ id, label, short }) => {
+                const isHot = dragTarget === id
+                const Icon = id === 'summary' ? BookOpen : isCopied ? Check : Copy
+                return (
+                  <AccessiblePressable
+                    key={id}
+                    ref={(el) => (pillRefs.current[id] = el)}
+                    onLayout={() => measurePill(id)}
+                    style={[styles.pill, isHot && styles.pillHot]}
+                    accessibilityLabel={label}
+                    speakOnPress={false}
+                    onPress={id === 'summary' ? openSummary : handleCopy}
+                  >
+                    <Icon size={18} color={isHot ? '#FFFFFF' : s.primary} />
+                    <Text style={[styles.pillText, { fontFamily: fonts.khmerBold }, isHot && styles.pillTextHot]}>{short}</Text>
+                  </AccessiblePressable>
+                )
+              })}
             </View>
           )}
           <AccessiblePressable
@@ -487,6 +546,8 @@ const createStyles = (s, theme, insets) => {
     pills: { gap: 8, alignItems: 'flex-end' },
     pill: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 46, paddingHorizontal: 18, borderRadius: 23, backgroundColor: surface, borderWidth: 1, borderColor: s.divider, elevation: 4, shadowColor: '#0F172A', shadowOpacity: 0.12, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
     pillText: { fontSize: 16, color: s.onSurface },
+    pillHot: { backgroundColor: s.primary, borderColor: s.primaryPressed, transform: [{ scale: 1.08 }] },
+    pillTextHot: { color: '#FFFFFF' },
     playerBar: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingTop: 8, paddingHorizontal: 16, paddingBottom: 10 + insets.bottom, backgroundColor: surface, borderTopWidth: 1, borderTopColor: s.divider, elevation: 4 },
     playerInner: { width: '100%', maxWidth: 440, alignSelf: 'center', gap: 4 },
     scrubHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
