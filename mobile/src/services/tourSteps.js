@@ -29,8 +29,8 @@ export const TOUR_STEPS = [
     Icon: Camera,
     titleKm: 'ប៊ូតុងថត',
     titleEn: 'Capture button',
-    descKm: 'ពេលឃើញស៊ុមក្រហម និងមានការញ័រស្រាល សូមចុចប៊ូតុងមូលនេះដើម្បីថត។ បន្ទាប់មក កម្មវិធីនឹងស្រង់អត្ថបទ ហើយអានឱ្យអ្នកស្តាប់។',
-    descEn: 'When the red outline appears and you feel a light buzz, tap this round button. The app then extracts the text and reads it aloud.',
+    descKm: 'ពេលឃើញស៊ុមក្រហម និងមានការញ័រស្រាល សូមចុចប៊ូតុងមូលនេះ ឬចុចប៊ូតុងសំឡេងនៅចំហៀងទូរស័ព្ទ ដើម្បីថត។ ពេលកំពុងស្រង់អត្ថបទ អ្នកនឹងឮសំឡេងប៊ីបតិចៗ រហូតដល់កម្មវិធីចាប់ផ្តើមអានឱ្យអ្នកស្តាប់។',
+    descEn: 'When the red outline appears and you feel a light buzz, tap this round button or press a volume button on the side of the phone. While the text is being extracted you hear soft beeps, until the app starts reading it aloud.',
   },
   {
     id: 'lang',

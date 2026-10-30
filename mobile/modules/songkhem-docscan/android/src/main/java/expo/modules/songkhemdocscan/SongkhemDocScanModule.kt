@@ -10,8 +10,36 @@ import expo.modules.kotlin.modules.ModuleDefinition
  * photo and cuts out just the page, straightened.
  */
 class SongkhemDocScanModule : Module() {
+  private var volumeCatcher: VolumeKeyCatcher? = null
+
   override fun definition() = ModuleDefinition {
     Name("SongkhemDocScan")
+
+    Events("onVolumeShutter")
+
+    // While on, a press of either volume button sends onVolumeShutter instead of changing the volume
+    Function("setVolumeShutter") { enabled: Boolean ->
+      val activity = appContext.currentActivity ?: return@Function false
+      activity.runOnUiThread {
+        val window = activity.window
+        val current = window.callback
+        if (enabled) {
+          if (current is VolumeKeyCatcher) {
+            current.active = true
+            volumeCatcher = current
+          } else if (current != null) {
+            volumeCatcher = VolumeKeyCatcher(current) { sendEvent("onVolumeShutter", mapOf<String, Any?>()) }
+            window.callback = volumeCatcher
+          }
+        } else {
+          // Switched off even if something else has wrapped the window since, so the volume always works again
+          volumeCatcher?.active = false
+          if (current is VolumeKeyCatcher) window.callback = current.inner
+          volumeCatcher = null
+        }
+      }
+      true
+    }
 
     View(DocCameraView::class) {
       Events("onFrame", "onError")

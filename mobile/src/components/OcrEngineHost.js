@@ -132,7 +132,10 @@ const ENGINE_HTML = `<!doctype html>
       }
       send({ type: 'result', id: msg.id, text: text });
     } catch (err) {
-      send({ type: 'error', id: msg.id, message: (err && err.message) || 'មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ' });
+      // The app turns the code into a plain message (services/scanErrors.js)
+      var m = (err && err.message) || '';
+      var code = m === NO_TEXT ? 'no_text' : m === NO_NETWORK ? 'offline' : msg.mimeType === 'application/pdf' ? 'bad_file' : 'unknown';
+      send({ type: 'error', id: msg.id, message: m, code: code });
     }
   }
 

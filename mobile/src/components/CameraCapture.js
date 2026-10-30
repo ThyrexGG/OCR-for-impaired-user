@@ -11,8 +11,8 @@ import { navigateToUpload } from '../navigation/navigationRef'
 import AccessiblePressable from './AccessiblePressable'
 import NeoButton from './NeoButton'
 import { TP } from '../services/talkPhrases'
-import { DocCamera, isDocCameraSupported } from '../services/nativeDocCamera'
-import { useTourTarget } from '../context/TourContext'
+import { DocCamera, isDocCameraSupported, listenVolumeShutter } from '../services/nativeDocCamera'
+import { useTour, useTourTarget } from '../context/TourContext'
 import { DocumentTracker, assessFraming, detectDocument } from '../utils/documentDetector'
 
 const SEARCHING_MESSAGE = 'សូមតម្រង់កាមេរ៉ាទៅកាន់ឯកសារ...'
@@ -57,6 +57,7 @@ export default function CameraCapture() {
   const [permission, requestPermission] = useCameraPermissions()
   const frameTourRef = useTourTarget('camera-view')
   const shutterTourRef = useTourTarget('shutter')
+  const { phase: tourPhase } = useTour()
   const [guidanceMessage, setGuidanceMessage] = useState(
     isDocCameraSupported ? SEARCHING_MESSAGE : 'កាមេរ៉ាត្រៀមរួចជាស្រេច។ សូមតម្រង់ទៅកាន់ឯកសារ។'
   )
@@ -205,9 +206,10 @@ export default function CameraCapture() {
       const safe = page && framingRef.current.key === 'found' && assessFraming(page).cropSafe
       const flat = safe ? withMargin(page).flatMap((p) => [p.x, p.y]) : null
       const { uri, fullUri } = await docRef.current.capture(flat)
-      const ok = await captureAndScan({ uri, name: `scan_${Date.now()}.jpg`, mimeType: 'image/jpeg' })
-      // The cut-out came back unreadable (a wrong outline can crop the text away): read the whole photo instead
-      if (ok === false && fullUri) {
+      const result = await captureAndScan({ uri, name: `scan_${Date.now()}.jpg`, mimeType: 'image/jpeg' }, { quietNoText: !!fullUri })
+      // No text in the cut-out (a wrong outline can crop the text away): read the whole photo instead. Other
+      // failures (no internet, limits) would fail the same way again, and have already been announced.
+      if (result === 'no_text' && fullUri) {
         await captureAndScan({ uri: fullUri, name: `scan_${Date.now()}.jpg`, mimeType: 'image/jpeg' })
       }
     } catch (e) {
@@ -216,6 +218,21 @@ export default function CameraCapture() {
       setIsCapturing(false)
     }
   }, [captureAndScan, isCapturing, isProcessing])
+
+  // Either volume button is a shutter while this tab is showing, the way the phone's own camera app works;
+  // easier to find by feel than the button on screen. Not during the guided tour, which is spoken.
+  const shutterRef = useRef(null)
+  shutterRef.current = isCapturing || isProcessing ? null : useDocCamera ? handleDocCapture : handleCapture
+  useEffect(() => {
+    if (!isFocused || !isGranted || tourPhase !== 'closed') return
+    return listenVolumeShutter(() => {
+      const shoot = shutterRef.current
+      if (!shoot) return
+      triggerHaptic('medium')
+      shoot()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFocused, isGranted, tourPhase])
 
   if (!permission || (!isGranted && permission.status === 'undetermined')) {
     return <View style={[styles.frame, styles.centered]} />

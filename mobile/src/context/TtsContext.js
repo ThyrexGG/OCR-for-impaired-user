@@ -14,6 +14,8 @@ import { TP } from '../services/talkPhrases'
 // While talk-back speaks, the document audio dips so the guidance is clearly heard.
 const DUCKED_VOLUME = 0.2
 const APP_VOICE_FAILED = 'មិនអាចភ្ជាប់សំឡេង songKHEM បានទេ។ សូមពិនិត្យអ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។'
+// Spoken sentence by sentence, so it plays from the voice pack even with no internet
+const APP_VOICE_FAILED_SPOKEN = APP_VOICE_FAILED.split('។').map((part) => part.trim()).filter(Boolean)
 
 export const SPEED_PRESETS = [0.75, 1.0, 1.25, 1.5, 2.0]
 
@@ -201,7 +203,7 @@ export function TtsProvider({ children }) {
       // Testing switch "songKHEM voice only": never hand the document to the phone's voice
       if (appVoiceOnlyRef.current) {
         addToast(APP_VOICE_FAILED, 'warning')
-        speakAccessibility(APP_VOICE_FAILED)
+        speakAccessibility(APP_VOICE_FAILED_SPOKEN)
         return
       }
       setIsSpeaking(true)
@@ -219,7 +221,13 @@ export function TtsProvider({ children }) {
         // Ignore events from an utterance a skip has already replaced
         onDone: () => { if (speechSessionRef.current === session) stopSpeech() },
         onStopped: () => {},
-        onError: () => { if (speechSessionRef.current === session) stopSpeech() },
+        // The phone's voice failed too (often: no Khmer voice installed): say so rather than go silent
+        onError: () => {
+          if (speechSessionRef.current !== session) return
+          stopSpeech()
+          addToast(APP_VOICE_FAILED, 'warning')
+          speakAccessibility(APP_VOICE_FAILED_SPOKEN)
+        },
       })
       startHighlighting(startIndex)
     },

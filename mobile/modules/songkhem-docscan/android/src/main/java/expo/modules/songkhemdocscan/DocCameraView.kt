@@ -8,6 +8,7 @@ import android.graphics.Canvas
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.media.ExifInterface
+import android.media.MediaActionSound
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -67,6 +68,8 @@ class DocCameraView(context: Context, appContext: AppContext) : ExpoView(context
   private var imageCapture: ImageCapture? = null
   private var lastFrameAt = 0L
   private var released = false
+  // The phone's own camera click, so the user hears that the photo was taken
+  private val shutterSound = MediaActionSound().apply { load(MediaActionSound.SHUTTER_CLICK) }
 
   init {
     addView(previewView, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -88,6 +91,7 @@ class DocCameraView(context: Context, appContext: AppContext) : ExpoView(context
     unbind()
     scope.cancel()
     workers.shutdown()
+    shutterSound.release()
   }
 
   private fun unbind() {
@@ -207,6 +211,7 @@ class DocCameraView(context: Context, appContext: AppContext) : ExpoView(context
     }
     pruneOldScans()
     val file = File.createTempFile("scan_", ".jpg", context.cacheDir)
+    shutterSound.play(MediaActionSound.SHUTTER_CLICK)
     capture.takePicture(
       ImageCapture.OutputFileOptions.Builder(file).build(),
       ContextCompat.getMainExecutor(context),
