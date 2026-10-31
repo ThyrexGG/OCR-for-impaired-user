@@ -431,6 +431,7 @@ const SENTENCE_PAUSE_MS = 260
 const KEEP_TAIL_FRAMES = 4 // ~100 ms of natural fade after the last spoken frame
 const MIN_SENTENCE_CHARS = 8
 const MAX_PARALLEL_SENTENCES = 8
+const MAX_CHUNK_CHARS = 250 // large pieces can outlast the socket timeout, so long lists and tables with no full stop never spoke
 
 const silenceMp3 = (ms) => Buffer.concat(Array(Math.max(1, Math.round(ms / 24))).fill(SILENT_FRAME))
 
@@ -464,6 +465,30 @@ export function trimTrailingSilence(buf) {
   return keep === starts.length ? buf : buf.subarray(0, starts[keep])
 }
 
+// Cuts at a space. With none nearby it cuts before a base consonant, never between a letter and its subscript (after U+17D2) or vowel signs.
+const findCut = (text) => {
+  const lastWhere = (isCut) => {
+    for (let i = MAX_CHUNK_CHARS; i > MAX_CHUNK_CHARS / 2; i--) if (isCut(i)) return i
+    return -1
+  }
+  const atSpace = lastWhere((i) => /\s/.test(text[i]))
+  if (atSpace !== -1) return atSpace
+  const atLetter = lastWhere((i) => /[ក-អ]/.test(text[i]) && text[i - 1] !== '្')
+  return atLetter !== -1 ? atLetter : MAX_CHUNK_CHARS
+}
+
+const chopLongPiece = (piece) => {
+  const chunks = []
+  let rest = piece
+  while (rest.length > MAX_CHUNK_CHARS) {
+    const cut = findCut(rest)
+    chunks.push(rest.slice(0, cut).trim())
+    rest = rest.slice(cut).trim()
+  }
+  if (rest) chunks.push(rest)
+  return chunks
+}
+
 export function splitIntoSentences(text) {
   const parts = text.split(/\s*។\s*/).map((p) => p.trim()).filter(Boolean)
   const out = []
@@ -482,7 +507,7 @@ export function splitIntoSentences(text) {
     if (out.length) out[out.length - 1] += ` , ${carry}`
     else out.push(carry)
   }
-  return out
+  return out.flatMap(chopLongPiece)
 }
 
 const buildSsml = (voiceSpec, text) =>
@@ -499,7 +524,9 @@ async function synthesizeWithPauses(text, voiceSpec) {
   const worker = async () => {
     while (next < sentences.length) {
       const i = next++
-      audio[i] = await synthesizeViaZeroKeyWebSocket(buildSsml(voiceSpec, `${sentences[i]} ។`))
+      const ssml = buildSsml(voiceSpec, `${sentences[i]} ។`)
+      // One stalled connection should not cost the whole page
+      audio[i] = await synthesizeViaZeroKeyWebSocket(ssml).catch(() => synthesizeViaZeroKeyWebSocket(ssml))
       if (!audio[i] || !audio[i].length) throw new Error('Empty audio for a sentence')
     }
   }
