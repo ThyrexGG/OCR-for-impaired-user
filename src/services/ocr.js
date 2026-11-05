@@ -100,6 +100,94 @@ export const detectTextTesseract = async (fileOrBlob, onProgress) => {
 }
 
 /**
+ * Fast layout-aware PDF text stream extractor.
+ * Reconstructs 2D spatial coordinates (Y baseline clustering, X word spacing,
+ * paragraph gap detection, and list marker preservation) in linear time.
+ * @param {Object} textContent - Output of PDF.js page.getTextContent()
+ * @returns {string} Structured text
+ */
+export function parseLayoutAwareTextFast(textContent) {
+  const items = textContent?.items
+  if (!items || !items.length) return ''
+
+  const len = items.length
+  const valid = []
+
+  // 1. Single pass: discard empty strings and rotated watermarks (matrix skew != 0)
+  for (let i = 0; i < len; i++) {
+    const item = items[i]
+    const str = item.str
+    if (!str || (str.charCodeAt(0) <= 32 && str.trim().length === 0)) continue
+
+    const t = item.transform
+    if (t[1] !== 0 || t[2] !== 0) continue // Skip rotated watermarks / vertical stamps
+
+    valid.push({
+      str,
+      x: t[4],
+      y: t[5],
+      w: item.width || (str.length * (item.height || 12) * 0.55),
+      h: item.height || 12
+    })
+  }
+
+  const vLen = valid.length
+  if (!vLen) return ''
+
+  // 2. Sort by Y descending (top of page to bottom), then by X ascending (left to right)
+  valid.sort((a, b) => {
+    const yDelta = b.y - a.y
+    const tol = Math.min(a.h, b.h) * 0.45 // Dynamic tolerance for subscripts & Khmer Coeng
+    if (Math.abs(yDelta) > tol) return yDelta
+    return a.x - b.x
+  })
+
+  // 3. Linear buffer assembler: reconstruct lines, spaces, and paragraphs
+  const chunks = []
+  let lastY = valid[0].y
+  let lastRight = valid[0].x
+  let lastH = valid[0].h
+
+  for (let i = 0; i < vLen; i++) {
+    const item = valid[i]
+    const yDiff = lastY - item.y
+    const lineTol = Math.min(lastH, item.h) * 0.45
+
+    if (i > 0) {
+      if (Math.abs(yDiff) <= lineTol) {
+        // Same line
+        const gap = item.x - lastRight
+        const prevStr = chunks[chunks.length - 1]
+        const prevCode = prevStr ? prevStr.charCodeAt(prevStr.length - 1) : 0
+        const nextCode = item.str.charCodeAt(0)
+        // Suppress artificial space between consecutive Khmer characters
+        const isBothKhmer = (prevCode >= 0x1780 && prevCode <= 0x17FF) && (nextCode >= 0x1780 && nextCode <= 0x17FF)
+
+        if (!isBothKhmer && gap > 2.0) {
+          chunks.push(' ')
+        }
+      } else {
+        // New line: fast char-code checks for list bullets or numbers
+        const c0 = item.str.charCodeAt(0)
+        const isBullet = c0 === 0x2022 || c0 === 0x25CF || c0 === 0x25CB || c0 === 0x2D || c0 === 0x25AA // •, ●, ○, -, ▪
+        const isDigit = (c0 >= 48 && c0 <= 57) || (c0 >= 0x17E0 && c0 <= 0x17E9)
+        const isNumList = isDigit && item.str.length >= 2 && (item.str.charCodeAt(1) === 46 || item.str.charCodeAt(1) === 41)
+        const isParagraph = yDiff > lastH * 1.45
+
+        chunks.push(isParagraph || isBullet || isNumList ? '\n\n' : '\n')
+      }
+    }
+
+    chunks.push(item.str)
+    lastY = item.y
+    lastRight = item.x + item.w
+    lastH = item.h
+  }
+
+  return chunks.join('').trim()
+}
+
+/**
  * Extract text from PDF documents (extracts embedded text or renders page 1 to OCR)
  * @param {File} file - PDF file
  * @param {Function} [onProgress] - Optional progress callback
@@ -114,14 +202,14 @@ export const extractTextFromPdf = async (file, onProgress) => {
 
     let extractedText = ''
 
-    // First attempt: Extract direct digital text stream from pages
+    // First attempt: Extract direct digital text stream from pages with layout awareness
     for (let pageNum = 1; pageNum <= Math.min(numPages, 10); pageNum++) {
       if (onProgress) {
         onProgress(Math.round((pageNum / Math.min(numPages, 10)) * 40))
       }
       const page = await pdfDoc.getPage(pageNum)
       const textContent = await page.getTextContent()
-      const pageText = textContent.items.map(item => item.str).join(' ').trim()
+      const pageText = parseLayoutAwareTextFast(textContent)
       if (pageText) {
         extractedText += pageText + '\n\n'
       }
