@@ -1,22 +1,25 @@
 import { ref, computed, inject, onBeforeUnmount } from 'vue'
-import { synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts'
+import { APP_VOICE_FAILED_KM, isAppVoiceOnly, synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts'
 import { normalizeKhmerForSpeech } from '../services/khmerNormalizer'
 import { CLOUD_API_AVAILABLE, cloudTts } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
 import { announcer } from '../services/announcer'
 
-// Khmer TTS engine shared by the reader screens: songKHEM-VITS / Neural personas,
+// Khmer TTS engine shared by the reader screens: Neural personas (Piseth, Sreymom, Sokha, Sopheap),
 // Smart Assistive Pacing, and word highlighting locked to the real audio playhead.
 // Mirrors the engine inside TtsPanel.vue so both play back identically.
 
 export const KHMER_VOICES = [
-  { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth — សំឡេងប្រុស Neural ច្បាស់ៗ)', gender: 'Male' },
-  { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom — សំឡេងស្រី Neural ស្រទន់)', gender: 'Female' },
+  { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth — សំឡេងប្រុស)', gender: 'Male' },
+  { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom — សំឡេងស្រី)', gender: 'Female' },
   { name: 'km-KH-SokhaMedical', lang: 'km-KH', label: 'គ្រូពេទ្យ សុខា (Dr. Sokha — អានវេជ្ជបញ្ជា/វិក្កយបត្រ)', gender: 'Male' },
-  { name: 'km-KH-VitsOffline', lang: 'km-KH', label: 'songKHEM-VITS (Offline Model — ម៉ូដែលក្នុងម៉ាស៊ីនផ្ទាល់)', gender: 'Male' }
+  { name: 'km-KH-VitsOffline', lang: 'km-KH', label: 'សុភាព (Sopheap — សំឡេងប្រុស ស្រាល)', gender: 'Male' }
 ]
 
 export const SPEED_PRESETS = [0.75, 1.0, 1.25, 1.5, 2.0]
+
+// Voice used until the reader picks another one
+export const DEFAULT_VOICE = 'km-KH-SokhaMedical'
 
 const VOICE_STORAGE_KEY = 'songkhem_reader_voice'
 const PACING_STORAGE_KEY = 'songkhem_reader_pacing'
@@ -125,13 +128,15 @@ export function useKhmerTts({ getText, activeWordIndex }) {
 
   const savedVoice = safeGet(VOICE_STORAGE_KEY)
   const selectedVoiceName = ref(
-    KHMER_VOICES.some(v => v.name === savedVoice) ? savedVoice : 'km-KH-PisethNeural'
+    KHMER_VOICES.some(v => v.name === savedVoice) ? savedVoice : DEFAULT_VOICE
   )
   const assistivePacing = ref(safeGet(PACING_STORAGE_KEY) === '1')
   const rate = ref(1.0)
   const volume = ref(1.0)
   const isSpeaking = ref(false)
   const isPaused = ref(false)
+  // Length of the synthesized audio at 1x, once the browser knows it (0 = not yet)
+  const audioDuration = ref(0)
 
   const paragraphs = ref([])
   const tokens = ref([])
@@ -153,9 +158,15 @@ export function useKhmerTts({ getText, activeWordIndex }) {
   const setVoice = (name) => {
     if (!KHMER_VOICES.some(v => v.name === name)) return
     const wasActive = isSpeaking.value || isPaused.value
+    const from = Math.max(0, activeWordIndex.value)
     selectedVoiceName.value = name
     safeSet(VOICE_STORAGE_KEY, name)
-    if (wasActive) stop()
+    audioDuration.value = 0
+    // Heard straight away: carry on from the same word in the new voice
+    if (wasActive) {
+      stop()
+      start(from)
+    }
   }
 
   const setAssistivePacing = (on) => {
@@ -181,6 +192,7 @@ export function useKhmerTts({ getText, activeWordIndex }) {
     paragraphs.value = result.paragraphs
     tokens.value = result.tokens
     tokenTimeline.value = result.timeline
+    audioDuration.value = 0
     if (!result.tokens.length) activeWordIndex.value = -1
   }
 
@@ -294,6 +306,11 @@ export function useKhmerTts({ getText, activeWordIndex }) {
 
   const fallbackWebSpeech = (startIndex = 0) => {
     stop()
+    // Testing switch "songKHEM voice only": never hand the document to the browser's voice
+    if (isAppVoiceOnly()) {
+      speakAccessibility(APP_VOICE_FAILED_KM)
+      return
+    }
     isSpeaking.value = true
     isPaused.value = false
 
@@ -402,6 +419,9 @@ export function useKhmerTts({ getText, activeWordIndex }) {
       await announcer.whenSilent()
       if (currentAudio !== unlockedAudio) return
 
+      unlockedAudio.onloadedmetadata = () => {
+        if (Number.isFinite(unlockedAudio.duration) && unlockedAudio.duration > 0) audioDuration.value = unlockedAudio.duration
+      }
       unlockedAudio.src = audioUrl
       unlockedAudio.playbackRate = rate.value
       unlockedAudio.volume = effectiveVolume()
@@ -469,6 +489,7 @@ export function useKhmerTts({ getText, activeWordIndex }) {
     volume,
     isSpeaking,
     isPaused,
+    audioDuration,
     paragraphs,
     tokens,
     prepare,

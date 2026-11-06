@@ -5,7 +5,7 @@ import {
   Settings, Moon, Sun, Contrast, 
   ZoomIn, ZoomOut, RotateCcw, X, Sliders, Eye, Headphones, 
   Keyboard, Sparkles, Camera, Upload, BookOpen, History, Check, HelpCircle, Languages,
-  Mic, MicOff, Code
+  Mic, MicOff, Vibrate
 } from 'lucide-vue-next'
 import HelpModal from './components/HelpModal.vue'
 import FeatureGuidelines from './components/FeatureGuidelines.vue'
@@ -17,8 +17,7 @@ import { installTalkback, tp } from './services/talkback'
 import { TP } from './services/talkPhrases'
 import { vFocusTrap } from './services/focusTrap'
 import { useA11yPreferences } from './composables/useA11yPreferences'
-import { clearOcrCache } from './services/cache'
-import { CLOUD_API_AVAILABLE } from './services/cloudApi'
+import { isAppVoiceOnly, setAppVoiceOnly } from './services/tts'
 import { voiceCommands } from './services/voiceCommands'
 
 
@@ -154,6 +153,14 @@ const closeSettings = () => {
   speakAccessibility(t('closeSettings'))
 }
 
+// --- Testing switch: speak only in songKHEM's voice, never the browser's / phone's ---
+const appVoiceOnly = ref(isAppVoiceOnly())
+const toggleAppVoiceOnly = () => {
+  appVoiceOnly.value = !appVoiceOnly.value
+  setAppVoiceOnly(appVoiceOnly.value)
+  haptics.pulse('tap')
+}
+
 // --- Feature Guidelines Walkthrough ---
 const isGuidelinesOpen = ref(false)
 const openGuidelines = () => {
@@ -280,16 +287,6 @@ onMounted(() => {
       .forEach(k => localStorage.removeItem(k))
     localStorage.setItem('songkhem_keys_migrated_v2', '1')
   }
-
-  // Load OCR & Cloud credentials (the user's own keys only; none by default)
-  ocrEngine.value = localStorage.getItem('songkhem_ocr_engine') ||
-    (CLOUD_API_AVAILABLE ? 'google-vision' : 'tesseract')
-  googleApiKey.value = localStorage.getItem('songkhem_google_api_key') || ''
-  googleEndpoint.value = localStorage.getItem('songkhem_google_endpoint') || ''
-  azureVisionKey.value = localStorage.getItem('songkhem_azure_vision_key') || ''
-  azureVisionEndpoint.value = localStorage.getItem('songkhem_azure_vision_endpoint') || ''
-  azureTtsKey.value = localStorage.getItem('songkhem_azure_tts_key') || ''
-  azureTtsEndpoint.value = localStorage.getItem('songkhem_azure_tts_endpoint') || ''
 
   // Global Keyboard Shortcuts
   window.addEventListener('keydown', (e) => {
@@ -683,329 +680,118 @@ onMounted(() => {
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Tab 2: Audio & Guidance Settings -->
-        <div v-if="activeSettingsTab === 'audio'" class="tab-pane audio-pane">
-          <!-- Group 1: Screen Reader & Guidance -->
-          <div class="settings-group">
-            <h3 class="settings-group-header khmer-font">{{ t('groupScreenReader') }}</h3>
-            <div class="settings-group-card">
-              <!-- UI Spoken Guidance Toggle -->
-              <div class="setting-row">
-                <div class="setting-label-col">
-                  <span class="setting-title khmer-font">{{ t('voiceGuidance') }} ({{ osScreenReaderName }})</span>
-                  <span class="setting-desc khmer-font">
-                    {{ currentLang === 'km' 
-                      ? `អានឈ្មោះប៊ូតុង និងស្ថានភាព (សម្រាប់អ្នកដែលមិនបានបើក ${osScreenReaderName} លើទូរស័ព្ទ)`
-                      : `Read control titles and status aloud (for users without OS ${osScreenReaderName}).` 
-                    }}
-                  </span>
-                </div>
-                <button 
-                  type="button" 
-                  class="accessible-switch" 
-                  :class="{ 'switch-on': isUiVoiceEnabled }"
-                  @click="toggleUiVoice"
-                  :aria-checked="isUiVoiceEnabled"
-                  role="switch"
-                  :aria-label="`${t('voiceGuidance')} In-App ${osScreenReaderName}`"
-                >
-                  <span class="switch-thumb"></span>
-                </button>
-              </div>
+          <h3 class="settings-section-header khmer-font">
+            <Headphones :size="18" />
+            <span>{{ currentLang === 'km' ? 'ការស្តាប់' : 'Listening' }}</span>
+          </h3>
 
-              <!-- Explore by touch -->
-              <div class="setting-row" :class="{ 'row-dimmed': !isUiVoiceEnabled }">
-                <div class="setting-label-col">
-                  <span class="setting-title khmer-font">{{ t('exploreByTouchTitle') }} ({{ osScreenReaderName }})</span>
-                  <span class="setting-desc khmer-font">{{ t('exploreByTouchDesc') }}</span>
-                </div>
-                <button
-                  type="button"
-                  class="accessible-switch"
-                  :class="{ 'switch-on': isExploreEnabled }"
-                  @click="toggleExplore"
-                  :aria-checked="isExploreEnabled"
-                  :disabled="!isUiVoiceEnabled"
-                  role="switch"
-                  :aria-label="t('exploreByTouchTitle')"
-                >
-                  <span class="switch-thumb"></span>
-                </button>
-              </div>
+          <!-- Auto Read After Scan -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">{{ t('autoRead') }}</span>
+              <span class="setting-desc khmer-font">{{ t('autoReadDesc') }}</span>
+            </div>
+            <button
+              type="button"
+              class="accessible-switch"
+              :class="{ 'switch-on': isAutoReadEnabled }"
+              @click="toggleAutoRead"
+              :aria-checked="isAutoReadEnabled"
+              role="switch"
+              :aria-label="t('autoRead')"
+            >
+              <span class="switch-thumb"></span>
+            </button>
+          </div>
 
-              <!-- Guidance voice speed -->
-              <div class="setting-row">
-                <div class="setting-label-col">
-                  <span class="setting-title khmer-font">{{ t('guidanceSpeedTitle') }}</span>
-                  <span class="setting-desc khmer-font">{{ t('guidanceSpeedDesc') }}</span>
-                </div>
-                <div class="segment-buttons" role="group" :aria-label="t('guidanceSpeedTitle')">
-                  <button
-                    v-for="r in [1, 1.25, 1.5, 2]"
-                    :key="r"
-                    type="button"
-                    class="segment-btn"
-                    :class="{ 'segment-active': voiceRate === r }"
-                    @click="setVoiceRate(r)"
-                  >{{ r }}x</button>
-                </div>
-              </div>
+          <!-- songKHEM voice only -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">{{ currentLang === 'km' ? 'ប្រើតែសំឡេង songKHEM' : 'Use only the songKHEM voice' }}</span>
+              <span class="setting-desc khmer-font">{{ currentLang === 'km' ? 'បើកពេលសំឡេងរបស់ទូរស័ព្ទ ឬកម្មវិធីរុករកមិនអានភាសាខ្មែរ ឬអានមិនត្រឹមត្រូវ។ គេហទំព័រនឹងនិយាយដោយសំឡេង songKHEM ជានិច្ច' : "Turn on when the phone's or browser's voice can't read Khmer properly. The site then always speaks in the songKHEM voice." }}</span>
+            </div>
+            <button
+              type="button"
+              class="accessible-switch"
+              :class="{ 'switch-on': appVoiceOnly }"
+              @click="toggleAppVoiceOnly"
+              :aria-checked="appVoiceOnly"
+              role="switch"
+              :aria-label="currentLang === 'km' ? 'ប្រើតែសំឡេង songKHEM' : 'Use only the songKHEM voice'"
+            >
+              <span class="switch-thumb"></span>
+            </button>
+          </div>
+
+          <!-- Guidance voice speed: only the songKHEM voice follows it -->
+          <div v-if="appVoiceOnly" class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">{{ currentLang === 'km' ? 'ល្បឿនសំឡេងណែនាំ' : 'Guidance voice speed' }}</span>
+              <span class="setting-desc khmer-font">{{ currentLang === 'km' ? 'ល្បឿននិយាយរបស់សំឡេងណែនាំ មិនប៉ះពាល់ល្បឿនអានឯកសារទេ' : 'How fast the guidance voice talks. Does not change the document reading speed' }}</span>
+            </div>
+            <div class="segment-buttons" role="group" :aria-label="currentLang === 'km' ? 'ល្បឿនសំឡេងណែនាំ' : 'Guidance voice speed'">
+              <button
+                v-for="r in [1, 1.25, 1.5, 2]"
+                :key="r"
+                type="button"
+                class="segment-btn"
+                :class="{ 'segment-active': voiceRate === r }"
+                :aria-pressed="voiceRate === r"
+                @click="setVoiceRate(r)"
+              >{{ r }}x</button>
             </div>
           </div>
 
-          <!-- Group 2: Document Reading & Automation -->
-          <div class="settings-group">
-            <h3 class="settings-group-header khmer-font">{{ t('groupAutomation') }}</h3>
-            <div class="settings-group-card">
-              <!-- Auto Read After Scan -->
-              <div class="setting-row">
-                <div class="setting-label-col">
-                  <span class="setting-title khmer-font">{{ t('autoRead') }}</span>
-                  <span class="setting-desc khmer-font">{{ t('autoReadDesc') }}</span>
-                </div>
-                <button 
-                  type="button" 
-                  class="accessible-switch" 
-                  :class="{ 'switch-on': isAutoReadEnabled }"
-                  @click="toggleAutoRead"
-                  :aria-checked="isAutoReadEnabled"
-                  role="switch"
-                  :aria-label="t('autoRead')"
-                >
-                  <span class="switch-thumb"></span>
-                </button>
-              </div>
+          <h3 class="settings-section-header khmer-font">
+            <Vibrate :size="18" />
+            <span>{{ currentLang === 'km' ? 'ការញ័រ' : 'Vibration' }}</span>
+          </h3>
 
-              <!-- Hands-Free Voice Commands -->
-              <div class="setting-row">
-                <div class="setting-label-col">
-                  <span class="setting-title khmer-font">{{ t('voiceCommandsTitle') }}</span>
-                  <span class="setting-desc khmer-font">{{ t('voiceCommandsDesc') }}</span>
-                </div>
-                <button 
-                  type="button" 
-                  class="accessible-switch" 
-                  :class="{ 'switch-on': isVoiceListening }"
-                  @click="toggleVoiceListening"
-                  :aria-checked="isVoiceListening"
-                  role="switch"
-                  :aria-label="t('toggleVoiceCommands')"
-                >
-                  <span class="switch-thumb"></span>
-                </button>
-              </div>
+          <!-- Haptic Vibrations -->
+          <div class="setting-item">
+            <div class="setting-label-col">
+              <span class="setting-title khmer-font">{{ t('haptics') }}</span>
+              <span class="setting-desc khmer-font">{{ haptics.isSupported() ? t('hapticsDesc') : t('hapticsUnsupported') }}</span>
             </div>
-          </div>
-        </div>
-
-        <!-- Tab 3: System, Tools & OCR Settings -->
-        <div v-if="activeSettingsTab === 'system'" class="tab-pane system-pane">
-          <!-- Group 1: Tactile & Guidance Tour -->
-          <div class="settings-group">
-            <h3 class="settings-group-header khmer-font">{{ t('groupTactile') }}</h3>
-            <div class="settings-group-card">
-              <!-- Haptic Vibrations -->
-              <div class="setting-row">
-                <div class="setting-label-col">
-                  <span class="setting-title khmer-font">{{ t('haptics') }}</span>
-                  <span class="setting-desc khmer-font">{{ haptics.isSupported() ? t('hapticsDesc') : t('hapticsUnsupported') }}</span>
-                </div>
-                <button 
-                  type="button" 
-                  class="accessible-switch" 
-                  :class="{ 'switch-on': isHapticsEnabled }"
-                  @click="toggleHaptics"
-                  :aria-checked="isHapticsEnabled"
-                  role="switch"
-                  :aria-label="t('haptics')"
-                >
-                  <span class="switch-thumb"></span>
-                </button>
-              </div>
-
-              <!-- Replay Guided Tour Button -->
-              <div class="setting-row">
-                <div class="setting-label-col">
-                  <span class="setting-title khmer-font">{{ t('interactiveTourTitle') }}</span>
-                  <span class="setting-desc khmer-font">{{ t('interactiveTourDesc') }}</span>
-                </div>
-                <button 
-                  type="button"
-                  class="btn btn-secondary khmer-font" 
-                  @click="isSettingsOpen = false; openGuidelines()"
-                  style="min-height: 38px; padding: 0 14px; border-radius: var(--radius-sm); gap: 6px; display: inline-flex; align-items: center;"
-                  :aria-label="t('interactiveTourTitle')"
-                >
-                  <HelpCircle :size="16" />
-                  <span>{{ t('replayTourBtn') }}</span>
-                </button>
-              </div>
-            </div>
+            <button
+              type="button"
+              class="accessible-switch"
+              :class="{ 'switch-on': isHapticsEnabled }"
+              @click="toggleHaptics"
+              :aria-checked="isHapticsEnabled"
+              role="switch"
+              :aria-label="t('haptics')"
+            >
+              <span class="switch-thumb"></span>
+            </button>
           </div>
 
-          <!-- Group 2: Document Storage & Cache Management -->
-          <div class="settings-group">
-            <h3 class="settings-group-header khmer-font">{{ t('groupStorage') }}</h3>
-            <div class="settings-group-card">
-              <div class="setting-row">
-                <div class="setting-label-col">
-                  <span class="setting-title khmer-font">{{ t('clearCacheTitle') }}</span>
-                  <span class="setting-desc khmer-font">{{ t('clearCacheDesc') }}</span>
-                </div>
-                <button 
-                  type="button" 
-                  class="btn btn-secondary khmer-font" 
-                  @click="handleClearCache"
-                  style="min-height: 38px; padding: 0 14px; border-radius: var(--radius-sm);"
-                  :aria-label="t('clearCacheAria')"
-                >
-                  <RotateCcw :size="16" />
-                  <span>{{ t('clearCacheBtn') }}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Group 3: Keyboard Shortcuts Table -->
-          <div class="settings-group">
-            <h3 class="settings-group-header khmer-font">{{ t('groupShortcuts') }}</h3>
-            <div class="shortcuts-card">
-              <ul class="shortcuts-list khmer-font">
-                <li>
-                  <span class="key-combo"><kbd>Space</kbd></span>
-                  <span class="key-desc">{{ t('spaceKeyDesc') }}</span>
-                </li>
-                <li>
-                  <span class="key-combo"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
-                  <span class="key-desc">{{ t('ctrlEnterKeyDesc') }}</span>
-                </li>
-                <li>
-                  <span class="key-combo"><kbd>Esc</kbd></span>
-                  <span class="key-desc">{{ t('escKeyDesc') }}</span>
-                </li>
-                <li>
-                  <span class="key-combo"><kbd>Alt</kbd> + <kbd>A</kbd></span>
-                  <span class="key-desc">{{ t('altAKeyDesc') }}</span>
-                </li>
-                <li>
-                  <span class="key-combo"><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd></span>
-                  <span class="key-desc">{{ t('alt14KeyDesc') }}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <!-- Group 4: DEVELOPER ONLY (Visible only when unlocked via Alt+D or 5 taps on Logo) -->
-          <div v-if="isDevMode" class="settings-group dev-mode-group">
-            <div class="dev-header-badge-row">
-              <h3 class="settings-group-header khmer-font dev-header-title">
-                <Code :size="14" />
-                <span>{{ t('devOptionsHeader') }}</span>
-              </h3>
-              <button 
-                type="button" 
-                class="btn-exit-dev khmer-font"
-                @click="toggleDevMode(false)"
-                :title="t('exitDevBtn')"
-              >
-                {{ t('exitDevBtn') }}
-              </button>
-            </div>
-
-            <!-- Dev Item 1: OCR Recognition Engine -->
-            <div class="settings-group-card dev-card">
-              <div class="setting-row setting-row-stacked">
-                <div class="setting-label-col">
-                  <span class="setting-title khmer-font">{{ t('ocrEngineTitle') }}</span>
-                  <span class="setting-desc khmer-font">{{ t('ocrEngineDesc') }}</span>
-                </div>
-                <div class="ocr-engine-options">
-                  <label class="engine-radio-card" :class="{ 'engine-selected': ocrEngine === 'tesseract' }">
-                    <input type="radio" v-model="ocrEngine" value="tesseract" @change="saveOcrConfig" class="sr-only" />
-                    <div class="engine-info">
-                      <span class="engine-badge badge-free khmer-font">{{ t('engineBadgeDefault') }}</span>
-                      <strong class="engine-name khmer-font">{{ t('engineTesseractTitle') }}</strong>
-                      <span class="engine-desc khmer-font">{{ t('engineTesseractDesc') }}</span>
-                    </div>
-                  </label>
-
-                  <label class="engine-radio-card" :class="{ 'engine-selected': ocrEngine === 'google-vision' }">
-                    <input type="radio" v-model="ocrEngine" value="google-vision" @change="saveOcrConfig" class="sr-only" />
-                    <div class="engine-info">
-                      <span class="engine-badge badge-cloud">{{ t('engineBadgeCloud') }}</span>
-                      <strong class="engine-name khmer-font">{{ t('engineGoogleVisionTitle') }}</strong>
-                      <span class="engine-desc khmer-font">{{ t('engineGoogleVisionDesc') }}</span>
-                    </div>
-                  </label>
-
-                  <label class="engine-radio-card" :class="{ 'engine-selected': ocrEngine === 'azure-read' }">
-                    <input type="radio" v-model="ocrEngine" value="azure-read" @change="saveOcrConfig" class="sr-only" />
-                    <div class="engine-info">
-                      <span class="engine-badge badge-cloud">{{ t('engineBadgeCloud') }}</span>
-                      <strong class="engine-name khmer-font">{{ t('engineAzureTitle') }}</strong>
-                      <span class="engine-desc khmer-font">{{ t('engineAzureDesc') }}</span>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <!-- Dev Item 2: Cloud API Credentials -->
-            <div class="settings-group-card dev-card">
-              <div class="setting-row setting-row-stacked">
-                <div class="setting-label-col">
-                  <span class="setting-title khmer-font">{{ t('customApiTitle') }}</span>
-                  <span class="setting-desc khmer-font">{{ t('customApiDesc') }}</span>
-                </div>
-                <div class="api-fields-group">
-                  <input 
-                    v-if="ocrEngine === 'google-vision'"
-                    type="password" 
-                    v-model="googleApiKey" 
-                    @blur="saveOcrConfig"
-                    placeholder="Google Vision API Key (AIza...)" 
-                    class="settings-api-input khmer-font" 
-                    aria-label="Google Vision API Key"
-                  />
-                  <input 
-                    v-if="ocrEngine === 'azure-read'"
-                    type="password" 
-                    v-model="azureVisionKey" 
-                    @blur="saveOcrConfig"
-                    placeholder="Azure Computer Vision Key" 
-                    class="settings-api-input khmer-font" 
-                    aria-label="Azure Computer Vision Key"
-                  />
-                  <input 
-                    v-if="ocrEngine === 'azure-read'"
-                    type="text" 
-                    v-model="azureVisionEndpoint" 
-                    @blur="saveOcrConfig"
-                    placeholder="Azure Vision Endpoint URL" 
-                    class="settings-api-input khmer-font" 
-                    aria-label="Azure Vision Endpoint URL"
-                  />
-                  <input 
-                    type="password" 
-                    v-model="azureTtsKey" 
-                    @blur="saveOcrConfig"
-                    :placeholder="t('azureTtsKeyPlaceholder')" 
-                    class="settings-api-input khmer-font" 
-                    aria-label="Azure TTS Subscription Key"
-                  />
-                  <input 
-                    type="text" 
-                    v-model="azureTtsEndpoint" 
-                    @blur="saveOcrConfig"
-                    :placeholder="t('azureTtsEndpointPlaceholder')" 
-                    class="settings-api-input khmer-font" 
-                    aria-label="Azure TTS Endpoint URL"
-                  />
-                </div>
-              </div>
-            </div>
+          <!-- Keyboard shortcuts: the website's extra for computer users (the app has no keyboard) -->
+          <div class="shortcuts-card">
+            <h3 class="shortcuts-card-title khmer-font">{{ t('keyboardShortcuts') }}</h3>
+            <ul class="shortcuts-list khmer-font">
+              <li>
+                <span class="key-combo"><kbd>Space</kbd></span>
+                <span class="key-desc">{{ t('spaceKeyDesc') }}</span>
+              </li>
+              <li>
+                <span class="key-combo"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+                <span class="key-desc">{{ t('ctrlEnterKeyDesc') }}</span>
+              </li>
+              <li>
+                <span class="key-combo"><kbd>Esc</kbd></span>
+                <span class="key-desc">{{ t('escKeyDesc') }}</span>
+              </li>
+              <li>
+                <span class="key-combo"><kbd>Alt</kbd> + <kbd>A</kbd></span>
+                <span class="key-desc">{{ t('altAKeyDesc') }}</span>
+              </li>
+              <li>
+                <span class="key-combo"><kbd>Alt</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd></span>
+                <span class="key-desc">{{ t('alt14KeyDesc') }}</span>
+              </li>
+            </ul>
           </div>
         </div>
 

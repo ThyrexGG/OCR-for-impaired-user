@@ -1,53 +1,68 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { AlertCircle, Camera } from 'lucide-react-native'
+import { AlertCircle, Camera, RefreshCw, Upload } from 'lucide-react-native'
 import { useTheme } from '../theme/ThemeContext'
 import { useOcr } from '../context/OcrContext'
+import { SCAN_ERRORS } from '../services/scanErrors'
 import NeoButton from './NeoButton'
 
-const TIPS = [
-  'សូមថតនៅកន្លែងដែលមានពន្លឺគ្រប់គ្រាន់។',
-  'កាន់កាមេរ៉ាឱ្យនឹងនរ កុំឱ្យរំញ័រ។',
-  'រំកិលកាមេរ៉ាឱ្យកៀកនឹងអត្ថបទបន្ថែមទៀត។',
-  'ថតរូបភាពសន្លឹកឯកសារម្តងទៀត។',
-]
-
-// Ported from HomeScreen.vue's `.ocr-error-card` (≤640px sizing) — shown in
-// place of whichever tab triggered a failed OCR attempt, with the same tips
-// and the btn-primary "Scan Again" recovery action as the web app.
+// Shown in place of whichever tab triggered a failed scan. It says what went wrong in a few words and what
+// to do next; the lighting tips only appear when they can help (no text found), and "Try again" re-sends
+// the same photo when the problem was the connection or the service, so the user doesn't have to reshoot.
 export default function OcrErrorCard() {
   const { colors, fonts } = useTheme()
-  const { ocrError, handleScanAgain } = useOcr()
+  const { ocrError, selectedFile, triggerOcr, handleScanAgain } = useOcr()
   const styles = createStyles(colors)
+  const error = SCAN_ERRORS[ocrError] || SCAN_ERRORS.unknown
+  const canRetry = error.retry && !!selectedFile?.uri
+  const fromCamera = selectedFile?.source === 'camera'
+  const NewIcon = fromCamera ? Camera : Upload
+  const newLabel = fromCamera ? 'ថតរូបថ្មី' : 'ជ្រើសឯកសារផ្សេង'
 
   return (
     <View style={styles.card} accessibilityLiveRegion="assertive">
       <View style={styles.glowIcon}>
         <AlertCircle size={40} color="#FFFFFF" />
       </View>
-      <Text style={[styles.title, { fontFamily: fonts.khmer }]}>មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ</Text>
-      {!!ocrError && <Text style={[styles.desc, { fontFamily: fonts.khmer }]}>{ocrError}</Text>}
+      <Text style={[styles.title, { fontFamily: fonts.khmer }]} accessibilityRole="header">{error.title}</Text>
+      <Text style={[styles.desc, { fontFamily: fonts.khmer }]}>{error.say}</Text>
 
-      <View style={styles.tipsBox}>
-        <Text style={[styles.tipsHeading, { fontFamily: fonts.khmer }]}>វិធីដោះស្រាយដែលត្រូវបានណែនាំ៖</Text>
-        {TIPS.map((tip, idx) => (
-          <View key={idx} style={styles.tipRow}>
-            <Text style={styles.tipBullet}>•</Text>
-            <Text style={[styles.tipText, { fontFamily: fonts.khmer }]}>{tip}</Text>
-          </View>
-        ))}
-      </View>
+      {!!error.tips && (
+        <View style={styles.tipsBox}>
+          {error.tips.map((tip, idx) => (
+            <View key={idx} style={styles.tipRow}>
+              <Text style={styles.tipBullet}>•</Text>
+              <Text style={[styles.tipText, { fontFamily: fonts.khmer }]}>{tip}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {canRetry && (
+        <NeoButton
+          style={styles.retryWrap}
+          bg="#4466F6"
+          borderColor="#0F172A"
+          shadowColor="#0F172A"
+          contentStyle={styles.retryBtn}
+          accessibilityLabel="ព្យាយាមម្តងទៀត"
+          onPress={triggerOcr}
+        >
+          <RefreshCw size={24} color="#FFFFFF" />
+          <Text style={[styles.retryText, { fontFamily: fonts.khmer }]}>ព្យាយាមម្តងទៀត</Text>
+        </NeoButton>
+      )}
 
       <NeoButton
         style={styles.retryWrap}
-        bg="#4466F6"
+        bg={canRetry ? '#FFFFFF' : '#4466F6'}
         borderColor="#0F172A"
-        shadowColor="#0F172A"
+        shadowColor={canRetry ? '#4466F6' : '#0F172A'}
         contentStyle={styles.retryBtn}
-        accessibilityLabel="ស្កេនម្តងទៀត"
+        accessibilityLabel={newLabel}
         onPress={handleScanAgain}
       >
-        <Camera size={24} color="#FFFFFF" />
-        <Text style={[styles.retryText, { fontFamily: fonts.khmer }]}>ស្កេនម្តងទៀត</Text>
+        <NewIcon size={24} color={canRetry ? '#0F172A' : '#FFFFFF'} />
+        <Text style={[styles.retryText, { fontFamily: fonts.khmer }, canRetry && { color: '#0F172A' }]}>{newLabel}</Text>
       </NeoButton>
     </View>
   )
@@ -79,7 +94,6 @@ const createStyles = (colors) =>
       borderColor: colors.borderSubtle,
       borderRadius: 16,
     },
-    tipsHeading: { fontSize: 17.5, fontWeight: '700', color: colors.textPrimary, marginBottom: 2 },
     tipRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', paddingLeft: 6 },
     tipBullet: { color: colors.textSecondary, fontWeight: '800', lineHeight: 26 },
     tipText: { flex: 1, fontSize: 16, color: colors.textSecondary, lineHeight: 26 },

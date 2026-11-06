@@ -23,13 +23,14 @@ const UI_VOICE = 'km-KH-SreymomNeural'
 const MAX_LIVE_CACHE = 80
 const SEGMENT_TIMEOUT_MS = 15000
 
-let rate = 1.25
+let rate = 1
 let generation = 0
 let tail = Promise.resolve()
 let currentPlayer = null
 let cancelCurrent = null
 let audioModeReady = false
 let deviceActive = false // true only while this engine itself is using expo-speech
+let phoneVoiceAllowed = true
 
 const liveCache = new Map() // key -> Promise<{ uri }>
 
@@ -62,6 +63,11 @@ const markEnd = () => {
 export const subscribeSpeaking = (fn) => {
   speakingListeners.add(fn)
   return () => speakingListeners.delete(fn)
+}
+
+/** Testing switch "songKHEM voice only": when off, text our voice can't produce is skipped, not sent to the phone's voice. */
+export const setPhoneVoiceAllowed = (allowed) => {
+  phoneVoiceAllowed = Boolean(allowed)
 }
 
 export const setSpeechRate = (value) => {
@@ -160,7 +166,7 @@ const runMessage = async (segments, fetched, gen) => {
     }
     if (gen !== generation) return
     if (resolved) await playSource(resolved.source, gen)
-    else await deviceSpeak(segments[i], gen)
+    else if (phoneVoiceAllowed) await deviceSpeak(segments[i], gen)
   }
 }
 

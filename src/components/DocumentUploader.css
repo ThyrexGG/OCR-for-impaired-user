@@ -139,6 +139,15 @@
    percentage heights on a <video> inside a flex:1 ancestor chain with no explicit
    pixel height resolve to "auto" in some engines, which let the video fall back
    to its native aspect ratio and letterbox instead of covering the box */
+.page-outline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+}
+
 .live-video-stream {
   position: absolute;
   inset: 0;

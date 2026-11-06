@@ -11,6 +11,8 @@
 import crypto from 'node:crypto'
 import tls from 'node:tls'
 import { normalizeKhmerForSpeech, applyAssistivePacing } from '../src/services/khmerNormalizer.js'
+import { isAllowedCaller, rejectCaller } from './_appAccess.js'
+import { record } from './_stats.js'
 
 const VOICES = {
   'km-KH-PisethNeural': { baseVoice: 'km-KH-PisethNeural', pitch: '+0Hz', rate: '+0%', pace: false },
@@ -429,6 +431,7 @@ const SENTENCE_PAUSE_MS = 260
 const KEEP_TAIL_FRAMES = 4 // ~100 ms of natural fade after the last spoken frame
 const MIN_SENTENCE_CHARS = 8
 const MAX_PARALLEL_SENTENCES = 8
+const MAX_CHUNK_CHARS = 250 // large pieces can outlast the socket timeout, so long lists and tables with no full stop never spoke
 
 const silenceMp3 = (ms) => Buffer.concat(Array(Math.max(1, Math.round(ms / 24))).fill(SILENT_FRAME))
 
@@ -462,6 +465,30 @@ export function trimTrailingSilence(buf) {
   return keep === starts.length ? buf : buf.subarray(0, starts[keep])
 }
 
+// Cuts at a space. With none nearby it cuts before a base consonant, never between a letter and its subscript (after U+17D2) or vowel signs.
+const findCut = (text) => {
+  const lastWhere = (isCut) => {
+    for (let i = MAX_CHUNK_CHARS; i > MAX_CHUNK_CHARS / 2; i--) if (isCut(i)) return i
+    return -1
+  }
+  const atSpace = lastWhere((i) => /\s/.test(text[i]))
+  if (atSpace !== -1) return atSpace
+  const atLetter = lastWhere((i) => /[ក-អ]/.test(text[i]) && text[i - 1] !== '្')
+  return atLetter !== -1 ? atLetter : MAX_CHUNK_CHARS
+}
+
+const chopLongPiece = (piece) => {
+  const chunks = []
+  let rest = piece
+  while (rest.length > MAX_CHUNK_CHARS) {
+    const cut = findCut(rest)
+    chunks.push(rest.slice(0, cut).trim())
+    rest = rest.slice(cut).trim()
+  }
+  if (rest) chunks.push(rest)
+  return chunks
+}
+
 export function splitIntoSentences(text) {
   const parts = text.split(/\s*។\s*/).map((p) => p.trim()).filter(Boolean)
   const out = []
@@ -480,7 +507,7 @@ export function splitIntoSentences(text) {
     if (out.length) out[out.length - 1] += ` , ${carry}`
     else out.push(carry)
   }
-  return out
+  return out.flatMap(chopLongPiece)
 }
 
 const buildSsml = (voiceSpec, text) =>
@@ -497,7 +524,9 @@ async function synthesizeWithPauses(text, voiceSpec) {
   const worker = async () => {
     while (next < sentences.length) {
       const i = next++
-      audio[i] = await synthesizeViaZeroKeyWebSocket(buildSsml(voiceSpec, `${sentences[i]} ។`))
+      const ssml = buildSsml(voiceSpec, `${sentences[i]} ។`)
+      // One stalled connection should not cost the whole page
+      audio[i] = await synthesizeViaZeroKeyWebSocket(ssml).catch(() => synthesizeViaZeroKeyWebSocket(ssml))
       if (!audio[i] || !audio[i].length) throw new Error('Empty audio for a sentence')
     }
   }
@@ -511,6 +540,10 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST')
     return res.status(405).json({ error: 'Method not allowed' })
+  }
+  if (!isAllowedCaller(req)) {
+    await record(req, 'tts', 'denied')
+    return rejectCaller(res)
   }
 
   const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown'
@@ -526,6 +559,7 @@ export default async function handler(req, res) {
   rateLimitMap.set(clientIp, clientData)
 
   if (clientData.count > MAX_REQUESTS_PER_WINDOW) {
+    await record(req, 'tts', 'limited')
     return res.status(429).json({ error: 'Too many requests. សូមរង់ចាំបន្តិចមុននឹងព្យាយាមម្តងទៀត។' })
   }
 
@@ -551,6 +585,8 @@ export default async function handler(req, res) {
     `</speak>`
 
   const apiKey = process.env.AZURE_TTS_API_KEY
+  const started = Date.now()
+  const usage = { voice, chars: cappedText.length }
 
   // Mode 1: Paid Azure REST API (if configured)
   if (apiKey) {
@@ -568,6 +604,7 @@ export default async function handler(req, res) {
 
       if (upstream.ok) {
         const audio = Buffer.from(await upstream.arrayBuffer())
+        await record(req, 'tts', 'ok', { ...usage, ms: Date.now() - started, via: 'azure' })
         res.setHeader('Content-Type', 'audio/mpeg')
         res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400')
         return res.status(200).send(audio)
@@ -589,11 +626,13 @@ export default async function handler(req, res) {
     if (!audioBuffer || audioBuffer.length === 0) {
       throw new Error('Empty audio stream returned')
     }
+    await record(req, 'tts', 'ok', { ...usage, ms: Date.now() - started, via: 'edge' })
     res.setHeader('Content-Type', 'audio/mpeg')
     res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400')
     return res.status(200).send(audioBuffer)
   } catch (error) {
     console.error('Serverless Khmer TTS fallback failed:', error)
+    await record(req, 'tts', 'fail', { ...usage, ms: Date.now() - started })
     return res.status(502).json({ error: 'TTS provider unreachable' })
   }
 }

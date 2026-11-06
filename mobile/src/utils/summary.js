@@ -19,7 +19,12 @@ export function buildSummaryPoints(text) {
     .split(/[។៕.!?]+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 8)
-  if (sentences.length > 0) return sentences.slice(0, 4)
+  // A scanned page often has no ។ at all, only line breaks: without this the whole page came back as one point
+  const byLine = lines.filter((l) => l.length > 8)
+  const pieces = sentences.length < 2 && byLine.length >= 2 ? byLine : sentences
+  if (pieces.length > 0) return pieces.slice(0, 4).map(clip)
 
-  return [clean.slice(0, 180) + '...']
+  return [clip(clean)]
 }
+
+const clip = (s) => (s.length > 180 ? s.slice(0, 180).trim() + '...' : s)

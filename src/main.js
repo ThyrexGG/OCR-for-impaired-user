@@ -8,9 +8,14 @@ import './style.css'
 import App from './App.vue'
 import router from './router'
 
-const app = createApp(App)
-app.use(router)
-app.mount('#app')
+// /admin is the usage panel: its own small app, without the reader's tour, voice and navigation
+if (window.location.pathname.replace(/\/+$/, '') === '/admin') {
+  import('./admin/AdminApp.vue').then(({ default: AdminApp }) => createApp(AdminApp).mount('#app'))
+} else {
+  const app = createApp(App)
+  app.use(router)
+  app.mount('#app')
+}
 
 // Register Service Worker for PWA offline capabilities
 if ('serviceWorker' in navigator && import.meta.env.PROD) {

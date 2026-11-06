@@ -8,12 +8,17 @@ import * as FileSystem from 'expo-file-system/legacy'
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator'
 import { recognizeInEngine } from './ocrEngineBridge'
 import { cloudOcr } from './cloudApi'
+import { ScanError } from './scanErrors'
 
 /**
  * Read a local file URI as a raw Base64 string (no data-url prefix).
  */
 export const fileToBase64 = async (file) => {
-  return FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 })
+  try {
+    return await FileSystem.readAsStringAsync(file.uri, { encoding: FileSystem.EncodingType.Base64 })
+  } catch (e) {
+    throw new ScanError('bad_file', e?.message)
+  }
 }
 
 const MAX_OCR_WIDTH = 2000
@@ -41,11 +46,16 @@ export const detectTextOnDevice = async (file, onProgress) => {
   return recognizeInEngine({ base64, mimeType: 'image/jpeg', onProgress })
 }
 
+// A file that can't be decoded as a picture is the file's problem, not the network's
 const imageToJpegBase64 = async (file, maxWidth) => {
-  const size = await getImageSize(file.uri)
-  const actions = size && size.width > maxWidth ? [{ resize: { width: maxWidth } }] : []
-  const prepared = await manipulateAsync(file.uri, actions, { compress: 0.9, format: SaveFormat.JPEG, base64: true })
-  return prepared.base64
+  try {
+    const size = await getImageSize(file.uri)
+    const actions = size && size.width > maxWidth ? [{ resize: { width: maxWidth } }] : []
+    const prepared = await manipulateAsync(file.uri, actions, { compress: 0.9, format: SaveFormat.JPEG, base64: true })
+    return prepared.base64
+  } catch (e) {
+    throw new ScanError('bad_file', e?.message)
+  }
 }
 
 /**
@@ -64,9 +74,7 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
     if (!apiKey) {
       const proxiedText = (await cloudOcr(base64Image)).trim()
       if (!proxiedText) {
-        throw new Error(
-          'មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងឯកសារនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected. Try better lighting or hold the camera closer.)'
-        )
+        throw new ScanError('no_text')
       }
       return proxiedText
     }
@@ -99,18 +107,14 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
     })
 
     if (!response.ok) {
-      throw new Error(
-        'មិនអាចទាក់ទងម៉ាស៊ីនស្កេនបានទេ។ សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។ (Unable to connect to OCR service. Please check your network and try again.)'
-      )
+      throw new ScanError('server', `HTTP ${response.status}`)
     }
 
     const data = await response.json()
     const fullText = data.responses?.[0]?.fullTextAnnotation?.text || ''
 
     if (!fullText || !fullText.trim()) {
-      throw new Error(
-        'មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងឯកសារនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected. Try better lighting or hold the camera closer.)'
-      )
+      throw new ScanError('no_text')
     }
 
     return fullText.trim()
@@ -130,7 +134,7 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
 export const detectTextAzureVision = async (file, apiKey, endpoint) => {
   try {
     if (!endpoint) {
-      throw new Error('Azure Vision endpoint is required')
+      throw new ScanError('settings', 'Azure Vision endpoint is required')
     }
 
     const baseEndpoint = endpoint.endsWith('/') ? endpoint.slice(0, -1) : endpoint
@@ -150,13 +154,13 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
     })
 
     if (!response.ok) {
-      throw new Error('មិនអាចទាក់ទងម៉ាស៊ីនស្កេន Azure បានទេ។ សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត។ (Unable to connect to Azure OCR service.)')
+      throw new ScanError('server', `HTTP ${response.status}`)
     }
 
     const data = await response.json()
 
     if (!data.readResult || !data.readResult.blocks) {
-      throw new Error('មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ។ សូមពិនិត្យពន្លឺ និងតម្រង់កាមេរ៉ាឱ្យចំអត្ថបទ។ (No readable text was detected.)')
+      throw new ScanError('no_text')
     }
 
     let fullText = ''
@@ -169,7 +173,7 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
 
     const trimmed = fullText.trim()
     if (!trimmed) {
-      throw new Error('មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ។ សូមព្យាយាមស្កេនម្តងទៀត។')
+      throw new ScanError('no_text')
     }
 
     return trimmed

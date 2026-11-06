@@ -2,6 +2,7 @@ import { Platform } from 'react-native'
 import { createContext, useContext, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Speech from 'expo-speech'
 import { createAudioPlayer } from 'expo-audio'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useApp } from './AppContext'
 import { useOcr } from './OcrContext'
 import { synthesizeTextAzureTTS, synthesizeTextCloudTTS } from '../services/tts'
@@ -12,13 +13,20 @@ import { TP } from '../services/talkPhrases'
 
 // While talk-back speaks, the document audio dips so the guidance is clearly heard.
 const DUCKED_VOLUME = 0.2
+const APP_VOICE_FAILED = 'មិនអាចភ្ជាប់សំឡេង songKHEM បានទេ។ សូមពិនិត្យអ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។'
+// Spoken sentence by sentence, so it plays from the voice pack even with no internet
+const APP_VOICE_FAILED_SPOKEN = APP_VOICE_FAILED.split('។').map((part) => part.trim()).filter(Boolean)
 
 export const SPEED_PRESETS = [0.75, 1.0, 1.25, 1.5, 2.0]
+
+const VOICE_STORAGE_KEY = 'songkhem_reader_voice'
+// Voice used until the reader picks another one
+const DEFAULT_VOICE = 'km-KH-SokhaMedical'
 
 const TtsContext = createContext(null)
 
 export function TtsProvider({ children }) {
-  const { triggerHaptic, speakAccessibility, announce, ocrConfig } = useApp()
+  const { triggerHaptic, speakAccessibility, announce, ocrConfig, isAppVoiceOnly, addToast } = useApp()
   const { extractedText, setAutoReadHandler } = useOcr()
 
   const [isSpeaking, setIsSpeaking] = useState(false)
@@ -27,6 +35,8 @@ export function TtsProvider({ children }) {
   const [rate, setRate] = useState(1.0)
   const [voices, setVoices] = useState([])
   const [selectedVoiceName, setSelectedVoiceName] = useState('')
+  // Length of the current document's audio at 1x, in seconds, once the player knows it (0 = not known yet)
+  const [audioDuration, setAudioDuration] = useState(0)
 
   const tokensRef = useRef([])
   const highlightIntervalRef = useRef(null)
@@ -43,6 +53,8 @@ export function TtsProvider({ children }) {
   const pendingSeekRef = useRef(null)
   const pendingSpeechStartRef = useRef(null)
   const duckedRef = useRef(false)
+  const appVoiceOnlyRef = useRef(false)
+  useEffect(() => { appVoiceOnlyRef.current = isAppVoiceOnly }, [isAppVoiceOnly])
 
   useEffect(() => { rateRef.current = rate }, [rate])
   useEffect(() => { voicesRef.current = voices }, [voices])
@@ -66,13 +78,14 @@ export function TtsProvider({ children }) {
     ;(async () => {
       if (ocrConfig.azureTtsKey || CLOUD_API_AVAILABLE) {
         const azureVoices = [
-          { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'Piseth (សំឡេងប្រុស)', gender: 'Male' },
-          { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'Sreymom (សំឡេងស្រី)', gender: 'Female' },
-          { name: 'km-KH-SokhaMedical', lang: 'km-KH', label: 'Dr. Sokha (គ្រូពេទ្យ សុខា - វេជ្ជបញ្ជា)', gender: 'Male' },
-          { name: 'km-KH-VitsOffline', lang: 'km-KH', label: 'songKHEM-VITS (ម៉ូដែលរបស់យើង)', gender: 'Male' },
+          { name: 'km-KH-PisethNeural', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth — សំឡេងប្រុស)', gender: 'Male' },
+          { name: 'km-KH-SreymomNeural', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom — សំឡេងស្រី)', gender: 'Female' },
+          { name: 'km-KH-SokhaMedical', lang: 'km-KH', label: 'គ្រូពេទ្យ សុខា (Dr. Sokha — អានវេជ្ជបញ្ជា/វិក្កយបត្រ)', gender: 'Male' },
+          { name: 'km-KH-VitsOffline', lang: 'km-KH', label: 'សុភាព (Sopheap — សំឡេងប្រុស ស្រាល)', gender: 'Male' },
         ]
         setVoices(azureVoices)
-        setSelectedVoiceName(azureVoices[0].name)
+        const saved = await AsyncStorage.getItem(VOICE_STORAGE_KEY).catch(() => null)
+        setSelectedVoiceName(azureVoices.some((v) => v.name === saved) ? saved : DEFAULT_VOICE)
         return
       }
 
@@ -95,8 +108,8 @@ export function TtsProvider({ children }) {
           setSelectedVoiceName(mapped[0].name)
         } else {
           const defaultKhmer = [
-            { name: 'km-KH-Piseth', lang: 'km-KH', label: 'Piseth (សំឡេងប្រុស)', gender: 'Male' },
-            { name: 'km-KH-Sreymom', lang: 'km-KH', label: 'Sreymom (សំឡេងស្រី)', gender: 'Female' },
+            { name: 'km-KH-Piseth', lang: 'km-KH', label: 'ពិសិដ្ឋ (Piseth — សំឡេងប្រុស)', gender: 'Male' },
+            { name: 'km-KH-Sreymom', lang: 'km-KH', label: 'ស្រីមុំ (Sreymom — សំឡេងស្រី)', gender: 'Female' },
           ]
           setVoices(defaultKhmer)
           setSelectedVoiceName(defaultKhmer[0].name)
@@ -189,6 +202,12 @@ export function TtsProvider({ children }) {
   const fallbackWebSpeech = useCallback(
     (text, startIndex = 0) => {
       stopSpeech()
+      // Testing switch "songKHEM voice only": never hand the document to the phone's voice
+      if (appVoiceOnlyRef.current) {
+        addToast(APP_VOICE_FAILED, 'warning')
+        speakAccessibility(APP_VOICE_FAILED_SPOKEN)
+        return
+      }
       setIsSpeaking(true)
       setPaused(false)
       speechModeRef.current = true
@@ -204,14 +223,21 @@ export function TtsProvider({ children }) {
         // Ignore events from an utterance a skip has already replaced
         onDone: () => { if (speechSessionRef.current === session) stopSpeech() },
         onStopped: () => {},
-        onError: () => { if (speechSessionRef.current === session) stopSpeech() },
+        // The phone's voice failed too (often: no Khmer voice installed): say so rather than go silent
+        onError: () => {
+          if (speechSessionRef.current !== session) return
+          stopSpeech()
+          addToast(APP_VOICE_FAILED, 'warning')
+          speakAccessibility(APP_VOICE_FAILED_SPOKEN)
+        },
       })
       startHighlighting(startIndex)
     },
-    [stopSpeech, startHighlighting, setPaused]
+    [stopSpeech, startHighlighting, setPaused, addToast, speakAccessibility]
   )
 
-  const startSpeech = useCallback(async () => {
+  const startSpeech = useCallback(async (startAt = 0) => {
+    const firstWord = Number.isInteger(startAt) && startAt > 0 ? startAt : 0
     if (!extractedText) {
       speakAccessibility('មិនទាន់មានអត្ថបទសម្រាប់អាននៅឡើយទេ')
       return
@@ -239,6 +265,7 @@ export function TtsProvider({ children }) {
     }
 
     stopSpeech()
+    if (firstWord > 0) pendingSeekRef.current = firstWord
     const session = speechSessionRef.current
     setIsSpeaking(true)
     setPaused(false)
@@ -254,7 +281,7 @@ export function TtsProvider({ children }) {
         const selectedVoice = voicesRef.current.find((v) => v.name === selectedVoiceNameRef.current)
         const voiceName = selectedVoice ? selectedVoice.name : 'km-KH-PisethNeural'
         const gender = selectedVoice?.gender || 'Male'
-        // Sokha / songKHEM-VITS are songKHEM personas served by api/tts, not real Azure voice names
+        // Sokha / Sopheap are songKHEM personas served by api/tts, not real Azure voice names
         const isPersona = voiceName === 'km-KH-VitsOffline' || voiceName === 'km-KH-SokhaMedical'
         const useAzureDirect = Boolean(azureKey) && !isPersona
 
@@ -285,6 +312,7 @@ export function TtsProvider({ children }) {
           }
           const duration = status.duration
           if (!(duration > 0)) return
+          setAudioDuration((prev) => (Math.abs(prev - duration) < 0.5 ? prev : duration))
           // A skip tapped before the duration was known is applied as soon as it is
           if (pendingSeekRef.current !== null) {
             const pending = pendingSeekRef.current
@@ -307,14 +335,14 @@ export function TtsProvider({ children }) {
         if (speechSessionRef.current !== session) return
         await whenSilent()
         if (speechSessionRef.current !== session) return
-        fallbackWebSpeech(extractedText, Math.max(0, activeWordRef.current))
+        fallbackWebSpeech(extractedText, firstWord)
         return
       }
     }
 
     await whenSilent()
     if (speechSessionRef.current !== session) return
-    fallbackWebSpeech(extractedText)
+    fallbackWebSpeech(extractedText, firstWord)
   }, [extractedText, stopSpeech, startHighlighting, triggerHaptic, speakAccessibility, fallbackWebSpeech, indexForFraction, setPaused, ocrConfig])
 
   const pauseSpeech = useCallback(() => {
@@ -339,7 +367,7 @@ export function TtsProvider({ children }) {
 
   const togglePlayback = useCallback(() => {
     if (isSpeaking) pauseSpeech()
-    else startSpeech()
+    else startSpeech(Math.max(0, activeWordRef.current))
   }, [isSpeaking, pauseSpeech, startSpeech])
 
   const restartSpeech = useCallback(() => {
@@ -406,7 +434,24 @@ export function TtsProvider({ children }) {
     [triggerHaptic, speakAccessibility]
   )
 
-  const selectVoice = useCallback((name) => setSelectedVoiceName(name), [])
+  // A new voice is heard straight away: if reading (or paused), carry on from the same word in the new voice
+  const selectVoice = useCallback(
+    (name) => {
+      if (name === selectedVoiceNameRef.current) return
+      selectedVoiceNameRef.current = name
+      setSelectedVoiceName(name)
+      setAudioDuration(0)
+      AsyncStorage.setItem(VOICE_STORAGE_KEY, name).catch(() => {})
+      triggerHaptic('light')
+      if (isSpeaking || isPausedRef.current) {
+        startSpeech(Math.max(0, activeWordRef.current))
+      } else {
+        const voice = voicesRef.current.find((v) => v.name === name)
+        if (voice) announce(voice.label)
+      }
+    },
+    [isSpeaking, startSpeech, triggerHaptic, announce]
+  )
 
   // Re-tokenize and stop any playback whenever the underlying text changes —
   // mirrors the web app's `watch(() => props.text, ..., { immediate: true })`.
@@ -420,6 +465,7 @@ export function TtsProvider({ children }) {
       consumed += w.length
       return start
     })
+    setAudioDuration(0)
     stopSpeech()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [extractedText])
@@ -439,6 +485,7 @@ export function TtsProvider({ children }) {
       rate,
       voices,
       selectedVoiceName,
+      audioDuration,
       speedPresets: SPEED_PRESETS,
       togglePlayback,
       startSpeech,
@@ -457,6 +504,7 @@ export function TtsProvider({ children }) {
       rate,
       voices,
       selectedVoiceName,
+      audioDuration,
       togglePlayback,
       startSpeech,
       pauseSpeech,

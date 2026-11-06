@@ -52,8 +52,8 @@ export default function RecentScreen() {
         ) : (
           <>
             <View style={styles.list}>
-              {historyList.map((item) => (
-                <HistoryRow key={String(item.id)} item={item} />
+              {historyList.map((item, i) => (
+                <HistoryRow key={String(item.id)} item={item} tourFirst={i === 0} />
               ))}
             </View>
             <AccessiblePressable style={styles.clearBtn} accessibilityLabel="សម្អាតទាំងអស់" onPress={handleClearAll}>

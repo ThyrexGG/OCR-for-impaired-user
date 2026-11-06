@@ -232,7 +232,11 @@ onBeforeUnmount(() => {
 
 .help-steps-body {
   padding: 16px;
+  /* flex + min-height 0: shrink to the card's 90vh cap so the steps scroll instead of being cut off */
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 12px;

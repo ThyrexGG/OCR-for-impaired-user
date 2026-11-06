@@ -4,24 +4,31 @@ import { useTheme } from '../theme/ThemeContext'
 import { useApp } from '../context/AppContext'
 import { useOcr } from '../context/OcrContext'
 import AccessiblePressable from './AccessiblePressable'
+import { useTourTarget } from '../context/TourContext'
 
-const estimateDuration = (wordsCount) => {
-  if (!wordsCount) return '~30 វិនាទី'
-  const minutes = Math.ceil(wordsCount / 120)
-  return `~${minutes} នាទី`
+// How long the reading takes, from the letters: Khmer barely uses spaces, so a word count was far too low.
+// The voice says about 11 characters a second.
+const estimateDuration = (text) => {
+  const secs = Math.round((text || '').replace(/\s+/g, '').length / 11)
+  if (secs < 60) return `~${Math.max(5, Math.round(secs / 5) * 5)} វិនាទី`
+  return `~${Math.round(secs / 60)} នាទី`
 }
 
 // The web app's `.history-list-row` (UserHistory.vue): a card with the document
-// name and "date • N words (~time)", then two pill actions: Open and Delete.
-export default function HistoryRow({ item }) {
+// name and "date • listening time", then two pill actions: Open and Delete.
+export default function HistoryRow({ item, tourFirst = false }) {
   const { colors, fonts, currentTheme } = useTheme()
   const { triggerHaptic, speakAccessibility } = useApp()
   const { loadHistoryItem, deleteHistoryItem } = useOcr()
   const s = colors.surfaces
   const styles = createStyles(s, currentTheme)
+  // Only the first row is something the guided tour points at
+  const rowTourRef = useTourTarget('history-row')
+  const openTourRef = useTourTarget('history-open')
+  const deleteTourRef = useTourTarget('history-delete')
 
   return (
-    <View style={[styles.row, item.pending && styles.rowPending]}>
+    <View ref={tourFirst ? rowTourRef : undefined} collapsable={false} style={[styles.row, item.pending && styles.rowPending]}>
       <View style={styles.infoCol}>
         <Text style={[styles.title, { fontFamily: fonts.khmer }]} numberOfLines={2}>
           {item.name}
@@ -29,14 +36,7 @@ export default function HistoryRow({ item }) {
         <View style={styles.metaRow}>
           <Text style={[styles.metaText, { fontFamily: fonts.khmer }]}>{item.date || item.timestamp}</Text>
           <Text style={styles.metaSeparator}>•</Text>
-          <Text style={[styles.metaText, { fontFamily: fonts.khmer }]}>
-            {item.wordsCount || 0} ពាក្យ ({estimateDuration(item.wordsCount)})
-          </Text>
-          {!!item.cached && (
-            <View style={styles.cacheTag}>
-              <Text style={styles.cacheTagText}>Cache</Text>
-            </View>
-          )}
+          <Text style={[styles.metaText, { fontFamily: fonts.khmer }]}>{item.pending ? item.timestamp : estimateDuration(item.text)}</Text>
         </View>
       </View>
 
@@ -45,6 +45,7 @@ export default function HistoryRow({ item }) {
           style={[styles.actionBtn, { backgroundColor: s.primary }]}
           disabled={item.pending}
           accessibilityLabel={`បើក ${item.name}`}
+          ref={tourFirst ? openTourRef : undefined}
           onPress={() => loadHistoryItem(item)}
         >
           <BookOpen size={16} color={s.onPrimary} />
@@ -54,6 +55,7 @@ export default function HistoryRow({ item }) {
         <AccessiblePressable
           style={[styles.actionBtn, { backgroundColor: colors.dangerSubtle }]}
           disabled={item.pending}
+          ref={tourFirst ? deleteTourRef : undefined}
           accessibilityLabel={`លុប ${item.name}`}
           onPress={() => {
             triggerHaptic('medium')
@@ -85,8 +87,6 @@ const createStyles = (s, theme) =>
     metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
     metaText: { fontSize: 15, fontWeight: '600', color: s.onSurfaceMuted },
     metaSeparator: { color: s.divider, fontWeight: '800' },
-    cacheTag: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: 12, backgroundColor: s.surface2 },
-    cacheTagText: { fontSize: 13, fontWeight: '700', color: s.onTonal },
     actions: { flexDirection: 'row', gap: 10 },
     actionBtn: { flex: 1, minHeight: 46, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 23 },
     actionText: { fontWeight: '700', fontSize: 16 },

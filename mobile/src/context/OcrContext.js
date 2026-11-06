@@ -2,11 +2,14 @@ import { createContext, useContext, useCallback, useEffect, useMemo, useRef, use
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useApp } from './AppContext'
 import { detectTextGoogleVision, detectTextAzureVision, detectTextOnDevice } from '../services/ocr'
-import { getFileFingerprint, getOcrCache, setOcrCache } from '../services/cache'
+import { clearOcrCache, getFileFingerprint, getOcrCache, setOcrCache } from '../services/cache'
 import { CLOUD_API_AVAILABLE } from '../services/cloudApi'
 import { sampleLibrary } from '../services/sampleLibrary'
 import { navigateToReader } from '../navigation/navigationRef'
 import { TP } from '../services/talkPhrases'
+import { stopSpeaking } from '../services/talkback'
+import { startWaitingCue, stopWaitingCue } from '../services/waitingCue'
+import { SCAN_ERRORS, ScanError, classifyScanError } from '../services/scanErrors'
 
 const HISTORY_STORAGE_KEY = 'songkhem_history'
 const MAX_HISTORY_ITEMS = 25
@@ -26,15 +29,16 @@ export function OcrProvider({ children }) {
   const [isLongProcessing, setIsLongProcessing] = useState(false)
   const [isCached, setIsCached] = useState(false)
   const [historyList, setHistoryList] = useState([])
-  const [ocrError, setOcrError] = useState(null)
+  const [ocrError, setOcrError] = useState(null) // a SCAN_ERRORS kind, e.g. 'offline'
   const [ocrProgress, setOcrProgress] = useState(0)
 
   const processingTimeoutRef = useRef(null)
   const processingTickRef = useRef(null)
 
-  // While a scan runs, say so now and then: a user who cannot see the spinner has no other way
-  // to tell "working" from "stuck".
+  // While a scan runs, the waiting cue loops (with a light tick now and then): a user who cannot see
+  // the spinner has no other way to tell "working" from "stuck".
   const clearProcessingTimers = useCallback(() => {
+    stopWaitingCue()
     if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current)
     if (processingTickRef.current) clearInterval(processingTickRef.current)
     processingTimeoutRef.current = null
@@ -121,9 +125,11 @@ export function OcrProvider({ children }) {
 
   // --- Shared OCR execution body. Takes the file explicitly (rather than
   // reading it back from state) so the camera's "capture -> scan immediately"
-  // flow doesn't race React's async state updates. ---
+  // flow doesn't race React's async state updates.
+  // Resolves true on success, or the failure's SCAN_ERRORS kind. quietNoText: the caller has a
+  // second photo to try, so "no text" is not announced yet. ---
   const runOcrFlow = useCallback(
-    async (file, fileName) => {
+    async (file, fileName, { quietNoText = false } = {}) => {
       let fingerprint = ''
       let cachedText = null
       try {
@@ -142,7 +148,7 @@ export function OcrProvider({ children }) {
         speakAccessibility('បានស្កេន និងស្រង់អត្ថបទពី Cache ភ្លាមៗរួចរាល់')
         navigateToReader()
         maybeAutoRead(300)
-        return
+        return true
       }
 
       setIsCached(false)
@@ -150,16 +156,14 @@ export function OcrProvider({ children }) {
       setOcrError(null)
       setOcrProgress(0)
       triggerHaptic('medium')
-      speakAccessibility(TP.scanning.km)
 
+      // No words while it works: the du-du-du cue says "still working" until the result is spoken
       clearProcessingTimers()
+      stopSpeaking()
+      startWaitingCue()
       processingTimeoutRef.current = setTimeout(() => {
         setIsLongProcessing(true)
-        speakAccessibility(TP.stillWorking.km, false)
-        processingTickRef.current = setInterval(() => {
-          triggerHaptic('light')
-          speakAccessibility(TP.scanning.km, false)
-        }, 9000)
+        processingTickRef.current = setInterval(() => triggerHaptic('light'), 9000)
       }, 5000)
 
       const pendingId = 'pending_' + Date.now()
@@ -180,7 +184,8 @@ export function OcrProvider({ children }) {
             name: fileName || 'ឯកសារស្កេនថ្មី',
             text: resultText.trim(),
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            date: 'ថ្ងៃនេះ',
+            // The real day (a fixed "today" would still say today tomorrow)
+            date: new Date().toLocaleDateString('km-KH', { month: 'short', day: 'numeric' }),
             wordsCount: wordCount(resultText),
           }
           const idx = prev.findIndex((i) => i.id === pendingId)
@@ -210,32 +215,37 @@ export function OcrProvider({ children }) {
       const isPdf = file?.mimeType === 'application/pdf' || (file?.name || '').toLowerCase().endsWith('.pdf')
 
       try {
-        if (!file?.uri) throw new Error('សូមជ្រើសរើសឯកសារ ឬថតរូបភាពជាមុនសិន។')
+        if (!file?.uri) throw new ScanError('bad_file', 'No file selected')
         let text
         if (isPdf || provider === 'tesseract') {
           text = await detectTextOnDevice(file, setOcrProgress)
         } else if (provider === 'google-vision') {
-          if (!googleKey && !CLOUD_API_AVAILABLE) throw new Error('សូមបញ្ចូល Google Cloud Vision API Key ក្នុងផ្ទាំងការកំណត់ជាមុនសិន។ (Please configure your Google Vision API Key in Settings.)')
+          if (!googleKey && !CLOUD_API_AVAILABLE) throw new ScanError('settings', 'Google Vision API key missing')
           text = await detectTextGoogleVision(file, googleKey, googleEndpoint)
         } else {
-          if (!azureKey) throw new Error('សូមបញ្ចូល Azure Computer Vision Key ក្នុងផ្ទាំងការកំណត់ជាមុនសិន។ (Please configure your Azure Vision Key in Settings.)')
-          if (!azureEndpoint) throw new Error('សូមបញ្ចូល Azure Vision Endpoint ក្នុងផ្ទាំងការកំណត់ជាមុនសិន។ (Azure Vision endpoint is required.)')
+          if (!azureKey) throw new ScanError('settings', 'Azure Vision key missing')
+          if (!azureEndpoint) throw new ScanError('settings', 'Azure Vision endpoint missing')
           text = await detectTextAzureVision(file, azureKey, azureEndpoint)
         }
         text = (text || '').trim()
-        if (!text) throw new Error('មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ')
+        if (!text) throw new ScanError('no_text')
         finalizeOcr(text)
+        return true
       } catch (error) {
-        console.error('OCR Extraction Error:', error)
+        const kind = classifyScanError(error)
+        console.warn(`Scan failed (${kind}): ${SCAN_ERRORS[kind].en}`, error?.message)
         clearProcessingTimers()
         setIsProcessing(false)
         setIsLongProcessing(false)
         setOcrProgress(0)
         setHistoryList((prev) => prev.filter((i) => i.id !== pendingId))
+        if (quietNoText && kind === 'no_text') return kind
         triggerHaptic('error')
-        const msg = error?.message || 'មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ'
-        setOcrError(msg)
-        speakAccessibility(`មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ - ${msg}`)
+        setOcrError(kind)
+        // What went wrong, then what to do, each sentence on its own so all of it comes from the voice pack
+        const { title, say } = SCAN_ERRORS[kind]
+        speakAccessibility([title, ...say.split('។').map((part) => part.trim()).filter(Boolean)])
+        return kind
       }
     },
     [addToHistory, addToast, triggerHaptic, speakAccessibility, saveHistory, maybeAutoRead, ocrConfig, clearProcessingTimers]
@@ -266,6 +276,7 @@ export function OcrProvider({ children }) {
   )
 
   const clearFile = useCallback(() => {
+    clearProcessingTimers()
     setSelectedFile(null)
     setPreviewUri(null)
     setSelectedFileName('')
@@ -275,13 +286,13 @@ export function OcrProvider({ children }) {
     setOcrError(null)
     triggerHaptic('light')
     speakAccessibility('បានសម្អាតឯកសារ')
-  }, [triggerHaptic, speakAccessibility])
+  }, [triggerHaptic, speakAccessibility, clearProcessingTimers])
 
   // --- Camera capture: sets the file AND immediately runs OCR on it,
   // passing the file explicitly to runOcrFlow instead of relying on state
   // that wouldn't have flushed yet within the same handler. ---
   const captureAndScan = useCallback(
-    (file) => {
+    (file, options) => {
       const name = file.name || `scan_${Date.now()}.jpg`
       setSelectedFile({ ...file, name, kind: 'image', source: 'camera' })
       setSelectedFileName(name)
@@ -290,10 +301,9 @@ export function OcrProvider({ children }) {
       setIsCached(false)
       setOcrError(null)
       triggerHaptic('success')
-      speakAccessibility(TP.scanning.km)
-      return runOcrFlow({ ...file, name }, name)
+      return runOcrFlow({ ...file, name }, name, options)
     },
-    [runOcrFlow, triggerHaptic, speakAccessibility]
+    [runOcrFlow, triggerHaptic]
   )
 
   // --- OCR trigger (Upload tab's "Extract Text" button) ---
@@ -319,6 +329,38 @@ export function OcrProvider({ children }) {
       maybeAutoRead()
     },
     [addToHistory, triggerHaptic, addToast, speakAccessibility, maybeAutoRead]
+  )
+
+  // The guided tour opens a sample without the toast, voice, navigation or auto-read that loadSample adds
+  const openSampleQuietly = useCallback(
+    (sample) => {
+      setSelectedFileName(sample.title + '.txt')
+      setSelectedFile({ uri: null, name: sample.id + '.txt', mimeType: 'text/plain', kind: 'text' })
+      setPreviewUri(null)
+      setExtractedText(sample.text)
+      setIsCached(true)
+      setOcrError(null)
+      addToHistory(sample.title, sample.text, true)
+    },
+    [addToHistory]
+  )
+
+  // Undo openSampleQuietly once the tour is over: drop what it added to the history and close the document
+  const discardTourSample = useCallback(
+    (keepIds) => {
+      const keep = new Set(keepIds)
+      setHistoryList((prev) => {
+        const next = prev.filter((i) => keep.has(i.id))
+        if (next.length !== prev.length) saveHistory(next)
+        return next
+      })
+      setSelectedFile(null)
+      setSelectedFileName('')
+      setPreviewUri(null)
+      setExtractedText('')
+      setIsCached(false)
+    },
+    [saveHistory]
   )
 
   // --- History actions ---
@@ -389,6 +431,9 @@ export function OcrProvider({ children }) {
   )
 
   const clearHistory = useCallback(() => {
+    // Saved scan results go too, so the same file is read afresh next time (Undo brings back the history, which
+    // keeps its own copy of the text)
+    clearOcrCache()
     setHistoryList((prev) => {
       const previousHistory = prev
       saveHistory([])
@@ -432,6 +477,8 @@ export function OcrProvider({ children }) {
       clearFile,
       captureAndScan,
       loadSample,
+      openSampleQuietly,
+      discardTourSample,
       triggerOcr,
       loadHistoryItem,
       quickPlayHistoryItem,
@@ -457,6 +504,8 @@ export function OcrProvider({ children }) {
       clearFile,
       captureAndScan,
       loadSample,
+      openSampleQuietly,
+      discardTourSample,
       triggerOcr,
       loadHistoryItem,
       quickPlayHistoryItem,

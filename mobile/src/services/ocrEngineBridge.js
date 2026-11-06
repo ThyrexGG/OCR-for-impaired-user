@@ -2,6 +2,7 @@
 // Tesseract.js (khm+eng) + pdf.js engine the web app uses by default. The
 // host registers its postMessage sender here once mounted; callers await
 // recognizeInEngine() and get progress callbacks as the page reports them.
+import { ScanError } from './scanErrors'
 
 let sender = null
 let isReady = false
@@ -13,7 +14,7 @@ export function registerEngineSender(fn) {
   sender = fn
   if (!fn) {
     isReady = false
-    for (const [, job] of pending) job.reject(new Error('ម៉ាស៊ីនស្កេនត្រូវបានបិទ។ សូមព្យាយាមម្តងទៀត។'))
+    for (const [, job] of pending) job.reject(new ScanError('unknown', 'OCR engine closed'))
     pending.clear()
   }
 }
@@ -29,7 +30,7 @@ function waitUntilReady(timeoutMs) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       readyWaiters = readyWaiters.filter((w) => w !== done)
-      reject(new Error('មិនអាចបើកម៉ាស៊ីនស្កេនបានទេ។ សូមពិនិត្យការតភ្ជាប់អ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។'))
+      reject(new ScanError('offline', 'OCR engine did not start'))
     }, timeoutMs)
     const done = () => {
       clearTimeout(timer)
@@ -59,17 +60,17 @@ export function handleEngineMessage(raw) {
     job.resolve(msg.text)
   } else if (msg.type === 'error') {
     pending.delete(msg.id)
-    job.reject(new Error(msg.message))
+    job.reject(new ScanError(msg.code || 'unknown', msg.message))
   }
 }
 
 /**
  * @param {{ base64: string, mimeType: string, onProgress?: (pct:number)=>void }} input
- * @returns {Promise<string>} extracted text (throws with a Khmer message on failure)
+ * @returns {Promise<string>} extracted text (throws a ScanError on failure)
  */
 export async function recognizeInEngine({ base64, mimeType, onProgress }) {
   await waitUntilReady(20000)
-  if (!sender) throw new Error('ម៉ាស៊ីនស្កេនមិនទាន់រួចរាល់។ សូមព្យាយាមម្តងទៀត។')
+  if (!sender) throw new ScanError('unknown', 'OCR engine not ready')
   const id = ++jobCounter
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve, reject, onProgress })

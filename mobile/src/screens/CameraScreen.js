@@ -36,6 +36,6 @@ export default function CameraScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  wrapper: { flex: 1, paddingTop: 8, paddingHorizontal: 10, paddingBottom: 10 },
-  deck: { flex: 1, borderRadius: 16, paddingVertical: 8, paddingHorizontal: 10 },
+  wrapper: { flex: 1, padding: 8 },
+  deck: { flex: 1, borderRadius: 16, padding: 8 },
 })
