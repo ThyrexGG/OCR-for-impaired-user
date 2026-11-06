@@ -143,11 +143,23 @@ export function stripLogoAndGraphicNoise(text) {
       continue
     }
 
+    // Preserve valid bullet points (●, •, ▪, -, etc.) or numbered list prefixes
+    const bulletMatch = line.match(/^([\u2022\u25cf\u25cb\u25aa\u25ab\u25a0\u25a1\-*]|\d+[\.)])\s*/)
+    let bulletPrefix = ''
+    if (bulletMatch) {
+      bulletPrefix = bulletMatch[0]
+      line = line.slice(bulletPrefix.length)
+    }
+
     // Strip leading/trailing decorative border or logo punctuation clutter from the line
     line = line
-      .replace(/^[\s~@#$%^&*_|\\/<>+=•▪▫◊○●□■©®™«»‹›:;.,!?()-]+/, '')
+      .replace(/^[\s~@#$%^&*_|\\/<>+=◊©®™«»‹›:;,!?]+/, '')
       .replace(/[\s~@#$%^&*_|\\/<>+=•▪▫◊○●□■©®™]+$/, '')
       .trim()
+
+    if (bulletPrefix && line) {
+      line = bulletPrefix + line
+    }
 
     if (!line) continue
 
@@ -181,12 +193,12 @@ export function stripLogoAndGraphicNoise(text) {
     }
 
     // 4. Before real document context starts, aggressively drop tiny 1-3 character logo/emblem fragments
-    //    (e.g. "TM", "LOGO", "A1", "កខ", "100%", stray emblem initials) unless it's a numbered list item
+    //    (e.g. "TM", "LOGO", "A1", "កខ", "100%", stray emblem initials) unless it's a bullet or numbered list item
     if (!foundRealContext) {
-      const isNumberedItem = /^[១-៩\d]{1,2}[.)]\s*\S/.test(line)
+      const isListItem = /^([១-៩\d]{1,2}[.)]|[\u2022\u25cf\u25cb\u25aa\u25ab\u25a0\u25a1\-*])\s*\S/.test(line)
       const hasSubstantialKhmer = khmerLetters >= 3
       const hasSubstantialEnglish = latinLetters >= 5 && tokens.some((t) => /^[A-Za-z]{3,}$/.test(t))
-      if (!isNumberedItem && !hasSubstantialKhmer && !hasSubstantialEnglish) {
+      if (!isListItem && !hasSubstantialKhmer && !hasSubstantialEnglish) {
         continue
       }
       foundRealContext = true

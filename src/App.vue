@@ -52,6 +52,67 @@ const {
 // Active Assistant Mode: 'scan' | 'upload' | 'reader' | 'recent'
 const activeMode = ref('scan')
 const isSettingsOpen = ref(false)
+const activeSettingsTab = ref('visual') // 'visual' | 'audio' | 'system'
+
+// OCR & Cloud Services Configuration
+const ocrEngine = ref('tesseract')
+const googleApiKey = ref('')
+const googleEndpoint = ref('')
+const azureVisionKey = ref('')
+const azureVisionEndpoint = ref('')
+const azureTtsKey = ref('')
+const azureTtsEndpoint = ref('')
+
+// Hidden Developer Mode State (Alt+D or tap Logo 5 times)
+const DEV_STORAGE_KEY = 'songkhem_dev_mode'
+const isDevMode = ref(typeof window !== 'undefined' ? localStorage.getItem(DEV_STORAGE_KEY) === 'true' : false)
+
+const toggleDevMode = (explicitState) => {
+  const next = typeof explicitState === 'boolean' ? explicitState : !isDevMode.value
+  isDevMode.value = next
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(DEV_STORAGE_KEY, String(next))
+  }
+  triggerHaptic(60)
+  const msg = next
+    ? (currentLang.value === 'km' ? 'បានបើកម៉ូដ Developer' : 'Developer mode enabled')
+    : (currentLang.value === 'km' ? 'បានបិទម៉ូដ Developer' : 'Developer mode locked')
+  speakAccessibility(msg)
+}
+
+let logoTapCount = 0
+let logoTapTimer = null
+
+const handleLogoTap = () => {
+  logoTapCount++
+  if (logoTapTimer) clearTimeout(logoTapTimer)
+  logoTapTimer = setTimeout(() => {
+    logoTapCount = 0
+  }, 2500)
+
+  if (logoTapCount >= 5) {
+    logoTapCount = 0
+    toggleDevMode()
+  }
+}
+
+const saveOcrConfig = () => {
+  localStorage.setItem('songkhem_ocr_engine', ocrEngine.value)
+  localStorage.setItem('songkhem_google_api_key', googleApiKey.value.trim())
+  localStorage.setItem('songkhem_google_endpoint', googleEndpoint.value.trim())
+  localStorage.setItem('songkhem_azure_vision_key', azureVisionKey.value.trim())
+  localStorage.setItem('songkhem_azure_vision_endpoint', azureVisionEndpoint.value.trim())
+  localStorage.setItem('songkhem_azure_tts_key', azureTtsKey.value.trim())
+  localStorage.setItem('songkhem_azure_tts_endpoint', azureTtsEndpoint.value.trim())
+  triggerHaptic(40)
+  speakAccessibility(currentLang.value === 'km' ? 'បានរក្សាទុកការកំណត់ម៉ាស៊ីនស្កេន និងសំឡេង' : 'Saved OCR engine and audio settings')
+}
+
+const handleClearCache = () => {
+  clearOcrCache()
+  triggerHaptic(40)
+  speakAccessibility(currentLang.value === 'km' ? 'បានសម្អាត Cache ឯកសារស្កេនរួចរាល់' : 'Cleared scanned documents cache')
+}
 
 // Spoken status for screen reader and live status banner
 const spokenStatusText = ref(t('spokenStatusReady'))
@@ -235,6 +296,11 @@ onMounted(() => {
       if (isSettingsOpen.value) closeSettings()
       else openSettings()
     }
+    // Alt + D: Toggle Developer Settings Mode
+    if (e.altKey && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault()
+      toggleDevMode()
+    }
     // Alt + V: Toggle Voice Commands Hands-Free
     if (e.altKey && (e.key === 'v' || e.key === 'V')) {
       e.preventDefault()
@@ -300,16 +366,25 @@ onMounted(() => {
       <div class="header-inner">
         <!-- Brand & Logo (Top Left) -->
         <div class="header-brand-cluster">
-          <router-link to="/home" class="brand-link" :aria-label="t('appName')">
-            <div class="brand-logo-gem">
+          <div class="brand-link">
+            <div 
+              class="brand-logo-gem" 
+              @click.stop="handleLogoTap"
+              role="button"
+              tabindex="0"
+              @keydown.enter="handleLogoTap"
+              :aria-label="t('appName')"
+              title="songKHEM"
+              style="cursor: pointer;"
+            >
               <span class="pulse-dot" aria-hidden="true"></span>
               <img src="/logo.png" alt="songKHEM Logo" class="brand-img" />
             </div>
-            <div class="brand-titles">
+            <router-link to="/home" class="brand-titles" :aria-label="t('appName')">
               <span class="brand-name">{{ t('appName') }}</span>
               <span class="brand-caption khmer-font">{{ t('brandSub') }}</span>
-            </div>
-          </router-link>
+            </router-link>
+          </div>
         </div>
 
         <!-- Header Actions: On small screen, keep only Language and Settings -->
@@ -438,134 +513,171 @@ onMounted(() => {
           </button>
         </div>
 
-        <!-- Same as the app: one scrolling page in three sections (no tabs), so a screen reader
-             swipes through every setting in order. Engines, keys, cache and talk-back are hidden. -->
-        <div class="tab-pane settings-scroll">
-          <h3 class="settings-section-header khmer-font">
-            <Eye :size="18" />
-            <span>{{ currentLang === 'km' ? 'ការមើលឃើញ' : 'Display' }}</span>
-          </h3>
+        <!-- Modal Category Tabs (3 Balanced Pillars) -->
+        <div class="modal-nav-tabs" role="tablist" :aria-label="t('settingsTitle')">
+          <button 
+            type="button"
+            role="tab" 
+            class="tab-pill khmer-font" 
+            :class="{ 'pill-active': activeSettingsTab === 'visual' }"
+            :aria-selected="activeSettingsTab === 'visual'"
+            @click="activeSettingsTab = 'visual'"
+          >
+            <Eye :size="16" />
+            <span>{{ t('tabVisual') }}</span>
+          </button>
+          <button 
+            type="button"
+            role="tab" 
+            class="tab-pill khmer-font" 
+            :class="{ 'pill-active': activeSettingsTab === 'audio' }"
+            :aria-selected="activeSettingsTab === 'audio'"
+            @click="activeSettingsTab = 'audio'"
+          >
+            <Headphones :size="16" />
+            <span>{{ t('tabAudio') }}</span>
+          </button>
+          <button 
+            type="button"
+            role="tab" 
+            class="tab-pill khmer-font" 
+            :class="{ 'pill-active': activeSettingsTab === 'system' }"
+            :aria-selected="activeSettingsTab === 'system'"
+            @click="activeSettingsTab = 'system'"
+          >
+            <Sliders :size="16" />
+            <span>{{ t('tabSystem') }}</span>
+          </button>
+        </div>
 
-          <!-- Text Size Scaling -->
-          <div class="setting-item">
-            <div class="setting-label-col">
-              <span class="setting-title khmer-font">{{ t('fontSize') }}</span>
-              <span class="setting-desc khmer-font">{{ t('fontSizeDesc') }}</span>
-            </div>
-            <div class="scaler-controls" role="group" :aria-label="t('fontSize')">
-              <button
-                type="button"
-                class="scale-btn"
-                @click="changeFontScale(-0.1)"
-                :disabled="fontScale <= 0.7"
-                :aria-label="t('decreaseFont')"
-              >
-                <ZoomOut :size="18" />
-                <span class="btn-lbl">A-</span>
-              </button>
-              <button
-                type="button"
-                class="scale-indicator-btn"
-                @click="resetFontScale"
-                :title="t('resetFont')"
-                :aria-label="t('resetFont')"
-              >
-                <RotateCcw :size="14" />
-                <span>{{ Math.round(fontScale * 100) }}%</span>
-              </button>
-              <button
-                type="button"
-                class="scale-btn"
-                @click="changeFontScale(0.1)"
-                :disabled="fontScale >= 2.0"
-                :aria-label="t('increaseFont')"
-              >
-                <ZoomIn :size="18" />
-                <span class="btn-lbl">A+</span>
-              </button>
-            </div>
-          </div>
+        <!-- Tab 1: Visual Settings -->
+        <div v-if="activeSettingsTab === 'visual'" class="tab-pane visual-pane">
+          <!-- Group 1: Themes & Contrast -->
+          <div class="settings-group">
+            <h3 class="settings-group-header khmer-font">{{ t('groupThemes') }}</h3>
+            <div class="settings-group-card">
+              <div class="setting-row setting-row-stacked">
+                <div class="setting-label-col">
+                  <span class="setting-title khmer-font">{{ t('theme') }}</span>
+                  <span class="setting-desc khmer-font">{{ t('themeDesc') }}</span>
+                </div>
+                <div class="theme-options-grid">
+                  <button 
+                    type="button" 
+                    class="theme-card-option" 
+                    :class="{ 'theme-selected': currentTheme === 'light' }"
+                    @click="setTheme('light')"
+                    :aria-label="t('themeLight')"
+                  >
+                    <Sun :size="20" class="text-sun" />
+                    <span class="theme-name khmer-font">{{ t('themeLight') }}</span>
+                  </button>
 
-          <!-- Contrast Themes -->
-          <div class="setting-item">
-            <div class="setting-label-col">
-              <span class="setting-title khmer-font">{{ t('theme') }}</span>
-              <span class="setting-desc khmer-font">{{ t('themeDesc') }}</span>
-            </div>
-            <div class="theme-options-grid">
-              <button
-                type="button"
-                class="theme-card-option"
-                :class="{ 'theme-selected': currentTheme === 'light' }"
-                @click="setTheme('light')"
-                :aria-label="t('themeLight')"
-                :aria-pressed="currentTheme === 'light'"
-              >
-                <Sun :size="20" class="text-sun" />
-                <span class="theme-name khmer-font">{{ t('themeLight') }}</span>
-              </button>
-
-              <button
-                type="button"
-                class="theme-card-option theme-contrast-card"
-                :class="{ 'theme-selected': currentTheme === 'contrast' }"
-                @click="setTheme('contrast')"
-                :aria-label="t('themeContrast')"
-                :aria-pressed="currentTheme === 'contrast'"
-              >
-                <Contrast :size="20" class="text-contrast" />
-                <span class="theme-name khmer-font">{{ t('themeContrast') }}</span>
-              </button>
-
-              <button
-                type="button"
-                class="theme-card-option"
-                :class="{ 'theme-selected': currentTheme === 'dark' }"
-                @click="setTheme('dark')"
-                :aria-label="t('themeDark')"
-                :aria-pressed="currentTheme === 'dark'"
-              >
-                <Moon :size="20" class="text-accent" />
-                <span class="theme-name khmer-font">{{ t('themeDark') }}</span>
-              </button>
+                  <button 
+                    type="button" 
+                    class="theme-card-option theme-contrast-card" 
+                    :class="{ 'theme-selected': currentTheme === 'contrast' }"
+                    @click="setTheme('contrast')"
+                    :aria-label="t('themeContrast')"
+                  >
+                    <Contrast :size="20" class="text-contrast" />
+                    <span class="theme-name khmer-font">{{ t('themeContrast') }}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Bold Typography Toggle -->
-          <div class="setting-item">
-            <div class="setting-label-col">
-              <span class="setting-title khmer-font">{{ t('boldText') }}</span>
-              <span class="setting-desc khmer-font">{{ t('boldTextDesc') }}</span>
-            </div>
-            <button
-              type="button"
-              class="accessible-switch"
-              :class="{ 'switch-on': isBoldText }"
-              @click="toggleBoldText"
-              :aria-checked="isBoldText"
-              role="switch"
-              :aria-label="t('boldText')"
-            >
-              <span class="switch-thumb"></span>
-            </button>
-          </div>
+          <!-- Group 2: Typography & Readability -->
+          <div class="settings-group">
+            <h3 class="settings-group-header khmer-font">{{ t('groupTypography') }}</h3>
+            <div class="settings-group-card">
+              <!-- Text Size Scaling -->
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <span class="setting-title khmer-font">{{ t('fontSize') }}</span>
+                  <span class="setting-desc khmer-font">{{ t('fontSizeDesc') }}</span>
+                </div>
+                <div class="scaler-controls" role="group" :aria-label="t('fontSize')">
+                  <button 
+                    type="button"
+                    class="scale-btn" 
+                    @click="changeFontScale(-0.1)" 
+                    :disabled="fontScale <= 0.7"
+                    :aria-label="t('decreaseFont')"
+                  >
+                    <ZoomOut :size="18" />
+                    <span class="btn-lbl">A-</span>
+                  </button>
+                  <button 
+                    type="button"
+                    class="scale-indicator-btn" 
+                    @click="resetFontScale" 
+                    :title="t('resetFont')"
+                    :aria-label="t('resetFont')"
+                  >
+                    <RotateCcw :size="14" />
+                    <span>{{ Math.round(fontScale * 100) }}%</span>
+                  </button>
+                  <button 
+                    type="button"
+                    class="scale-btn" 
+                    @click="changeFontScale(0.1)" 
+                    :disabled="fontScale >= 2.0"
+                    :aria-label="t('increaseFont')"
+                  >
+                    <ZoomIn :size="18" />
+                    <span class="btn-lbl">A+</span>
+                  </button>
+                </div>
+              </div>
 
-          <!-- Line Height / Spacing -->
-          <div class="setting-item">
-            <div class="setting-label-col">
-              <span class="setting-title khmer-font">{{ t('lineSpacing') }}</span>
-              <span class="setting-desc khmer-font">{{ t('lineSpacingDesc') }}</span>
-            </div>
-            <div class="segment-buttons" role="group" :aria-label="t('lineSpacing')">
-              <button
-                v-for="ls in [1.6, 1.85, 2.1]"
-                :key="ls"
-                type="button"
-                class="segment-btn"
-                :class="{ 'segment-active': lineSpacing === ls }"
-                :aria-pressed="lineSpacing === ls"
-                @click="setLineSpacing(ls)"
-              >{{ ls }}x</button>
+              <!-- Bold Typography Toggle -->
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <span class="setting-title khmer-font">{{ t('boldText') }}</span>
+                  <span class="setting-desc khmer-font">{{ t('boldTextDesc') }}</span>
+                </div>
+                <button 
+                  type="button"
+                  class="accessible-switch" 
+                  :class="{ 'switch-on': isBoldText }"
+                  @click="toggleBoldText"
+                  :aria-checked="isBoldText"
+                  role="switch"
+                  :aria-label="t('boldText')"
+                >
+                  <span class="switch-thumb"></span>
+                </button>
+              </div>
+
+              <!-- Line Height / Spacing -->
+              <div class="setting-row">
+                <div class="setting-label-col">
+                  <span class="setting-title khmer-font">{{ t('lineSpacing') }}</span>
+                  <span class="setting-desc khmer-font">{{ t('lineSpacingDesc') }}</span>
+                </div>
+                <div class="segment-buttons" role="group" :aria-label="t('lineSpacing')">
+                  <button 
+                    type="button"
+                    class="segment-btn" 
+                    :class="{ 'segment-active': lineSpacing === 1.6 }"
+                    @click="setLineSpacing(1.6)"
+                  >1.6x</button>
+                  <button 
+                    type="button"
+                    class="segment-btn" 
+                    :class="{ 'segment-active': lineSpacing === 1.85 }"
+                    @click="setLineSpacing(1.85)"
+                  >1.85x</button>
+                  <button 
+                    type="button"
+                    class="segment-btn" 
+                    :class="{ 'segment-active': lineSpacing === 2.1 }"
+                    @click="setLineSpacing(2.1)"
+                  >2.1x</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -689,10 +801,10 @@ onMounted(() => {
             type="button" 
             class="btn btn-primary btn-save-modal khmer-font" 
             @click="closeSettings"
-            :aria-label="currentLang === 'km' ? 'រួចរាល់' : 'Done'"
+            :aria-label="t('doneBtn')"
           >
             <Check :size="18" />
-            <span>{{ currentLang === 'km' ? 'រួចរាល់' : 'Done' }}</span>
+            <span>{{ t('doneBtn') }}</span>
           </button>
         </div>
       </div>
