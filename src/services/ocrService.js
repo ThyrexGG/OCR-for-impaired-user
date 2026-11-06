@@ -12,7 +12,9 @@
  */
 
 import { extractDocumentText } from './ocr'
+import { postProcessKhmerOcr } from './khmerOcrCorrector'
 import { getFileFingerprint, getOcrCache, setOcrCache } from './cache'
+import { CLOUD_API_AVAILABLE } from './cloudApi'
 import { t } from './i18n'
 
 class OcrService {
@@ -20,12 +22,14 @@ class OcrService {
    * Determine available OCR provider configuration from localStorage and environment
    */
   getProviderConfig() {
-    const storedOcrEngine = (typeof window !== 'undefined' && localStorage.getItem('songkhem_ocr_engine')) || 
-      (import.meta.env.VITE_AZURE_VISION_API_KEY ? 'azure-read' : (import.meta.env.VITE_GOOGLE_VISION_API_KEY ? 'google-vision' : 'tesseract'))
-    const googleApiKey = (typeof window !== 'undefined' && localStorage.getItem('songkhem_google_api_key')) || import.meta.env.VITE_GOOGLE_VISION_API_KEY || ''
-    const googleEndpoint = (typeof window !== 'undefined' && localStorage.getItem('songkhem_google_endpoint')) || import.meta.env.VITE_GOOGLE_VISION_ENDPOINT || ''
-    const azureApiKey = (typeof window !== 'undefined' && localStorage.getItem('songkhem_azure_vision_key')) || import.meta.env.VITE_AZURE_VISION_API_KEY || ''
-    const azureEndpoint = (typeof window !== 'undefined' && localStorage.getItem('songkhem_azure_vision_endpoint')) || import.meta.env.VITE_AZURE_VISION_ENDPOINT || ''
+    // Keys come only from the user's own Settings entries. With none, Google
+    // Vision runs through the api/ocr serverless proxy (keys stay server-side).
+    const storedOcrEngine = (typeof window !== 'undefined' && localStorage.getItem('songkhem_ocr_engine')) ||
+      (CLOUD_API_AVAILABLE ? 'google-vision' : 'tesseract')
+    const googleApiKey = (typeof window !== 'undefined' && localStorage.getItem('songkhem_google_api_key')) || ''
+    const googleEndpoint = (typeof window !== 'undefined' && localStorage.getItem('songkhem_google_endpoint')) || ''
+    const azureApiKey = (typeof window !== 'undefined' && localStorage.getItem('songkhem_azure_vision_key')) || ''
+    const azureEndpoint = (typeof window !== 'undefined' && localStorage.getItem('songkhem_azure_vision_endpoint')) || ''
 
     return {
       provider: storedOcrEngine,
@@ -56,12 +60,13 @@ class OcrService {
       fingerprint = await getFileFingerprint(file)
       const cachedText = getOcrCache(fingerprint)
       if (cachedText) {
-        const wordsCount = cachedText.trim().split(/\s+/).filter(Boolean).length
+        const refinedCached = postProcessKhmerOcr(cachedText)
+        const wordsCount = refinedCached.trim().split(/\s+/).filter(Boolean).length
         if (options.onProgress) options.onProgress(100)
         return {
           ok: true,
           data: {
-            text: cachedText,
+            text: refinedCached,
             cached: true,
             wordsCount,
             fingerprint
@@ -77,7 +82,7 @@ class OcrService {
 
     try {
       const rawText = await extractDocumentText(file, config, options.onProgress)
-      const text = (rawText || '').trim()
+      const text = postProcessKhmerOcr((rawText || '').trim())
 
       if (!text) {
         return {

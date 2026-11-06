@@ -1,4 +1,55 @@
 
+import { normalizeKhmerForSpeech, applyAssistivePacing } from './khmerNormalizer'
+
+const escapeXml = (s) =>
+  s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c])
+
+const LOCAL_KHMER_ENGINE_URL = import.meta.env.VITE_LOCAL_TTS_URL || '/api/tts'
+
+/**
+ * Synthesize Khmer speech via same-origin /api/tts (proxied to KhmerNeuralTTS engine or Vercel api/tts.js).
+ * Works on iPhone (iOS Safari), Android, and Desktop with zero paid API keys.
+ */
+export const synthesizeLocalKhmerTTS = async (
+  text,
+  voiceName = 'km-KH-PisethNeural',
+  rate = 1.0,
+  options = { assistivePacing: false }
+) => {
+  const shouldPace = voiceName === 'km-KH-SokhaMedical' || Boolean(options?.assistivePacing)
+  const preText = shouldPace ? applyAssistivePacing(text) : text
+  const normalizedText = normalizeKhmerForSpeech(preText)
+  const payload = JSON.stringify({
+    text: normalizedText,
+    voice: voiceName,
+    rate,
+    assistive_pacing: shouldPace,
+    binary: true
+  })
+
+  let response
+  try {
+    response = await fetch(LOCAL_KHMER_ENGINE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
+    })
+  } catch (_) {
+    // Direct localhost fallback if running without Vite proxy
+    response = await fetch('http://localhost:5055/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload
+    })
+  }
+
+  if (!response.ok) {
+    throw new Error(`Khmer TTS engine returned ${response.status}`)
+  }
+  const blob = await response.blob()
+  return URL.createObjectURL(blob)
+}
+
 /**
  * Perform text-to-speech using Microsoft Azure Cognitive Speech API
  * @param {string} text - The text to synthesize
@@ -10,6 +61,8 @@
  */
 export const synthesizeTextAzureTTS = async (text, apiKey, endpoint, rate = 1.0, pitch = 1.0, voiceName = 'km-KH-PisethNeural', gender = 'Male') => {
   try {
+    const normalizedText = normalizeKhmerForSpeech(text)
+
     if (!endpoint || !endpoint.includes('cognitiveservices/v1')) {
       throw new Error('Please provide a valid Azure TTS endpoint (e.g., https://<region>.tts.speech.microsoft.com/cognitiveservices/v1)')
     }
@@ -27,7 +80,7 @@ export const synthesizeTextAzureTTS = async (text, apiKey, endpoint, rate = 1.0,
       <speak version='1.0' xml:lang='km-KH'>
         <voice xml:lang='km-KH' xml:gender='${gender}' name='${voiceName}'>
           <prosody rate='${rateString}' pitch='${pitchString}'>
-            ${text}
+            ${escapeXml(normalizedText)}
           </prosody>
         </voice>
       </speak>
@@ -38,7 +91,7 @@ export const synthesizeTextAzureTTS = async (text, apiKey, endpoint, rate = 1.0,
       headers: {
         'Ocp-Apim-Subscription-Key': apiKey,
         'Content-Type': 'application/ssml+xml',
-        'X-Microsoft-OutputFormat': 'audio-16khz-32kbitrate-mono-mp3'
+        'X-Microsoft-OutputFormat': 'audio-24khz-96kbitrate-mono-mp3'
       },
       body: ssml
     })
@@ -56,4 +109,5 @@ export const synthesizeTextAzureTTS = async (text, apiKey, endpoint, rate = 1.0,
     throw error
   }
 }
+
 

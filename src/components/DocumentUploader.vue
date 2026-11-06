@@ -6,6 +6,8 @@ import {
 } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 import { haptics } from '../services/haptics'
+import { sampleLibrary } from '../services/sampleDocs'
+import { tp } from '../services/talkback'
 
 const props = defineProps({
   isProcessing: {
@@ -71,7 +73,7 @@ const startCamera = async () => {
   cameraError.value = null
   guidanceState.value = 'ready'
   guidanceMessage.value = t('cameraStarting')
-  speakAccessibility(t('cameraStarting'))
+  speakAccessibility(t('cameraStarting'), false)
   
   await nextTick()
   try {
@@ -109,42 +111,115 @@ const stopCamera = () => {
   }
 }
 
-// Simple Camera Framing & Readiness Cue (Honest framing guidance, not simulated AI detection)
+// Real Camera Luminosity & Framing Assistance for Visually Impaired Users
+const sampleCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
+if (sampleCanvas) {
+  sampleCanvas.width = 64
+  sampleCanvas.height = 64
+}
+
+let lastSpokenGuidance = ''
+let lastSpokenGuidanceAt = 0
+// Lighting problems are repeated while they last (a user who cannot see the screen has no other
+// cue that nothing has changed); every guidance line queues behind whatever is being read out
+const GUIDANCE_REPEAT_MS = 9000
+const sayGuidance = (key, msg) => {
+  const now = Date.now()
+  if (lastSpokenGuidance === key && (key === 'ready' || now - lastSpokenGuidanceAt < GUIDANCE_REPEAT_MS)) return false
+  lastSpokenGuidance = key
+  lastSpokenGuidanceAt = now
+  speakAccessibility(msg, false)
+  return true
+}
+
 const startGuidanceSimulation = () => {
   if (guidanceTimer) clearInterval(guidanceTimer)
   
   guidanceState.value = 'position'
   guidanceMessage.value = t('alignCameraPrompt')
+  lastSpokenGuidance = ''
   
-  let ticks = 0
+  let checks = 0
   guidanceTimer = setInterval(() => {
-    ticks++
-    if (props.isProcessing || selectedFile.value) return
+    if (props.isProcessing || selectedFile.value || !videoRef.value || !sampleCanvas) return
+    checks++
 
-    if (ticks === 2) {
-      guidanceState.value = 'ready'
-      guidanceMessage.value = t('cameraReadyCapture')
-      speakAccessibility(t('cameraReadyCapture'))
-      triggerHaptic([40, 30])
+    try {
+      const v = videoRef.value
+      if (v.readyState >= 2 && v.videoWidth > 0) {
+        const sCtx = sampleCanvas.getContext('2d', { willReadFrequently: true })
+        sCtx.drawImage(v, 0, 0, 64, 64)
+        const frameData = sCtx.getImageData(0, 0, 64, 64).data
+        let totalLuminance = 0
+        const totalPixels = 64 * 64
+
+        for (let i = 0; i < frameData.length; i += 4) {
+          totalLuminance += (0.299 * frameData[i] + 0.587 * frameData[i + 1] + 0.114 * frameData[i + 2])
+        }
+        const avgLuminance = totalLuminance / totalPixels
+
+        if (avgLuminance < 40) {
+          guidanceState.value = 'position'
+          const msg = currentLang.value === 'km' 
+            ? 'ពន្លឺងងឹតពេក សូមបើកភ្លើង ឬថតនៅកន្លែងមានពន្លឺ' 
+            : 'Too dark. Please turn on lights or find brighter area'
+          guidanceMessage.value = msg
+          if (checks % 3 === 0 && sayGuidance('dark', msg)) triggerHaptic([60, 40, 60])
+        } else if (avgLuminance > 230) {
+          guidanceState.value = 'position'
+          const msg = currentLang.value === 'km' 
+            ? 'ពន្លឺចាំងខ្លាំងពេក សូមផ្លាស់ប្តូរមុំកាមេរ៉ា' 
+            : 'Too much glare. Please tilt camera slightly'
+          guidanceMessage.value = msg
+          if (checks % 3 === 0 && sayGuidance('glare', msg)) triggerHaptic([60, 40, 60])
+        } else {
+          guidanceState.value = 'ready'
+          guidanceMessage.value = t('cameraReadyCapture')
+          if (sayGuidance('ready', t('cameraReadyCapture'))) triggerHaptic([40, 30])
+        }
+      }
+    } catch (e) {
+      if (checks === 2) {
+        guidanceState.value = 'ready'
+        guidanceMessage.value = t('cameraReadyCapture')
+      }
     }
-  }, 1200)
+  }, 1400)
 }
 
-// Capture Snapshot & Initiate Scan
+// Capture Snapshot & Initiate Scan: grabs exactly what the full-screen viewfinder shows.
+// Logo / seal / stamp noise is removed automatically afterwards by the OCR post-processor.
 const captureAndScan = () => {
   if (!videoRef.value || !canvasRef.value) return
-  
+
   triggerHaptic([60, 40, 80])
-  speakAccessibility('បានថតរូបភាពឯកសារ។ កំពុងចាប់ផ្តើមស្កេន...')
-  
+  speakAccessibility('បានថតរូបភាព។ កំពុងរៀបចំស្កេន...')
+
   const video = videoRef.value
   const canvas = canvasRef.value
   const ctx = canvas.getContext('2d')
-  
-  canvas.width = video.videoWidth || 1280
-  canvas.height = video.videoHeight || 720
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-  
+
+  const vw = video.videoWidth || 1280
+  const vh = video.videoHeight || 720
+  const vRect = video.getBoundingClientRect()
+
+  if (vRect.width > 0 && vRect.height > 0) {
+    // Crop to the visible area: the <video> uses `object-fit: cover`, which scales and centers the sensor frame
+    const scale = Math.max(vRect.width / vw, vRect.height / vh)
+    const sw = Math.min(vw, Math.round(vRect.width / scale))
+    const sh = Math.min(vh, Math.round(vRect.height / scale))
+    const sx = Math.round((vw - sw) / 2)
+    const sy = Math.round((vh - sh) / 2)
+
+    canvas.width = sw
+    canvas.height = sh
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
+  } else {
+    canvas.width = vw
+    canvas.height = vh
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+  }
+
   canvas.toBlob((blob) => {
     if (blob) {
       const file = new File([blob], `scan_${Date.now()}.jpg`, { type: 'image/jpeg' })
@@ -174,6 +249,13 @@ const processFile = (file) => {
   if (!isImage && !isPdf) {
     speakAccessibility(t('formatUnsupported'))
     return
+  }
+
+  selectedFile.value = file
+  if (isPdf) {
+    previewUrl.value = 'pdf'
+  } else {
+    previewUrl.value = URL.createObjectURL(file)
   }
 
   triggerHaptic('success')
@@ -264,14 +346,6 @@ onBeforeUnmount(() => {
           <video ref="videoRef" autoplay playsinline class="live-video-stream"></video>
           <canvas ref="canvasRef" style="display: none;"></canvas>
 
-          <!-- High-Contrast Visual Alignment Brackets -->
-          <div class="viewfinder-hud" aria-hidden="true">
-            <div class="hud-corner corner-tl" :class="{ 'corner-locked': guidanceState === 'ready' }"></div>
-            <div class="hud-corner corner-tr" :class="{ 'corner-locked': guidanceState === 'ready' }"></div>
-            <div class="hud-corner corner-bl" :class="{ 'corner-locked': guidanceState === 'ready' }"></div>
-            <div class="hud-corner corner-br" :class="{ 'corner-locked': guidanceState === 'ready' }"></div>
-          </div>
-
           <!-- Conversational Spoken Guidance Overlay Banner (near the top, out of the shutter's way) -->
           <div class="guidance-banner khmer-font" role="status" aria-live="assertive">
             <div class="guidance-pulse-icon">
@@ -301,7 +375,7 @@ onBeforeUnmount(() => {
     <div 
       v-else-if="activeInputTab === 'upload'" 
       class="upload-assistant-view"
-      :class="{ 'is-empty-state': !props.recentDocs || props.recentDocs.length === 0 }"
+
     >
       <div 
         class="tactile-dropzone" 
@@ -343,7 +417,7 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Real Uploaded Documents: Only real user-uploaded documents (No dummy data) -->
-      <section v-if="props.recentDocs && props.recentDocs.length > 0" class="sample-documents-section" :aria-label="t('recentReadsTitle')">
+      <section v-if="props.recentDocs && props.recentDocs.length > 0" class="sample-documents-section recent-uploads-section" :aria-label="t('recentReadsTitle')">
         <div class="sample-sec-header">
           <FileText :size="20" class="text-heading" />
           <h2 class="sample-sec-title khmer-font">
@@ -373,6 +447,76 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </section>
+
+      <!-- Ready-made documents: try the reader and the voice without a camera or a file -->
+      <section class="sample-documents-section sample-library-section" :aria-label="currentLang === 'km' ? 'ឯកសារគំរូ' : 'Sample documents'">
+        <div class="sample-sec-header">
+          <Sparkles :size="20" class="text-heading" aria-hidden="true" />
+          <h2 class="sample-sec-title khmer-font">
+            {{ currentLang === 'km' ? 'សាកល្បងជាមួយឯកសារគំរូ' : 'Try a sample document' }}
+          </h2>
+        </div>
+        <div class="sample-unboxed-list" role="list">
+          <div v-for="(sample, idx) in sampleLibrary" :key="sample.id" class="sample-row-wrapper" role="listitem">
+            <div v-if="idx > 0" class="sample-hairline-divider" aria-hidden="true"></div>
+            <button
+              type="button"
+              class="sample-list-item khmer-font"
+              :aria-label="tp('sampleOpen_' + sample.id)"
+              @click="$emit('open-recent', { id: 'sample-' + sample.id, name: sample.title, text: sample.text, cached: true })"
+            >
+              <div class="sample-item-text">
+                <span class="sample-item-category">{{ currentLang === 'km' ? sample.category : sample.categoryEn }}</span>
+                {{ ' ' }}
+                <span class="sample-item-title">{{ currentLang === 'km' ? sample.title : sample.titleEn }}</span>
+              </div>
+              <ArrowRight :size="24" class="sample-item-chevron" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW C: PREVIEW & ACTION (When a file/photo is captured) -->
+    <div v-else-if="selectedFile" class="preview-assistant-view">
+      <div class="preview-media-container">
+        <!-- PDF Badge Preview -->
+        <div v-if="previewUrl === 'pdf'" class="pdf-card-preview">
+          <FileText :size="60" class="text-accent" />
+          <span class="pdf-name khmer-font">{{ selectedFile?.name }}</span>
+        </div>
+        <!-- Image Preview -->
+        <div v-else class="image-box-preview">
+          <img :src="previewUrl" alt="Preview" class="preview-image" />
+        </div>
+      </div>
+
+      <!-- Action Bar -->
+      <div class="preview-action-row">
+        <button 
+          type="button" 
+          class="btn-retake-action khmer-font" 
+          @click="clearSelection" 
+          :disabled="props.isProcessing"
+          :aria-label="t('retake')"
+        >
+          <RefreshCw :size="18" />
+          <span>{{ t('retake') }}</span>
+        </button>
+
+        <button 
+          type="button" 
+          class="btn-hero-scan btn-scan-now khmer-font" 
+          @click="triggerManualOcr"
+          :disabled="props.isProcessing"
+          :aria-label="t('extractText')"
+        >
+          <div class="btn-hero-content">
+            <Sparkles :size="24" />
+            <span>{{ props.isProcessing ? t('extractingText') : t('extractText') }}</span>
+          </div>
+        </button>
+      </div>
     </div>
   </div>
 </template>

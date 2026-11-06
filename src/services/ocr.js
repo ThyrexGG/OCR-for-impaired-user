@@ -1,5 +1,12 @@
 import Tesseract from 'tesseract.js'
 import * as pdfjsLib from 'pdfjs-dist'
+import { CLOUD_API_AVAILABLE, cloudOcr } from './cloudApi'
+import {
+  preprocessImageForKhmerOcr,
+  postProcessKhmerOcr,
+  extractCleanTextFromVisionAnnotation,
+  extractCleanTextFromTesseract,
+} from './khmerOcrCorrector'
 
 // Configure PDF.js worker for client-side PDF rendering
 if (typeof window !== 'undefined' && 'Worker' in window) {
@@ -29,17 +36,43 @@ export const fileToBase64 = (file) => {
   })
 }
 
+const MAX_CLOUD_WIDTH = 2400
+
+/**
+ * Enhanced Base64 for cloud OCR:
+ * Upscales small images (<1500px), normalizes contrast to remove camera shadows,
+ * sharpens tiny Khmer Coeng subscripts/diacritics, and fits within serverless limits.
+ */
+const imageToBase64ForCloud = async (file) => {
+  try {
+    const { base64 } = await preprocessImageForKhmerOcr(file, {
+      maxWidth: MAX_CLOUD_WIDTH,
+      minWidth: 1500,
+      sharpenAmount: 0.36
+    })
+    return base64
+  } catch {
+    return fileToBase64(file)
+  }
+}
+
 /**
  * Perform text detection using Client-Side Tesseract.js (Khmer + English)
- * Free, offline capable, runs directly inside the user's browser.
+ * Enhanced with Khmer subscript/diacritic pre-processing and orthographic post-correction.
  * @param {File|Blob} fileOrBlob - Selected image or camera capture
  * @param {Function} [onProgress] - Optional progress callback (0-100)
  * @returns {Promise<string>} - Detected text
  */
 export const detectTextTesseract = async (fileOrBlob, onProgress) => {
   try {
+    const { blob: enhancedBlob } = await preprocessImageForKhmerOcr(fileOrBlob, {
+      maxWidth: 2400,
+      minWidth: 1600,
+      sharpenAmount: 0.42
+    })
+
     const result = await Tesseract.recognize(
-      fileOrBlob,
+      enhancedBlob,
       'khm+eng',
       {
         logger: (m) => {
@@ -50,7 +83,8 @@ export const detectTextTesseract = async (fileOrBlob, onProgress) => {
       }
     )
 
-    const text = result?.data?.text ? result.data.text.trim() : ''
+    const rawText = extractCleanTextFromTesseract(result?.data)
+    const text = postProcessKhmerOcr(rawText)
     if (!text || text.length === 0) {
       throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងរូបភាពនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected by OCR. Try better lighting or hold the camera closer.)')
     }
@@ -63,6 +97,94 @@ export const detectTextTesseract = async (fileOrBlob, onProgress) => {
     }
     throw new Error(`មិនអាចស្រង់អត្ថបទពីឯកសារនេះបានទេ៖ ${error.message || 'សូមព្យាយាមស្កេនម្តងទៀត'}`)
   }
+}
+
+/**
+ * Fast layout-aware PDF text stream extractor.
+ * Reconstructs 2D spatial coordinates (Y baseline clustering, X word spacing,
+ * paragraph gap detection, and list marker preservation) in linear time.
+ * @param {Object} textContent - Output of PDF.js page.getTextContent()
+ * @returns {string} Structured text
+ */
+export function parseLayoutAwareTextFast(textContent) {
+  const items = textContent?.items
+  if (!items || !items.length) return ''
+
+  const len = items.length
+  const valid = []
+
+  // 1. Single pass: discard empty strings and rotated watermarks (matrix skew != 0)
+  for (let i = 0; i < len; i++) {
+    const item = items[i]
+    const str = item.str
+    if (!str || (str.charCodeAt(0) <= 32 && str.trim().length === 0)) continue
+
+    const t = item.transform
+    if (t[1] !== 0 || t[2] !== 0) continue // Skip rotated watermarks / vertical stamps
+
+    valid.push({
+      str,
+      x: t[4],
+      y: t[5],
+      w: item.width || (str.length * (item.height || 12) * 0.55),
+      h: item.height || 12
+    })
+  }
+
+  const vLen = valid.length
+  if (!vLen) return ''
+
+  // 2. Sort by Y descending (top of page to bottom), then by X ascending (left to right)
+  valid.sort((a, b) => {
+    const yDelta = b.y - a.y
+    const tol = Math.min(a.h, b.h) * 0.45 // Dynamic tolerance for subscripts & Khmer Coeng
+    if (Math.abs(yDelta) > tol) return yDelta
+    return a.x - b.x
+  })
+
+  // 3. Linear buffer assembler: reconstruct lines, spaces, and paragraphs
+  const chunks = []
+  let lastY = valid[0].y
+  let lastRight = valid[0].x
+  let lastH = valid[0].h
+
+  for (let i = 0; i < vLen; i++) {
+    const item = valid[i]
+    const yDiff = lastY - item.y
+    const lineTol = Math.min(lastH, item.h) * 0.45
+
+    if (i > 0) {
+      if (Math.abs(yDiff) <= lineTol) {
+        // Same line
+        const gap = item.x - lastRight
+        const prevStr = chunks[chunks.length - 1]
+        const prevCode = prevStr ? prevStr.charCodeAt(prevStr.length - 1) : 0
+        const nextCode = item.str.charCodeAt(0)
+        // Suppress artificial space between consecutive Khmer characters
+        const isBothKhmer = (prevCode >= 0x1780 && prevCode <= 0x17FF) && (nextCode >= 0x1780 && nextCode <= 0x17FF)
+
+        if (!isBothKhmer && gap > 2.0) {
+          chunks.push(' ')
+        }
+      } else {
+        // New line: fast char-code checks for list bullets or numbers
+        const c0 = item.str.charCodeAt(0)
+        const isBullet = c0 === 0x2022 || c0 === 0x25CF || c0 === 0x25CB || c0 === 0x2D || c0 === 0x25AA // •, ●, ○, -, ▪
+        const isDigit = (c0 >= 48 && c0 <= 57) || (c0 >= 0x17E0 && c0 <= 0x17E9)
+        const isNumList = isDigit && item.str.length >= 2 && (item.str.charCodeAt(1) === 46 || item.str.charCodeAt(1) === 41)
+        const isParagraph = yDiff > lastH * 1.45
+
+        chunks.push(isParagraph || isBullet || isNumList ? '\n\n' : '\n')
+      }
+    }
+
+    chunks.push(item.str)
+    lastY = item.y
+    lastRight = item.x + item.w
+    lastH = item.h
+  }
+
+  return chunks.join('').trim()
 }
 
 /**
@@ -80,14 +202,14 @@ export const extractTextFromPdf = async (file, onProgress) => {
 
     let extractedText = ''
 
-    // First attempt: Extract direct digital text stream from pages
+    // First attempt: Extract direct digital text stream from pages with layout awareness
     for (let pageNum = 1; pageNum <= Math.min(numPages, 10); pageNum++) {
       if (onProgress) {
         onProgress(Math.round((pageNum / Math.min(numPages, 10)) * 40))
       }
       const page = await pdfDoc.getPage(pageNum)
       const textContent = await page.getTextContent()
-      const pageText = textContent.items.map(item => item.str).join(' ').trim()
+      const pageText = parseLayoutAwareTextFast(textContent)
       if (pageText) {
         extractedText += pageText + '\n\n'
       }
@@ -98,20 +220,32 @@ export const extractTextFromPdf = async (file, onProgress) => {
       return extractedText.trim()
     }
 
-    // Second attempt: If PDF is scanned image with no embedded text, render page 1 onto canvas and OCR
-    const page = await pdfDoc.getPage(1)
-    const viewport = page.getViewport({ scale: 2.0 })
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
+    // Second attempt: If PDF is scanned image with no embedded text, render pages onto canvas and OCR
+    const maxOcrPages = Math.min(numPages, 5)
+    let fullOcrText = ''
+    for (let pNum = 1; pNum <= maxOcrPages; pNum++) {
+      const page = await pdfDoc.getPage(pNum)
+      const viewport = page.getViewport({ scale: 2.0 })
+      const canvas = document.createElement('canvas')
+      const context = canvas.getContext('2d')
+      canvas.width = viewport.width
+      canvas.height = viewport.height
 
-    await page.render({ canvasContext: context, viewport }).promise
+      await page.render({ canvasContext: context, viewport }).promise
 
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
-    return await detectTextTesseract(blob, (pct) => {
-      if (onProgress) onProgress(40 + Math.round(pct * 0.6))
-    })
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+      const pageOcr = await detectTextTesseract(blob, (pct) => {
+        if (onProgress) {
+          const basePct = 20 + Math.round(((pNum - 1) / maxOcrPages) * 80)
+          onProgress(Math.min(99, basePct + Math.round((pct / maxOcrPages) * 0.8)))
+        }
+      })
+      if (pageOcr && pageOcr.trim()) {
+        fullOcrText += (maxOcrPages > 1 ? `--- ទំព័រទី ${pNum} ---\n` : '') + pageOcr.trim() + '\n\n'
+      }
+    }
+    if (onProgress) onProgress(100)
+    return fullOcrText.trim()
   } catch (err) {
     console.error('PDF Extraction Error:', err)
     if (err.message && err.message.includes('មិនអាច')) {
@@ -130,11 +264,21 @@ export const extractTextFromPdf = async (file, onProgress) => {
  */
 export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
   try {
-    if (!apiKey) {
+    if (!apiKey && !CLOUD_API_AVAILABLE) {
       throw new Error('សូមបញ្ចូល Google Cloud Vision API Key ក្នុងផ្ទាំងការកំណត់ជាមុនសិន។ (Please configure your Google Vision API Key in Settings.)')
     }
 
-    const base64Image = await fileToBase64(file)
+    const base64Image = await imageToBase64ForCloud(file)
+
+    // No personal key: go through songKHEM's own proxy (key stays server-side)
+    if (!apiKey) {
+      const proxiedText = postProcessKhmerOcr(await cloudOcr(base64Image))
+      if (!proxiedText.trim()) {
+        throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងឯកសារនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected. Try better lighting or hold the camera closer.)')
+      }
+      return proxiedText.trim()
+    }
+
     const baseEndpoint = endpoint || 'https://vision.googleapis.com/v1/images:annotate'
     const url = `${baseEndpoint}?key=${apiKey}`
 
@@ -151,11 +295,12 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
             },
             features: [
               {
-                type: 'DOCUMENT_TEXT_DETECTION' // Optimize for dense page texts (PDF/paper scans)
+                type: 'DOCUMENT_TEXT_DETECTION',
+                model: 'builtin/latest'
               }
             ],
             imageContext: {
-              languageHints: ['km', 'en'] // Guide the engine for both Khmer script and English
+              languageHints: ['km', 'en']
             }
           }
         ]
@@ -169,7 +314,8 @@ export const detectTextGoogleVision = async (file, apiKey, endpoint = '') => {
     }
 
     const data = await response.json()
-    const fullText = data.responses?.[0]?.fullTextAnnotation?.text || ''
+    const rawFullText = extractCleanTextFromVisionAnnotation(data.responses?.[0]?.fullTextAnnotation)
+    const fullText = postProcessKhmerOcr(rawFullText)
 
     if (!fullText || !fullText.trim()) {
       throw new Error('មិនអាចរកឃើញអក្សរច្បាស់លាស់ក្នុងឯកសារនេះទេ។ សូមព្យាយាមថតនៅកន្លែងមានពន្លឺគ្រប់គ្រាន់ ឬកាន់កាមេរ៉ាឱ្យកៀកជាងមុន។ (No readable text was detected. Try better lighting or hold the camera closer.)')
@@ -233,7 +379,7 @@ export const detectTextAzureVision = async (file, apiKey, endpoint) => {
       fullText += '\n'
     }
 
-    const trimmed = fullText.trim()
+    const trimmed = postProcessKhmerOcr(fullText)
     if (!trimmed) {
       throw new Error('មិនអាចរកឃើញអក្សរក្នុងឯកសារនេះទេ។ សូមព្យាយាមស្កេនម្តងទៀត។')
     }
@@ -262,19 +408,26 @@ export const extractDocumentText = async (file, config = {}, onProgress) => {
 
   const isPdf = file.type === 'application/pdf' || (file.name && file.name.toLowerCase().endsWith('.pdf'))
   if (isPdf) {
-    return await extractTextFromPdf(file, onProgress)
+    const pdfText = await extractTextFromPdf(file, onProgress)
+    return postProcessKhmerOcr(pdfText)
   }
 
   const provider = config.provider || 'tesseract'
 
   if (provider === 'google-vision') {
-    return await detectTextGoogleVision(file, config.googleApiKey, config.googleEndpoint)
+    try {
+      return await detectTextGoogleVision(file, config.googleApiKey, config.googleEndpoint)
+    } catch (gvErr) {
+      // If cloud Google Vision is unconfigured or unreachable, seamlessly fall back to enhanced Khmer Tesseract
+      console.warn('Google Vision unavailable, falling back to enhanced Khmer Tesseract:', gvErr?.message)
+      return await detectTextTesseract(file, onProgress)
+    }
   }
 
   if (provider === 'azure-read') {
     return await detectTextAzureVision(file, config.azureApiKey, config.azureEndpoint)
   }
 
-  // Default provider: Client-side in-browser Tesseract (Free, works offline, no API key required)
+  // Default provider: Enhanced Client-side Khmer+English Tesseract
   return await detectTextTesseract(file, onProgress)
 }

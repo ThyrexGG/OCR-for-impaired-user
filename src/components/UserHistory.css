@@ -334,7 +334,7 @@
 }
 .btn-row-delete-action:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.16);
-  color: #DC2626;
+  color: #C81E1E;
   transform: translateY(-1px);
 }
 
@@ -366,7 +366,7 @@
 
 .btn-clear-all-bottom:hover {
   background: rgba(239, 68, 68, 0.08);
-  color: #DC2626;
+  color: #C81E1E;
   box-shadow: 0 6px 18px rgba(239, 68, 68, 0.12);
   transform: translateY(-1px);
 }

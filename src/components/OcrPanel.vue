@@ -2,10 +2,12 @@
 import { ref, watch, computed, inject, nextTick } from 'vue'
 import { 
   BookOpen, Edit3, Check, Copy, Download, ZoomIn, ZoomOut, 
-  ArrowLeft, Volume2, Pause, Sparkles, ArrowRight, Camera, 
-  Upload, CheckCircle2, FileText, X
+  ArrowLeft, Volume2, Pause, Sparkles, Camera, 
+  Upload, CheckCircle2, FileText, X, Headphones, RefreshCw, Plus
 } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
+import { getTtsCache } from '../services/cache'
+import { cloudTts, CLOUD_API_AVAILABLE } from '../services/cloudApi'
 
 const props = defineProps({
   text: {
@@ -35,10 +37,6 @@ const props = defineProps({
   isSpeaking: {
     type: Boolean,
     default: false
-  },
-  samples: {
-    type: Array,
-    default: () => []
   }
 })
 
@@ -49,8 +47,8 @@ const emit = defineEmits([
   'toast', 
   'read-aloud',
   'scan-again',
-  'load-sample',
-  'switch-mode'
+  'switch-mode',
+  'add-page'
 ])
 
 const speakAccessibility = inject('speakAccessibility', () => {})
@@ -152,13 +150,30 @@ const parsedParagraphs = computed(() => {
   }).filter(Boolean)
 })
 
-// Auto-scroll active word/sentence into view smoothly
+// Respect user manual scrolling: never hijack window scroll, and pause internal container auto-scroll when user scrolls
+let userScrollPauseUntil = 0
+const notifyUserManualScroll = () => {
+  userScrollPauseUntil = Date.now() + 4500
+}
+
 watch(() => props.activeWordIndex, async (newIdx) => {
   if (newIdx === -1 || !readingContainerRef.value || isEditing.value) return
+  if (Date.now() < userScrollPauseUntil) return
   await nextTick()
-  const activeEl = readingContainerRef.value.querySelector('.token-active')
-  if (activeEl) {
-    activeEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+  const container = readingContainerRef.value
+  if (!container || container.scrollHeight <= container.clientHeight + 12) {
+    // Container expands naturally with the page — never hijack page/window scroll!
+    return
+  }
+  const activeEl = container.querySelector('.token-active')
+  if (!activeEl) return
+  const cRect = container.getBoundingClientRect()
+  const elRect = activeEl.getBoundingClientRect()
+  const topOffset = elRect.top - cRect.top
+  const bottomOffset = cRect.bottom - elRect.bottom
+  if (topOffset < 36 || bottomOffset < 36) {
+    const targetTop = container.scrollTop + topOffset - container.clientHeight * 0.35
+    container.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
   }
 })
 
@@ -213,6 +228,53 @@ const downloadTxt = () => {
   triggerHaptic(40)
   speakAccessibility(`${t('toastDownloaded')} ${baseName}_songkhem.txt`)
   emit('toast', { message: `${t('toastDownloaded')} ${baseName}_songkhem.txt`, type: 'info' })
+}
+
+// Download MP3 Audio File
+const isDownloadingAudio = ref(false)
+const downloadAudioMp3 = async () => {
+  if (!localText.value) return
+  isDownloadingAudio.value = true
+  triggerHaptic(40)
+  speakAccessibility(currentLang.value === 'km' ? 'កំពុងទាញយកឯកសារសំឡេង MP3...' : 'Preparing MP3 audio download...')
+
+  try {
+    const txtToSynthesize = localText.value.slice(0, 3000).trim()
+    let audioUrl = getTtsCache(txtToSynthesize, 'km-KH-PisethNeural', 1.0)
+    
+    if (!audioUrl) {
+      if (CLOUD_API_AVAILABLE) {
+        audioUrl = await cloudTts(txtToSynthesize, 'km-KH-PisethNeural')
+      } else {
+        throw new Error(currentLang.value === 'km' ? 'ម៉ាស៊ីនសំឡេង Cloud មិនទាន់ភ្ជាប់' : 'Cloud TTS unavailable')
+      }
+    }
+
+    const element = document.createElement('a')
+    element.href = audioUrl
+    const baseName = props.fileName ? props.fileName.replace(/\.[^/.]+$/, '') : 'document'
+    element.download = `${baseName}_audio.mp3`
+    document.body.appendChild(element)
+    element.click()
+    document.body.removeChild(element)
+
+    triggerHaptic('success')
+    speakAccessibility(currentLang.value === 'km' ? 'បានទាញយកឯកសារសំឡេង MP3 រួចរាល់' : 'Downloaded MP3 audio successfully')
+    emit('toast', { 
+      message: currentLang.value === 'km' ? `បានទាញយក ${baseName}_audio.mp3` : `Downloaded ${baseName}_audio.mp3`, 
+      type: 'success' 
+    })
+  } catch (err) {
+    console.warn('Audio download failed:', err)
+    triggerHaptic(40)
+    speakAccessibility(currentLang.value === 'km' ? 'មិនអាចទាញយកសំឡេង MP3 បានទេ' : 'Unable to download MP3')
+    emit('toast', { 
+      message: currentLang.value === 'km' ? 'មិនអាចទាញយកសំឡេង MP3 (ត្រូវការភ្ជាប់ Cloud)' : 'MP3 download requires Cloud TTS', 
+      type: 'warning' 
+    })
+  } finally {
+    isDownloadingAudio.value = false
+  }
 }
 
 // Text Stats & Metadata
@@ -438,7 +500,7 @@ const speakVocabItem = (item) => {
 
 <template>
   <!-- =========================================================================
-       STATE A: EMPTY STATE (UNBOXED, IDENTICAL TO UPLOAD SCREEN, NOT SCROLLABLE)
+       STATE A: EMPTY STATE (samples live on the Upload tab only)
        ========================================================================= -->
   <div v-if="!localText" class="reader-empty-fullpage" role="region" :aria-label="t('noDocEmptyTitle')">
     <div class="tactile-dropzone">
@@ -474,37 +536,6 @@ const speakVocabItem = (item) => {
 
       <p class="dropzone-helper-text khmer-font">{{ t('dropzoneBadge') }}</p>
     </div>
-
-    <!-- Sample Documents List (Unboxed, identical to Upload Screen) -->
-    <section v-if="props.samples && props.samples.length > 0" class="sample-documents-section" :aria-label="t('sampleHeading')">
-      <div class="samples-header">
-        <Sparkles :size="20" class="text-heading" />
-        <h3 class="samples-title khmer-font">{{ t('trySamplesPrompt') }}</h3>
-      </div>
-
-      <div class="sample-unboxed-list" role="list">
-        <div 
-          v-for="(sample, idx) in props.samples" 
-          :key="sample.id"
-          class="sample-row-wrapper"
-          role="listitem"
-        >
-          <div v-if="idx > 0" class="sample-hairline-divider" aria-hidden="true"></div>
-          <button
-            type="button"
-            class="sample-list-item khmer-font"
-            @click="emit('load-sample', sample)"
-            :aria-label="`${t('openAction')} ${sample.title}`"
-          >
-            <div class="sample-item-text">
-              <span class="sample-item-category">{{ sample.category }}</span>
-              <span class="sample-item-title">{{ sample.title }}</span>
-            </div>
-            <ArrowRight :size="22" class="sample-item-chevron" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-    </section>
   </div>
 
   <!-- =========================================================================
@@ -521,6 +552,16 @@ const speakVocabItem = (item) => {
       >
         <ArrowLeft :size="20" />
         <span>{{ t('backToDocs') }}</span>
+      </button>
+
+      <button 
+        type="button" 
+        class="btn-add-page-link khmer-font" 
+        @click="emit('add-page')"
+        :aria-label="currentLang === 'km' ? 'បន្ថែមទំព័រថ្មីទៅឯកសារនេះ' : 'Add next page to document'"
+      >
+        <Plus :size="18" />
+        <span>{{ currentLang === 'km' ? '+ បន្ថែមទំព័រ' : '+ Add Page' }}</span>
       </button>
     </div>
 
@@ -585,6 +626,18 @@ const speakVocabItem = (item) => {
         >
           <Download :size="18" />
           <span>{{ t('exportOrShare') }}</span>
+        </button>
+
+        <button 
+          type="button" 
+          class="btn-neobrutal-shadow btn-secondary-pill khmer-font" 
+          :disabled="isDownloadingAudio"
+          @click="downloadAudioMp3" 
+          :aria-label="currentLang === 'km' ? 'ទាញយកឯកសារសំឡេង MP3' : 'Download MP3 Audio'"
+        >
+          <RefreshCw v-if="isDownloadingAudio" :size="18" class="animate-spin" />
+          <Headphones v-else :size="18" />
+          <span>{{ isDownloadingAudio ? (currentLang === 'km' ? 'កំពុងបង្កើត...' : 'Creating...') : (currentLang === 'km' ? 'ទាញយក MP3' : 'Audio MP3') }}</span>
         </button>
       </div>
 
@@ -776,6 +829,8 @@ const speakVocabItem = (item) => {
         :style="{ fontSize: `${readingFontSize}rem` }"
         tabindex="0"
         aria-label="ផ្ទាំងអត្ថបទជាមួយការរំលេចពាក្យអាន"
+        @wheel.passive="notifyUserManualScroll"
+        @touchmove.passive="notifyUserManualScroll"
       >
         <div 
           v-for="para in parsedParagraphs" 
@@ -807,6 +862,7 @@ const speakVocabItem = (item) => {
               :title="`ចុចដើម្បីស្តាប់ពាក្យ '${word.text}'`"
               tabindex="0"
               role="button"
+              data-talkback="off"
             >{{ word.text }} </span>
           </span>
         </div>

@@ -90,7 +90,7 @@
   --on-tonal: #1E3A8A;         /* ~8:1 on surface-2 */
 
   /* Controls */
-  --primary: #4466F6;          /* Primary Brand Blue */
+  --primary: #3D5EEE;          /* Primary Brand Blue */
   --primary-pressed: #3353E2;  /* Deepened Pressed State */
   --on-primary: #FFFFFF;
   --accent: #F59E0B;           /* Capture only. Fill, never text */
@@ -100,14 +100,14 @@
   --success: #047857;
 
   /* Lines */
-  --border-input: #64748B;     /* inputs only. >= 3:1 vs bg and surface-1 */
+  --border-input: #566579;     /* inputs only. >= 3:1 vs bg and surface-1 */
   --divider: #CBD5E1;          /* decorative hairline between list rows */
-  --focus: #4466F6;            /* 3px ring, 3px offset */
+  --focus: #3D5EEE;            /* 3px ring, 3px offset */
 
   /* Navy & Headings */
   --navy: #0B1B4D;
   --on-navy: #FFFFFF;
-  --heading: #4466F6;
+  --heading: #3D5EEE;
 
   /* Shape and spacing tokens (4-Point System) */
   --radius-container: 20px;
@@ -208,13 +208,13 @@
   --text-muted: #475569;
   --text-inverse: #FFFFFF;
 
-  --color-accent: #4466F6;
+  --color-accent: #3D5EEE;
   --color-accent-hover: #3353E2;
   --color-accent-text: #FFFFFF;
   --color-accent-subtle: rgba(68, 102, 246, 0.10);
   --color-accent-glow: rgba(68, 102, 246, 0.24);
 
-  --color-brand: #4466F6;
+  --color-brand: #3D5EEE;
   --color-brand-light: #5B7BF7;
   --color-brand-subtle: rgba(68, 102, 246, 0.10);
 
@@ -222,7 +222,7 @@
   --color-success-hover: #047857;
   --color-success-subtle: rgba(5, 150, 105, 0.12);
 
-  --color-danger: #DC2626;
+  --color-danger: #C81E1E;
   --color-danger-subtle: rgba(220, 38, 38, 0.12);
 
   --shadow-sm: 0 2px 6px rgba(12, 26, 48, 0.06);
@@ -642,12 +642,12 @@ p {
 
 .btn-danger {
   background: #FEE2E2;
-  color: #DC2626;
+  color: #C81E1E;
   border: 1.5px solid #F87171;
   box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15);
 }
 .btn-danger:hover:not(:disabled) {
-  background: #DC2626;
+  background: #C81E1E;
   color: #FFFFFF;
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(220, 38, 38, 0.3);

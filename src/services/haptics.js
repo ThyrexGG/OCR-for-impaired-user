@@ -29,6 +29,11 @@ class HapticsService {
     return this._enabled
   }
 
+  /** False on iPhone/iPad Safari and desktop browsers: websites cannot vibrate there. */
+  isSupported() {
+    return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function'
+  }
+
   /**
    * Trigger a tactile pulse pattern
    * @param {'tap'|'selection'|'aligned'|'success'|'warning'|'error'|'shutter'|'toggle'|number[]} pattern
@@ -36,6 +41,8 @@ class HapticsService {
   pulse(pattern = 'tap') {
     if (!this._enabled) return
     if (typeof window === 'undefined' || !navigator.vibrate) return
+    // Browsers block vibrate() until the user has tapped the page (and log an error); skip silently
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return
 
     try {
       const vibPattern = Array.isArray(pattern) ? pattern : (HAPTIC_PATTERNS[pattern] || [40])

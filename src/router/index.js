@@ -14,6 +14,10 @@ const router = createRouter({
       path: '/home',
       name: 'home',
       component: HomeScreen
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/'
     }
   ]
 })

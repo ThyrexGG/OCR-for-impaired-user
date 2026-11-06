@@ -1,13 +1,31 @@
 <script setup>
+import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowRight, Sparkles, ShieldCheck, Zap } from 'lucide-vue-next'
 import { t } from '../services/i18n'
+import { announcer } from '../services/announcer'
+import { tp } from '../services/talkback'
+import { storage } from '../services/storage'
+
+import { useA11yPreferences } from '../composables/useA11yPreferences'
 
 const router = useRouter()
+const { isUiVoiceEnabled } = useA11yPreferences()
 
 const handleStart = () => {
   router.push('/home')
 }
+
+// Only speak aloud if the user has in-app talk-back enabled; otherwise keep the app normal and silent
+onMounted(() => {
+  if (isUiVoiceEnabled.value) {
+    const seen = storage.getItem('songkhem_welcomed', 'false') === 'true'
+    storage.setItem('songkhem_welcomed', 'true')
+    announcer.speakWhenActive(
+      seen ? [tp('welcomeIntro'), tp('exploreOn')] : [tp('welcomeIntro'), tp('welcomeHow'), tp('welcomeOff')]
+    )
+  }
+})
 </script>
 
 <template>

@@ -2,12 +2,13 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount, inject, nextTick } from 'vue'
 import { 
   ArrowLeft, Settings, BookOpen, Copy, Play, Pause, 
-  RotateCcw, RotateCw, Check, X, Volume2, Sparkles, AlertCircle, Camera, Upload
+  RotateCcw, RotateCw, Check, X, Volume2, Sparkles, AlertCircle, Camera, Upload,
+  SkipBack, SkipForward, MoreHorizontal
 } from 'lucide-vue-next'
 import { t, currentLang } from '../services/i18n'
 import { haptics } from '../services/haptics'
-import { synthesizeTextAzureTTS } from '../services/tts'
-import { getTtsCache, setTtsCache } from '../services/cache'
+import { announcer } from '../services/announcer'
+import { useKhmerTts, SPEED_PRESETS } from '../composables/useKhmerTts'
 import signalIconUrl from '../assets/signalIcon.svg'
 import './DocumentReader.css'
 
@@ -34,17 +35,6 @@ const triggerHaptic = inject('triggerHaptic', () => {})
 const openSettings = inject('openSettings', () => {})
 
 // --- State Management ---
-const activeWordIndex = ref(-1)
-const isSpeaking = ref(false)
-const isPaused = ref(false)
-const rate = ref(1.0)
-const volume = ref(1.0)
-let currentAudio = null
-let highlightInterval = null
-
-// Speed presets: 0.75x, 1.0x, 1.25x, 1.5x, 2.0x
-const speedPresets = [0.75, 1.0, 1.25, 1.5, 2.0]
-
 // --- Dynamic Spring Action Feature State (Strict Hold-to-Open Physics) ---
 const isActionsOpen = ref(false)
 const isHolding = ref(false)
@@ -217,254 +207,130 @@ const handleReadSummaryAloud = () => {
   speakAccessibility(fullSummary)
 }
 
-// --- Tokenization for Word-by-Word Highlight ---
-const wordTokens = ref([])
+// --- Khmer TTS Engine (songKHEM-VITS / Neural personas, assistive pacing, audio-locked highlight) ---
+const activeWordIndex = ref(-1)
 
-const prepareWordTokens = (sourceText) => {
-  if (!sourceText) {
-    wordTokens.value = []
-    return
-  }
-
-  const paragraphs = sourceText.split(/\n\s*\n|\n/)
-  let globalIndex = 0
-  const parsed = []
-
-  paragraphs.forEach((paraText, pIdx) => {
-    const trimmedPara = paraText.trim()
-    if (!trimmedPara) return
-
-    let words = []
-    // Use Intl.Segmenter for Khmer script if available
-    if (/[\u1780-\u17FF]/.test(trimmedPara) && typeof Intl !== 'undefined' && Intl.Segmenter) {
-      try {
-        const segmenter = new Intl.Segmenter('km', { granularity: 'word' })
-        for (const { segment } of segmenter.segment(trimmedPara)) {
-          const t = segment.trim()
-          if (t) words.push(t)
-        }
-      } catch (e) {
-        words = trimmedPara.split(/\s+/).filter(w => w.length > 0)
-      }
-    } else {
-      words = trimmedPara.split(/\s+/).filter(w => w.length > 0)
-    }
-
-    const tokenObjects = words.map((w) => ({
-      index: globalIndex++,
-      text: w,
-      paragraphIndex: pIdx
-    }))
-
-    parsed.push({
-      paragraphIndex: pIdx,
-      words: tokenObjects
-    })
-  })
-
-  wordTokens.value = parsed
-}
-
-// Flattened list of all word tokens
-const allTokens = computed(() => {
-  return wordTokens.value.flatMap(p => p.words)
+const tts = useKhmerTts({
+  getText: () => props.text,
+  activeWordIndex
 })
+const {
+  voices, selectedVoiceName, assistivePacing, rate,
+  isSpeaking, isPaused, paragraphs: wordTokens
+} = tts
 
-// --- Audio Playback Engine & Timers ---
 const scrollToActiveWord = () => {
   nextTick(() => {
-    const el = document.querySelector('.reading-word-active')
+    const el = document.querySelector('.reader-text-container .reading-word-active')
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
     }
   })
 }
 
-const startHighlightTimer = (startIdx = 0) => {
-  if (highlightInterval) clearInterval(highlightInterval)
-  activeWordIndex.value = startIdx
-  const total = allTokens.value.length
-  if (total === 0) return
+// Only follow the highlight while audio is playing so manual scrolling is never hijacked
+watch(activeWordIndex, (idx) => {
+  if (idx >= 0 && isSpeaking.value) scrollToActiveWord()
+})
 
-  // Average 250ms per word adjusted for rate
-  const msPerWord = Math.max(120, Math.round(260 / rate.value))
-
-  highlightInterval = setInterval(() => {
-    if (activeWordIndex.value + 1 < total) {
-      activeWordIndex.value++
-      // Auto scroll active word into view smoothly
-      scrollToActiveWord()
-    } else {
-      clearInterval(highlightInterval)
-      highlightInterval = null
-    }
-  }, msPerWord)
-}
-
-const resumeHighlightTimer = () => {
-  startHighlightTimer(activeWordIndex.value >= 0 ? activeWordIndex.value : 0)
-}
-
-const stopAudio = () => {
-  if (currentAudio) {
-    currentAudio.pause()
-    currentAudio.currentTime = 0
-    currentAudio = null
-  }
-  if (typeof window !== 'undefined' && window.speechSynthesis) {
-    try { window.speechSynthesis.cancel() } catch (e) {}
-  }
-  isSpeaking.value = false
-  isPaused.value = false
-  activeWordIndex.value = -1
-  if (highlightInterval) {
-    clearInterval(highlightInterval)
-    highlightInterval = null
-  }
-}
-
-const pauseAudio = () => {
-  if (!isSpeaking.value) return
-  if (currentAudio) {
-    currentAudio.pause()
-  } else if (typeof window !== 'undefined' && window.speechSynthesis) {
-    try { window.speechSynthesis.pause() } catch (e) {}
-  }
-  isPaused.value = true
-  isSpeaking.value = false
-  if (highlightInterval) {
-    clearInterval(highlightInterval)
-    highlightInterval = null
-  }
-  triggerHaptic(30)
-  speakAccessibility(currentLang.value === 'km' ? 'បានផ្អាកការអាន' : 'Paused reading')
-}
-
-const fallbackWebSpeech = (startIndex = 0) => {
-  stopAudio()
-  isSpeaking.value = true
-  isPaused.value = false
-
-  const synth = typeof window !== 'undefined' ? window.speechSynthesis : null
-  if (synth) {
-    try {
-      synth.cancel()
-      const utterance = new SpeechSynthesisUtterance(props.text)
-      const voices = synth.getVoices ? synth.getVoices() : []
-      const khmerVoice = voices.find(v => (v.lang || '').toLowerCase().includes('km'))
-      if (khmerVoice) utterance.voice = khmerVoice
-      utterance.rate = rate.value
-      utterance.volume = volume.value
-      utterance.lang = 'km-KH'
-      utterance.onend = () => { stopAudio() }
-      utterance.onerror = () => { stopAudio() }
-      synth.speak(utterance)
-    } catch (e) {
-      console.warn('SpeechSynthesis error:', e)
-    }
-  }
-
-  startHighlightTimer(startIndex)
-}
-
-const startAudio = async (startIndex = 0) => {
-  if (!props.text.trim()) return
-
-  if (isPaused.value && currentAudio) {
-    currentAudio.play()
-    isPaused.value = false
-    isSpeaking.value = true
-    resumeHighlightTimer()
-    triggerHaptic(30)
-    speakAccessibility(currentLang.value === 'km' ? 'បន្តការអាន' : 'Resumed reading')
-    return
-  }
-
-  stopAudio()
-  isSpeaking.value = true
-  isPaused.value = false
-  triggerHaptic(40)
-
-  const provider = import.meta.env.VITE_TTS_PROVIDER || 'web-speech'
-  const apiKey = import.meta.env.VITE_AZURE_TTS_API_KEY
-  const endpoint = import.meta.env.VITE_AZURE_TTS_ENDPOINT
-
-  // Azure Neural TTS
-  if (provider === 'azure-tts' && apiKey) {
-    try {
-      let audioUrl = getTtsCache(props.text, 'km-KH-PisethNeural', rate.value)
-      if (!audioUrl) {
-        audioUrl = await synthesizeTextAzureTTS(
-          props.text, 
-          apiKey, 
-          endpoint, 
-          rate.value, 
-          1.0, 
-          'km-KH-PisethNeural', 
-          'Male'
-        )
-        setTtsCache(props.text, 'km-KH-PisethNeural', rate.value, audioUrl)
-      }
-
-      currentAudio = new Audio(audioUrl)
-      currentAudio.playbackRate = rate.value
-      currentAudio.volume = volume.value
-
-      currentAudio.onended = () => {
-        stopAudio()
-        speakAccessibility(currentLang.value === 'km' ? 'ការអានបានបញ្ចប់' : 'Reading completed')
-      }
-
-      currentAudio.play()
-      startHighlightTimer(startIndex)
-      return
-    } catch (e) {
-      console.warn('Azure TTS fallback to Web Speech:', e)
-      fallbackWebSpeech(startIndex)
-      return
-    }
-  }
-
-  fallbackWebSpeech(startIndex)
-}
-
-const toggleAudio = () => {
-  if (isSpeaking.value) {
-    pauseAudio()
-  } else {
-    startAudio(activeWordIndex.value >= 0 ? activeWordIndex.value : 0)
-  }
-}
+const toggleAudio = () => tts.toggle()
+const startAudio = (startIndex = 0) => tts.start(startIndex)
+const pauseAudio = () => tts.pause()
+const stopAudio = () => tts.stop()
 
 // Click-to-seek word
 const seekToWord = (index) => {
-  activeWordIndex.value = index
   triggerHaptic(25)
-  if (isSpeaking.value) {
-    startHighlightTimer(index)
-  }
-  scrollToActiveWord()
+  tts.seekToWord(index)
+  if (!isSpeaking.value) scrollToActiveWord()
 }
 
 // Rewind / Fast-forward by 5 words
 const jumpRelative = (delta) => {
-  const total = allTokens.value.length
-  if (total === 0) return
-  const current = activeWordIndex.value >= 0 ? activeWordIndex.value : 0
-  const next = Math.max(0, Math.min(total - 1, current + delta))
-  seekToWord(next)
-  triggerHaptic(35)
-  const dirMsg = delta > 0 
+  tts.jumpWords(delta)
+  if (!isSpeaking.value) scrollToActiveWord()
+  const dirMsg = delta > 0
     ? (currentLang.value === 'km' ? 'ទៅមុខ ៥ ពាក្យ' : 'Fast forward 5 words')
     : (currentLang.value === 'km' ? 'ថយក្រោយ ៥ ពាក្យ' : 'Rewind 5 words')
-  speakAccessibility(dirMsg)
+  // Screen-reader live region only: spoken guidance would talk over the reading itself
+  announcer.announce(dirMsg)
 }
 
-// Watcher declared after functions are initialized
+// --- Spotify-style Reading Progress & Scrubber ---
+const tokensCount = computed(() => {
+  return tts.tokens?.value?.length || 0
+})
+
+const currentWordPos = computed(() => {
+  return Math.max(0, activeWordIndex.value >= 0 ? activeWordIndex.value : 0)
+})
+
+const progressPercent = computed(() => {
+  if (!tokensCount.value || tokensCount.value <= 1) return 0
+  return Math.min(100, Math.max(0, (currentWordPos.value / (tokensCount.value - 1)) * 100))
+})
+
+// Estimated audio duration based on word count (~2.5 words/sec at 1.0x rate)
+const totalDurationSecs = computed(() => {
+  const w = tokensCount.value
+  if (!w) return 0
+  const spd = rate.value || 1.0
+  return Math.max(1, Math.round((w / 2.5) / spd))
+})
+
+const elapsedSecs = computed(() => {
+  if (!tokensCount.value) return 0
+  const ratio = tokensCount.value <= 1 ? 0 : currentWordPos.value / (tokensCount.value - 1)
+  return Math.min(totalDurationSecs.value, Math.round(ratio * totalDurationSecs.value))
+})
+
+const remainingSecs = computed(() => {
+  return Math.max(0, totalDurationSecs.value - elapsedSecs.value)
+})
+
+const formatTime = (secs) => {
+  const m = Math.floor(secs / 60)
+  const s = Math.floor(secs % 60)
+  return `${m}:${s < 10 ? '0' : ''}${s}`
+}
+
+const elapsedFormatted = computed(() => formatTime(elapsedSecs.value))
+const remainingFormatted = computed(() => `-${formatTime(remainingSecs.value)}`)
+
+const handleScrub = (e) => {
+  if (!tokensCount.value) return
+  const track = e.currentTarget
+  const rect = track.getBoundingClientRect()
+  const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  const targetIndex = Math.round(ratio * (tokensCount.value - 1))
+  seekToWord(targetIndex)
+}
+
+// --- Voice & Speed Picker (4 Khmer personas incl. trained songKHEM-VITS) ---
+const isVoiceModalOpen = ref(false)
+
+const openVoiceModal = () => {
+  isVoiceModalOpen.value = true
+  triggerHaptic(30)
+  speakAccessibility(currentLang.value === 'km' ? 'បានបើកការជ្រើសរើសសំឡេង' : 'Opened voice settings')
+}
+
+const closeVoiceModal = () => {
+  isVoiceModalOpen.value = false
+  triggerHaptic(20)
+}
+
+const chooseVoice = (name) => {
+  tts.setVoice(name)
+  triggerHaptic(30)
+}
+
+// Re-tokenize on text change; index alignment with the engine comes from the shared tokenizer
 watch(() => props.text, (newText) => {
-  prepareWordTokens(newText)
-  stopAudio()
+  tts.stop()
+  tts.prepare(newText)
 }, { immediate: true })
+
 
 // Back handler
 const handleBack = () => {
@@ -479,13 +345,14 @@ defineExpose({
   pauseSpeech: pauseAudio,
   stopPlayback: stopAudio,
   togglePlayback: toggleAudio,
+  cycleSpeed: tts.cycleSpeed,
+  skipWords: jumpRelative,
   seekToWord,
   isSpeaking,
   isPaused
 })
 
 onBeforeUnmount(() => {
-  stopAudio()
   cancelHold()
 })
 </script>
@@ -493,7 +360,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="reader-screen-viewport" role="region" :aria-label="t('navReader')">
     <!-- 1. TOP HEADER (Back Arrow, Title, Settings Gear) -->
-    <header class="reader-top-bar" role="banner">
+    <div class="reader-top-bar" role="group" :aria-label="t('navReader')">
       <button 
         type="button" 
         class="reader-icon-btn reader-back-btn" 
@@ -515,10 +382,10 @@ onBeforeUnmount(() => {
       >
         <Settings :size="22" />
       </button>
-    </header>
+    </div>
 
     <!-- 2. MAIN READING AREA -->
-    <main class="reader-main-canvas" role="main" @click="closeActions">
+    <div class="reader-main-canvas" @click="closeActions">
       <!-- Text Reading Content -->
       <div v-if="text && text.trim()" class="reader-text-container khmer-font">
         <p 
@@ -530,6 +397,7 @@ onBeforeUnmount(() => {
             v-for="word in paragraph.words" 
             :key="word.index"
             class="reader-word-token"
+            data-talkback="off"
             :class="{ 'reading-word-active': activeWordIndex === word.index }"
             @click.stop="seekToWord(word.index)"
             tabindex="0"
@@ -570,7 +438,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
-    </main>
+    </div>
 
     <!-- Backdrop overlay to dismiss floating actions when tapping anywhere outside -->
     <div 
@@ -600,6 +468,7 @@ onBeforeUnmount(() => {
           class="action-pill-btn pill-summarize khmer-font"
           @click="handleOpenSummary"
           @mouseenter="onPillHover"
+          :tabindex="isActionsOpen ? 0 : -1"
           role="menuitem"
           :aria-label="currentLang === 'km' ? 'សង្ខេបខ្លឹមសារ' : 'Summarize document'"
         >
@@ -613,6 +482,7 @@ onBeforeUnmount(() => {
           class="action-pill-btn pill-copy khmer-font"
           @click="handleCopy"
           @mouseenter="onPillHover"
+          :tabindex="isActionsOpen ? 0 : -1"
           role="menuitem"
           :aria-label="currentLang === 'km' ? 'ចម្លងអត្ថបទ' : 'Copy text'"
         >
@@ -643,44 +513,187 @@ onBeforeUnmount(() => {
       </button>
     </div>
 
-    <!-- 4. BOTTOM AUDIO PLAYBACK BAR (Rewind, Large Orange Play/Pause, Fast Forward) -->
-    <footer v-if="text && text.trim()" class="reader-bottom-player-bar" role="region" :aria-label="currentLang === 'km' ? 'ឧបករណ៍បញ្ជាសំឡេង' : 'Audio controls'">
-      <div class="player-controls-cluster">
-        <!-- Rewind Button (<<) -->
-        <button 
-          type="button" 
-          class="player-round-btn btn-rewind" 
-          @click="jumpRelative(-5)"
-          :aria-label="currentLang === 'km' ? 'ថយក្រោយ ៥ ពាក្យ' : 'Rewind 5 words'"
-        >
-          <RotateCcw :size="22" />
-        </button>
+    <!-- 4. BOTTOM SPOTIFY-STYLE AUDIO PLAYBACK BAR (Scrubber, Prev, Play/Pause, Skip) -->
+    <div v-if="text && text.trim()" class="reader-bottom-player-bar spotify-player-bar" role="group" :aria-label="currentLang === 'km' ? 'ឧបករណ៍បញ្ជាសំឡេង' : 'Audio controls'">
+      <div class="player-inner-wrap">
+        <!-- Spotify-style Scrubber Header (Voice Persona info & ... More Options) -->
+        <div class="spotify-scrub-header">
+          <div 
+            class="spotify-voice-tag khmer-font" 
+            @click="openVoiceModal" 
+            role="button" 
+            tabindex="0" 
+            :title="currentLang === 'km' ? 'ប្តូរសំឡេង' : 'Change voice'"
+            @keydown.enter="openVoiceModal"
+            @keydown.space.prevent="openVoiceModal"
+          >
+            <Volume2 :size="15" />
+            <span>{{ selectedVoiceName.includes('Sreymom') ? 'ស្រីមុំ' : selectedVoiceName.includes('Piseth') ? 'ពិសិដ្ឋ' : selectedVoiceName.includes('Sokha') ? 'សុខា' : 'songKHEM-VITS' }}</span>
+          </div>
+          <button 
+            type="button" 
+            class="spotify-more-options-btn" 
+            @click="openVoiceModal"
+            :aria-label="currentLang === 'km' ? 'ជម្រើសសំឡេង និងល្បឿនអាន' : 'Voice and speed options'"
+            :title="currentLang === 'km' ? 'ជម្រើសសំឡេង' : 'Voice options'"
+          >
+            <MoreHorizontal :size="20" />
+          </button>
+        </div>
 
-        <!-- Hero Play / Pause Button (Large Orange Circle) -->
-        <button 
-          type="button" 
-          class="player-round-btn btn-hero-play"
-          :class="{ 'is-playing': isSpeaking }"
-          @click="toggleAudio"
-          :aria-label="isSpeaking 
-            ? (currentLang === 'km' ? 'ផ្អាកការអាន' : 'Pause reading') 
-            : (currentLang === 'km' ? 'ចាប់ផ្តើមអាន' : 'Play reading')"
-        >
-          <Pause v-if="isSpeaking" :size="28" />
-          <Play v-else :size="28" class="play-icon-offset" />
-        </button>
+        <!-- Spotify-style Reading Progress Scrubber -->
+        <div class="reader-spotify-scrubber">
+          <div 
+            class="spotify-scrub-track-wrap" 
+            @click="handleScrub" 
+            role="slider"
+            :aria-valuenow="Math.round(progressPercent)"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-label="currentLang === 'km' ? 'វឌ្ឍនភាពការអាន' : 'Reading progress'"
+          >
+            <div class="spotify-scrub-track">
+              <div class="spotify-scrub-fill" :style="{ width: `${progressPercent}%` }"></div>
+              <div class="spotify-scrub-thumb" :style="{ left: `${progressPercent}%` }"></div>
+            </div>
+          </div>
+          <div class="spotify-scrub-times">
+            <span class="scrub-time elapsed">{{ elapsedFormatted }}</span>
+            <span class="scrub-time remaining">{{ remainingFormatted }}</span>
+          </div>
+        </div>
 
-        <!-- Fast Forward Button (>>) -->
-        <button 
-          type="button" 
-          class="player-round-btn btn-forward" 
-          @click="jumpRelative(5)"
-          :aria-label="currentLang === 'km' ? 'ទៅមុខ ៥ ពាក្យ' : 'Fast forward 5 words'"
-        >
-          <RotateCw :size="22" />
-        </button>
+        <!-- Controls: Prev, Play/Pause, Skip -->
+        <div class="player-controls-cluster spotify-cluster">
+          <!-- Prev Button (Skip Back) -->
+          <button 
+            type="button" 
+            class="player-round-btn btn-prev" 
+            @click="jumpRelative(-5)"
+            :aria-label="currentLang === 'km' ? 'ថយក្រោយ ៥ ពាក្យ' : 'Previous 5 words'"
+            :title="currentLang === 'km' ? 'ថយក្រោយ' : 'Previous'"
+          >
+            <SkipBack :size="24" />
+          </button>
+
+          <!-- Hero Play / Pause Button (Large Orange Circle) -->
+          <button 
+            type="button" 
+            class="player-round-btn btn-hero-play"
+            :class="{ 'is-playing': isSpeaking }"
+            @click="toggleAudio"
+            :aria-label="isSpeaking 
+              ? (currentLang === 'km' ? 'ផ្អាកការអាន' : 'Pause reading') 
+              : (currentLang === 'km' ? 'ចាប់ផ្តើមអាន' : 'Play reading')"
+          >
+            <Pause v-if="isSpeaking" :size="30" />
+            <Play v-else :size="30" class="play-icon-offset" />
+          </button>
+
+          <!-- Next Button (Skip Forward) -->
+          <button 
+            type="button" 
+            class="player-round-btn btn-skip" 
+            @click="jumpRelative(5)"
+            :aria-label="currentLang === 'km' ? 'រំលងទៅមុខ ៥ ពាក្យ' : 'Skip forward 5 words'"
+            :title="currentLang === 'km' ? 'រំលងទៅមុខ' : 'Skip forward'"
+          >
+            <SkipForward :size="24" />
+          </button>
+        </div>
       </div>
-    </footer>
+    </div>
+
+    <!-- 5b. VOICE & SPEED MODAL DIALOG -->
+    <div
+      v-if="isVoiceModalOpen"
+      class="reader-summary-backdrop"
+      @click.self="closeVoiceModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="voice-dialog-title"
+    >
+      <div class="reader-summary-card glass-card khmer-font">
+        <div class="summary-card-header">
+          <div class="summary-header-left">
+            <div class="summary-icon-gem">
+              <Volume2 :size="20" />
+            </div>
+            <h2 id="voice-dialog-title" class="summary-header-title">
+              {{ currentLang === 'km' ? 'សំឡេង និងល្បឿនអាន' : 'Voice & Speed' }}
+            </h2>
+          </div>
+          <button
+            type="button"
+            class="summary-close-btn"
+            @click="closeVoiceModal"
+            :aria-label="currentLang === 'km' ? 'បិទ' : 'Close'"
+          >
+            <X :size="20" />
+          </button>
+        </div>
+
+        <div class="summary-card-body">
+          <div class="voice-option-list" role="radiogroup" :aria-label="currentLang === 'km' ? 'សំឡេង' : 'Voice'">
+            <button
+              v-for="voice in voices"
+              :key="voice.name"
+              type="button"
+              class="voice-option-btn"
+              :class="{ 'voice-option-active': selectedVoiceName === voice.name }"
+              role="radio"
+              :aria-checked="selectedVoiceName === voice.name"
+              @click="chooseVoice(voice.name)"
+            >
+              <span class="voice-option-label">{{ voice.label }}</span>
+              <Check v-if="selectedVoiceName === voice.name" :size="18" />
+            </button>
+          </div>
+
+          <label class="voice-pacing-row">
+            <input
+              type="checkbox"
+              :checked="assistivePacing"
+              @change="tts.setAssistivePacing($event.target.checked)"
+            />
+            <span>{{ currentLang === 'km' ? 'អានយឺតត្រង់លេខ និងតម្លៃថ្នាំ' : 'Slow down on numbers and dosages' }}</span>
+          </label>
+
+          <div class="voice-speed-row" role="group" :aria-label="currentLang === 'km' ? 'ល្បឿន' : 'Speed'">
+            <button
+              v-for="speed in SPEED_PRESETS"
+              :key="speed"
+              type="button"
+              class="voice-speed-chip"
+              :class="{ 'voice-speed-active': rate === speed }"
+              @click="tts.setRate(speed)"
+            >
+              {{ speed }}x
+            </button>
+          </div>
+        </div>
+
+        <div class="summary-card-footer voice-modal-footer">
+          <button
+            type="button"
+            class="btn-summary-action btn-summary-settings-link"
+            @click="() => { closeVoiceModal(); openSettings(); }"
+            :aria-label="t('settings')"
+          >
+            <Settings :size="18" />
+            <span>{{ currentLang === 'km' ? 'ការកំណត់' : 'Settings' }}</span>
+          </button>
+          <button
+            type="button"
+            class="btn-summary-action btn-summary-done"
+            @click="closeVoiceModal"
+          >
+            <Check :size="18" />
+            <span>{{ currentLang === 'km' ? 'យល់ព្រម' : 'Got it' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <!-- 5. SUMMARY MODAL DIALOG -->
     <div 
