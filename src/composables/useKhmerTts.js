@@ -112,6 +112,53 @@ export const tokenizeForReading = (rawText) => {
   return { paragraphs, tokens: flat, timeline }
 }
 
+/**
+ * Pre-warm / synthesize and cache Khmer TTS audio in the background during OCR processing.
+ * This eliminates the 2-5s delay when entering Reader mode so playback is ready immediately.
+ */
+export const prewarmKhmerTts = async (text, options = {}) => {
+  if (!text || !text.trim()) return null
+  const voiceName = options.voiceName || safeGet(VOICE_STORAGE_KEY) || DEFAULT_VOICE
+  const shouldPace = options.assistivePacing ?? (safeGet(PACING_STORAGE_KEY) === '1' || voiceName === 'km-KH-SokhaMedical')
+  const cacheVariantKey = `${voiceName}|v2|pace:${shouldPace ? 1 : 0}|lex:0`
+
+  // Already cached?
+  let audioUrl = getTtsCache(text, cacheVariantKey, 1.0)
+  if (audioUrl) {
+    return { audioUrl, cached: true }
+  }
+
+  const azureKey = safeGet('songkhem_azure_tts_key')
+  const azureEndpoint = safeGet('songkhem_azure_tts_endpoint') || 'https://southeastasia.tts.speech.microsoft.com/cognitiveservices/v1'
+
+  const synthPromise = (async () => {
+    if (azureKey && voiceName !== 'km-KH-VitsOffline') {
+      const gender = KHMER_VOICES.find(v => v.name === voiceName)?.gender || 'Male'
+      return await synthesizeTextAzureTTS(text, azureKey, azureEndpoint, 1.0, 1.0, voiceName, gender)
+    } else {
+      try {
+        return await synthesizeLocalKhmerTTS(text, voiceName, 1.0, { assistivePacing: shouldPace })
+      } catch (err) {
+        if (CLOUD_API_AVAILABLE) return await cloudTts(text, voiceName)
+        throw err
+      }
+    }
+  })()
+
+  try {
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TTS prewarm timeout')), 3500))
+    audioUrl = await Promise.race([synthPromise, timeoutPromise])
+    if (audioUrl) {
+      setTtsCache(text, cacheVariantKey, 1.0, audioUrl)
+      return { audioUrl, cached: false }
+    }
+  } catch (err) {
+    // Non-fatal: if prewarm times out or fails, on-demand playback will handle it
+    console.warn('TTS prewarm warning:', err)
+  }
+  return null
+}
+
 export function useKhmerTts({ getText, activeWordIndex }) {
   const speakAccessibility = inject('speakAccessibility', () => {})
 
@@ -141,6 +188,14 @@ export function useKhmerTts({ getText, activeWordIndex }) {
   const paragraphs = ref([])
   const tokens = ref([])
   const tokenTimeline = ref([])
+
+  // Realistic fallback duration based on calibrated phonetic syllable weights
+  const estimatedDurationSecs = computed(() => {
+    if (audioDuration.value > 0) return audioDuration.value
+    if (!tokenTimeline.value.length) return 0
+    const totalWeight = tokenTimeline.value.reduce((acc, item) => acc + item.weight, 0) || 1
+    return Math.max(1, Math.round(totalWeight * 0.195))
+  })
 
   let currentAudio = null
   let highlightInterval = null
@@ -490,6 +545,7 @@ export function useKhmerTts({ getText, activeWordIndex }) {
     isSpeaking,
     isPaused,
     audioDuration,
+    estimatedDurationSecs,
     paragraphs,
     tokens,
     prepare,
