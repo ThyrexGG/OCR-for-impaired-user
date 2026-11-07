@@ -204,9 +204,10 @@ export const extractTextFromPdf = async (file, onProgress) => {
     let extractedText = ''
 
     // First attempt: Extract direct digital text stream from pages with layout awareness
-    for (let pageNum = 1; pageNum <= Math.min(numPages, 10); pageNum++) {
+    const targetPages = Math.min(numPages, 10)
+    for (let pageNum = 1; pageNum <= targetPages; pageNum++) {
       if (onProgress) {
-        onProgress(Math.round((pageNum / Math.min(numPages, 10)) * 40))
+        onProgress(Math.round((pageNum / targetPages) * 90))
       }
       const page = await pdfDoc.getPage(pageNum)
       const textContent = await page.getTextContent()

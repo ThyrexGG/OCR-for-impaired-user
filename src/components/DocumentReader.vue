@@ -351,14 +351,20 @@ const progressPercent = computed(() => {
 // Calibrated acoustic duration from audio metadata or phonetic syllable weights
 const totalDurationSecs = computed(() => {
   if (!tokensCount.value) return 0
-  const secsAt1x = tts.audioDuration.value > 0 
-    ? tts.audioDuration.value 
-    : (estimatedDurationSecs?.value || Math.max(1, Math.round((props.text || '').replace(/\s+/g, '').length / 11)))
-  return Math.max(1, Math.round(secsAt1x / (rate.value || 1.0)))
+  let secsAt1x = 0
+  if (tts.audioDuration.value > 0) {
+    secsAt1x = tts.audioDuration.value
+  } else if (estimatedDurationSecs?.value > 0) {
+    secsAt1x = estimatedDurationSecs.value
+  } else if (tokensCount.value > 0) {
+    // Calibrated natural Khmer speech: ~3.1 words per second
+    secsAt1x = Math.max(1, Math.round(tokensCount.value * 0.32))
+  }
+  return secsAt1x > 0 ? Math.max(1, Math.round(secsAt1x / (rate.value || 1.0))) : 0
 })
 
 const elapsedSecs = computed(() => {
-  if (!tokensCount.value) return 0
+  if (!tokensCount.value || totalDurationSecs.value <= 0) return 0
   const ratio = tokensCount.value <= 1 ? 0 : currentWordPos.value / (tokensCount.value - 1)
   return Math.min(totalDurationSecs.value, Math.round(ratio * totalDurationSecs.value))
 })
@@ -368,6 +374,7 @@ const remainingSecs = computed(() => {
 })
 
 const formatTime = (secs) => {
+  if (!secs || secs <= 0) return '0:00'
   const m = Math.floor(secs / 60)
   const s = Math.floor(secs % 60)
   return `${m}:${s < 10 ? '0' : ''}${s}`

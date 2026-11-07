@@ -145,8 +145,9 @@ export const prewarmKhmerTts = async (text, options = {}) => {
     }
   })()
 
+  const timeoutMs = options.timeoutMs || 30000
   try {
-    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TTS prewarm timeout')), 3500))
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('TTS prewarm timeout')), timeoutMs))
     audioUrl = await Promise.race([synthPromise, timeoutPromise])
     if (audioUrl) {
       setTtsCache(text, cacheVariantKey, 1.0, audioUrl)

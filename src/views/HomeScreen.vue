@@ -1,11 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, inject, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { 
-  ArrowLeft, Sparkles, BookOpen, FileCheck2, Cpu, Zap, 
-  Camera, ArrowRight, Eye, Play, Volume2,
-  Upload, RefreshCw, AlertCircle, CheckCircle2, FileText
-} from 'lucide-vue-next'
+import { Camera, AlertCircle } from 'lucide-vue-next'
 import DocumentUploader from '../components/DocumentUploader.vue'
 import DocumentReader from '../components/DocumentReader.vue'
 import UserHistory from '../components/UserHistory.vue'
@@ -62,8 +58,26 @@ const originMode = ref('scan')
 const isProcessing = ref(false)
 const isLongProcessing = ref(false)
 const ocrProgress = ref(0)
+const progressStage = ref('scanning') // 'scanning' | 'extracting' | 'preparing_reader' | 'ready'
 let processingTimeoutId = null
 let processingTickId = null
+let prewarmProgressInterval = null
+
+const progressStageLabel = computed(() => {
+  const isKm = currentLang.value === 'km'
+  switch (progressStage.value) {
+    case 'scanning':
+      return isKm ? 'កំពុងស្កេន និងអានឯកសារ...' : 'Scanning document...'
+    case 'extracting':
+      return isKm ? 'កំពុងស្រង់អត្ថបទ...' : 'Extracting text...'
+    case 'preparing_reader':
+      return isKm ? 'កំពុងរៀបចំសំឡេងអាន...' : 'Preparing audio reader...'
+    case 'ready':
+      return isKm ? 'រួចរាល់!' : 'Ready!'
+    default:
+      return isKm ? 'កំពុងដំណើរការ...' : 'Processing...'
+  }
+})
 
 // While a scan runs, say so now and then: a user who cannot see the spinner has no other way
 // to tell "working" from "stuck".
@@ -71,6 +85,10 @@ const clearProcessingTimers = () => {
   stopWaitingCue()
   clearTimeout(processingTimeoutId)
   clearInterval(processingTickId)
+  if (prewarmProgressInterval) {
+    clearInterval(prewarmProgressInterval)
+    prewarmProgressInterval = null
+  }
   processingTimeoutId = null
   processingTickId = null
 }
@@ -253,27 +271,52 @@ const handleTriggerOcr = async () => {
     date: currentLang.value === 'km' ? 'ថ្ងៃនេះ' : 'Today'
   })
 
-  ocrProgress.value = 0
+  ocrProgress.value = 5
+  progressStage.value = 'scanning'
   const result = await ocrService.recognize(selectedFile.value, {
     onProgress: (p) => {
-      ocrProgress.value = Math.min(85, Math.round(p * 0.85))
+      const mapped = Math.min(70, 5 + Math.round((p / 100) * 65))
+      if (mapped > ocrProgress.value) ocrProgress.value = mapped
     }
   })
 
   if (result.ok) {
     const { text, cached, wordsCount } = result.data
-    ocrProgress.value = 90
+    progressStage.value = 'extracting'
+    ocrProgress.value = Math.max(ocrProgress.value, 75)
 
-    // Pre-warm Khmer TTS voice synthesis and cache during the loading screen
-    // This eliminates the 2-5s delay and 9:00 placeholder artifact upon reaching Reader mode
-    try {
-      await prewarmKhmerTts(text)
-    } catch (_) {}
+    if (cached) {
+      ocrProgress.value = 95
+    } else {
+      // Pre-warm Khmer TTS voice synthesis and cache during the loading screen
+      // Keeps progress smooth and eliminates waiting once the Reader screen opens
+      progressStage.value = 'preparing_reader'
+      ocrProgress.value = Math.max(ocrProgress.value, 80)
+
+      prewarmProgressInterval = setInterval(() => {
+        if (ocrProgress.value < 96) {
+          ocrProgress.value += 1
+        }
+      }, 350)
+
+      try {
+        await prewarmKhmerTts(text, { timeoutMs: 30000 })
+      } catch (_) {}
+
+      if (prewarmProgressInterval) {
+        clearInterval(prewarmProgressInterval)
+        prewarmProgressInterval = null
+      }
+    }
+
+    progressStage.value = 'ready'
+    ocrProgress.value = 100
+    // Visual hold on 100% so the Apple track fills smoothly and the green checkmark registers
+    await new Promise((r) => setTimeout(r, 450))
 
     clearProcessingTimers()
     isProcessing.value = false
     isLongProcessing.value = false
-    ocrProgress.value = 100
 
     if (isAppendingPage.value && extractedText.value) {
       pageCounter.value++
@@ -341,6 +384,7 @@ const handleTriggerOcr = async () => {
     if (idx !== -1) historyList.value.splice(idx, 1)
 
     ocrProgress.value = 0
+    progressStage.value = 'scanning'
     ocrError.value = result.error.message
     haptics.pulse('error')
     // What went wrong, then what to do, each sentence on its own so all of it comes from the voice pack
@@ -524,25 +568,38 @@ const onPointerUp = (e) => {
 
 <template>
   <div class="assistant-workspace-wrapper">
-    <!-- OCR PROGRESSION OVERLAY: Centered in the middle of the screen, minimal, no logo -->
-    <div v-if="isProcessing" class="ocr-progression-overlay" role="status" aria-live="assertive">
-      <div class="ocr-processing-card">
-        <h2 class="processing-title khmer-font">{{ t('scanningTitle') }}</h2>
-        <p class="processing-desc khmer-font">
-          {{ t('scanningDesc') }}
-        </p>
+    <!-- SIMPLE THEMED PROGRESS DIALOG (Matches reference layout with linear progress bar) -->
+    <div v-if="isProcessing" class="simple-progress-backdrop" role="status" aria-live="assertive">
+      <div class="simple-progress-dialog">
+        <!-- Dialog Title -->
+        <h2 class="simple-progress-title khmer-font">
+          {{ currentLang === 'km' ? 'សូមរង់ចាំ...' : 'Please Wait..' }}
+        </h2>
 
-        <!-- Shimmer Progress Beam -->
-        <div class="processing-beam-track" aria-hidden="true">
-          <div class="processing-beam-fill" :style="{ width: ocrProgress > 0 ? `${ocrProgress}%` : undefined }"></div>
+        <!-- Monotonic Linear Progress Bar -->
+        <div 
+          class="simple-progress-track"
+          role="progressbar"
+          :aria-valuenow="ocrProgress"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          :aria-valuetext="progressStageLabel"
+        >
+          <div 
+            class="simple-progress-fill" 
+            :style="{ width: `${ocrProgress}%` }"
+          ></div>
         </div>
-        <p v-if="ocrProgress > 0" class="khmer-font" style="margin-top: 8px; font-weight: 600; color: var(--color-brand); text-align: center;">
-          ដំណើរការ៖ {{ ocrProgress }}%
-        </p>
 
-        <!-- Timeout Awareness Warning -->
-        <div v-if="isLongProcessing" class="processing-timeout-notice khmer-font">
-          <AlertCircle :size="18" class="text-accent" />
+        <!-- Meta Row: Stage Label Left + Percentage Right -->
+        <div class="simple-progress-meta khmer-font">
+          <span class="simple-progress-stage">{{ progressStageLabel }}</span>
+          <span class="simple-progress-percent">{{ ocrProgress }}%</span>
+        </div>
+
+        <!-- Timeout Notice if unusually long -->
+        <div v-if="isLongProcessing" class="simple-progress-timeout khmer-font">
+          <AlertCircle :size="15" />
           <span>{{ t('longProcessingNotice') }}</span>
         </div>
       </div>
