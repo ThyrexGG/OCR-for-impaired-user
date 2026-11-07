@@ -1,7 +1,7 @@
 import Tesseract from 'tesseract.js'
 import * as pdfjsLib from 'pdfjs-dist'
 import { CLOUD_API_AVAILABLE, cloudOcr } from './cloudApi'
-import { ScanError } from './scanErrors'
+import { ScanError, classifyScanError } from './scanErrors'
 import {
   preprocessImageForKhmerOcr,
   postProcessKhmerOcr,
@@ -93,10 +93,9 @@ export const detectTextTesseract = async (fileOrBlob, onProgress) => {
     return text
   } catch (error) {
     console.error('Tesseract OCR Execution Error:', error)
-    if (error.message && error.message.includes('មិនអាច')) {
-      throw error
-    }
-    throw error instanceof ScanError ? error : new ScanError('bad_file', error.message)
+    if (error instanceof ScanError) throw error
+    const kind = classifyScanError(error)
+    throw new ScanError(kind, error?.message)
   }
 }
 
@@ -420,6 +419,9 @@ export const extractDocumentText = async (file, config = {}, onProgress) => {
     try {
       return await detectTextGoogleVision(file, config.googleApiKey, config.googleEndpoint)
     } catch (gvErr) {
+      if (classifyScanError(gvErr) === 'offline') {
+        throw gvErr instanceof ScanError ? gvErr : new ScanError('offline')
+      }
       // If cloud Google Vision is unconfigured or unreachable, seamlessly fall back to enhanced Khmer Tesseract
       console.warn('Google Vision unavailable, falling back to enhanced Khmer Tesseract:', gvErr?.message)
       return await detectTextTesseract(file, onProgress)

@@ -10,6 +10,10 @@ const LOCAL_KHMER_ENGINE_URL = import.meta.env.VITE_LOCAL_TTS_URL || '/api/tts'
 // phone's, for devices whose Khmer voice is missing or broken.
 const APP_VOICE_ONLY_KEY = 'songkhem_app_voice_only'
 export const APP_VOICE_FAILED_KM = 'មិនអាចភ្ជាប់សំឡេង songKHEM បានទេ។ សូមពិនិត្យអ៊ីនធឺណិត ហើយព្យាយាមម្តងទៀត។'
+export const APP_VOICE_FAILED_EN = 'Unable to connect to songKHEM voice. Please check your internet connection and try again.'
+
+export const getAppVoiceFailedMessage = (lang = 'km') =>
+  lang === 'en' ? APP_VOICE_FAILED_EN : APP_VOICE_FAILED_KM
 export const isAppVoiceOnly = () => {
   try {
     return localStorage.getItem(APP_VOICE_ONLY_KEY) === 'true'

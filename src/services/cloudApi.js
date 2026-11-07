@@ -16,6 +16,9 @@ const OCR_TIMEOUT_MS = 45000
  * @returns {Promise<string>} - Detected text (may be empty)
  */
 export const cloudOcr = async (base64Image) => {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw new ScanError('offline')
+  }
   // A stalled upload would otherwise leave the user listening to the waiting sound forever
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), OCR_TIMEOUT_MS)
@@ -36,6 +39,15 @@ export const cloudOcr = async (base64Image) => {
     }
     const data = await response.json()
     return data.text || ''
+  } catch (err) {
+    if (err instanceof ScanError) throw err
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      throw new ScanError('offline')
+    }
+    if (/network|fetch|failed|disconnected|offline/i.test(String(err?.message || ''))) {
+      throw new ScanError('offline')
+    }
+    throw err
   } finally {
     clearTimeout(timer)
   }

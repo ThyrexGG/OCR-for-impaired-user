@@ -95,8 +95,11 @@ const startCamera = async () => {
   } catch (error) {
     console.warn('Camera access error:', error)
     isCameraActive.value = false
-    cameraError.value = t('cameraPermissionDenied')
-    speakAccessibility(t('cameraPermissionDenied'))
+    const isNotFound = error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError'
+    cameraError.value = isNotFound
+      ? (currentLang.value === 'km' ? 'រកមិនឃើញឧបករណ៍កាមេរ៉ាលើឧបករណ៍របស់អ្នកទេ' : 'No camera hardware found on this device')
+      : t('cameraPermissionDenied')
+    speakAccessibility(cameraError.value)
   }
 }
 
@@ -362,6 +365,23 @@ const processFile = (file) => {
 
   if (!isImage && !isPdf) {
     speakAccessibility(t('formatUnsupported'))
+    return
+  }
+
+  const MAX_FILE_SIZE = 30 * 1024 * 1024
+  if (file.size > MAX_FILE_SIZE) {
+    const sizeMsg = currentLang.value === 'km' 
+      ? 'ទំហំឯកសារធំពេក (លើសពី ៣០ MB)។ សូមជ្រើសរើសឯកសារតូចជាងនេះ។'
+      : 'File is too large (over 30 MB). Please choose a smaller file.'
+    speakAccessibility(sizeMsg)
+    return
+  }
+
+  if (file.size === 0) {
+    const emptyMsg = currentLang.value === 'km'
+      ? 'ឯកសារនេះទទេស្អាត។ សូមជ្រើសរើសឯកសារផ្សេង។'
+      : 'This file is empty. Please select a valid document.'
+    speakAccessibility(emptyMsg)
     return
   }
 

@@ -1,12 +1,13 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount, inject, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { Camera, AlertCircle } from 'lucide-vue-next'
+import { Camera, AlertCircle, RotateCcw } from 'lucide-vue-next'
 import DocumentUploader from '../components/DocumentUploader.vue'
 import DocumentReader from '../components/DocumentReader.vue'
 import UserHistory from '../components/UserHistory.vue'
 import AppToast from '../components/AppToast.vue'
 import { ocrService } from '../services/ocrService'
+import { getScanError } from '../services/scanErrors'
 import { clearOcrCache } from '../services/cache'
 import { startWaitingCue, stopWaitingCue } from '../services/waitingCue'
 import { announcer } from '../services/announcer'
@@ -93,7 +94,11 @@ const clearProcessingTimers = () => {
   processingTimeoutId = null
   processingTickId = null
 }
-const ocrError = ref(null)
+const ocrErrorKind = ref(null)
+const ocrError = computed(() => {
+  if (!ocrErrorKind.value) return null
+  return getScanError(ocrErrorKind.value, currentLang.value)
+})
 
 const extractedText = ref('')
 const selectedFileName = ref('')
@@ -224,7 +229,7 @@ const onFileSelected = async (file) => {
   selectedFileName.value = file.name
   selectedFile.value = file
   extractedText.value = ''
-  ocrError.value = null
+  ocrErrorKind.value = null
   isCached.value = false
   addToast({ message: currentLang.value === 'km' ? 'បានជ្រើសរើសឯកសារ' : 'File selected', type: 'info' })
   await handleTriggerOcr()
@@ -234,7 +239,7 @@ const onClearFile = () => {
   selectedFileName.value = ''
   selectedFile.value = null
   extractedText.value = ''
-  ocrError.value = null
+  ocrErrorKind.value = null
   isCached.value = false
   isProcessing.value = false
 }
@@ -246,7 +251,7 @@ const handleTriggerOcr = async () => {
     originMode.value = activeMode.value
   }
   
-  ocrError.value = null
+  ocrErrorKind.value = null
   isLongProcessing.value = false
   isProcessing.value = true
   haptics.pulse('shutter')
@@ -386,11 +391,13 @@ const handleTriggerOcr = async () => {
 
     ocrProgress.value = 0
     progressStage.value = 'scanning'
-    ocrError.value = result.error.message
+    ocrErrorKind.value = result.error.kind || 'unknown'
     haptics.pulse('error')
-    // What went wrong, then what to do, each sentence on its own so all of it comes from the voice pack
-    const { title, say } = result.error
-    speakAccessibility(title ? [title, ...say.split('។').map((part) => part.trim()).filter(Boolean)] : result.error.message)
+    const errObj = ocrError.value || result.error
+    const spoken = currentLang.value === 'km'
+      ? (errObj.title ? [errObj.title, ...errObj.say.split('។').map((part) => part.trim()).filter(Boolean)] : [errObj.message])
+      : (errObj.title ? [errObj.title, ...errObj.say.split('.').map((part) => part.trim()).filter(Boolean)] : [errObj.message])
+    speakAccessibility(spoken)
     nextTick(() => {
       scanAgainErrorBtnRef.value?.focus()
     })
@@ -409,7 +416,7 @@ const onFileSelectedFromHistory = async (file) => {
 const onLoadHistoryItem = (item) => {
   selectedFileName.value = item.name
   extractedText.value = item.text
-  ocrError.value = null
+  ocrErrorKind.value = null
   isCached.value = !!item.cached
   addToast({ message: currentLang.value === 'km' ? 'បានបើកឯកសារ' : 'Opened', type: 'info' })
   if (activeMode.value && activeMode.value !== 'reader') {
@@ -421,7 +428,7 @@ const onLoadHistoryItem = (item) => {
 const onQuickPlayHistoryItem = (item) => {
   selectedFileName.value = item.name
   extractedText.value = item.text
-  ocrError.value = null
+  ocrErrorKind.value = null
   isCached.value = !!item.cached
   addToast({ message: currentLang.value === 'km' ? 'កំពុងអាន' : 'Playing', type: 'info' })
   if (activeMode.value && activeMode.value !== 'reader') {
@@ -475,12 +482,17 @@ const onClearHistory = () => {
   })
 }
 
-// Scan Again from Reader / Error Screen
+// Scan Again or Retry from Error Screen / Reader
 const handleScanAgain = () => {
   triggerHaptic(40)
+  if (ocrError.value?.retry && selectedFile.value) {
+    ocrErrorKind.value = null
+    handleTriggerOcr()
+    return
+  }
   isAppendingPage.value = false
   pageCounter.value = 1
-  ocrError.value = null
+  ocrErrorKind.value = null
   selectedFile.value = null
   selectedFileName.value = ''
   extractedText.value = ''
@@ -558,22 +570,19 @@ const { onTouchStart, onTouchEnd, onPointerDown, onPointerUp } = useSwipeNav({
       </div>
     </div>
 
-    <!-- OCR ERROR STATE (Human-readable tips + SCAN AGAIN button) -->
+    <!-- OCR ERROR STATE (Context-aware tips + Retry / Scan Again button) -->
     <div v-if="ocrError && !isProcessing" class="mode-container scan-mode-container" role="alert">
       <div class="ocr-error-card glass-card">
         <div class="error-glow-icon bg-danger">
           <AlertCircle :size="40" />
         </div>
-        <h2 class="error-title khmer-font">{{ t('ocrErrorTitle') }}</h2>
-        <p class="error-desc khmer-font">{{ ocrError }}</p>
+        <h2 class="error-title khmer-font">{{ ocrError.title }}</h2>
+        <p class="error-desc khmer-font">{{ ocrError.say }}</p>
 
-        <div class="error-tips-box khmer-font">
+        <div v-if="ocrError.tips && ocrError.tips.length" class="error-tips-box khmer-font">
           <h3 class="tips-heading">{{ t('tipsHeading') }}</h3>
           <ul class="tips-list">
-            <li>{{ t('tip1') }}</li>
-            <li>{{ t('tip2') }}</li>
-            <li>{{ t('tip3') }}</li>
-            <li>{{ t('tip4') }}</li>
+            <li v-for="(tip, idx) in ocrError.tips" :key="idx">{{ tip }}</li>
           </ul>
         </div>
 
@@ -582,10 +591,11 @@ const { onTouchStart, onTouchEnd, onPointerDown, onPointerUp } = useSwipeNav({
           type="button" 
           class="btn btn-primary btn-scan-again-hero khmer-font"
           @click="handleScanAgain"
-          :aria-label="t('scanAgainBtn')"
+          :aria-label="ocrError.retry ? (currentLang === 'km' ? 'ព្យាយាមម្តងទៀត' : 'Try Again') : t('scanAgainBtn')"
         >
-          <Camera :size="24" />
-          <span>{{ t('scanAgainBtn') }}</span>
+          <RotateCcw v-if="ocrError.retry" :size="24" />
+          <Camera v-else :size="24" />
+          <span>{{ ocrError.retry ? (currentLang === 'km' ? 'ព្យាយាមម្តងទៀត' : 'Try Again') : t('scanAgainBtn') }}</span>
         </button>
       </div>
     </div>

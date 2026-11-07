@@ -1,8 +1,9 @@
 import { ref, computed, inject, onBeforeUnmount } from 'vue'
-import { APP_VOICE_FAILED_KM, isAppVoiceOnly, synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts'
+import { APP_VOICE_FAILED_KM, getAppVoiceFailedMessage, isAppVoiceOnly, synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts'
 import { CLOUD_API_AVAILABLE, cloudTts } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
 import { announcer } from '../services/announcer'
+import { currentLang } from '../services/i18n'
 import { tokenizeForReading } from '../services/readerTokenizer'
 
 export { tokenizeForReading }
@@ -292,7 +293,7 @@ export function useKhmerTts({ getText, activeWordIndex }) {
     stop()
     // Testing switch "songKHEM voice only": never hand the document to the browser's voice
     if (isAppVoiceOnly()) {
-      speakAccessibility(APP_VOICE_FAILED_KM)
+      speakAccessibility(getAppVoiceFailedMessage(currentLang?.value))
       return
     }
     isSpeaking.value = true

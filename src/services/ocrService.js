@@ -15,14 +15,26 @@ import { extractDocumentText } from './ocr'
 import { postProcessKhmerOcr } from './khmerOcrCorrector'
 import { getFileFingerprint, getOcrCache, setOcrCache } from './cache'
 import { CLOUD_API_AVAILABLE } from './cloudApi'
-import { t } from './i18n'
-import { SCAN_ERRORS, classifyScanError } from './scanErrors'
+import { t, currentLang } from './i18n'
+import { SCAN_ERRORS, classifyScanError, getScanError } from './scanErrors'
 
-// What went wrong and what to do, in plain words (same list as the app); `kind` lets the screen speak it
-const scanFailure = (kind) => ({
-  ok: false,
-  error: { kind, code: kind, title: SCAN_ERRORS[kind].title, say: SCAN_ERRORS[kind].say, message: `${SCAN_ERRORS[kind].title}។ ${SCAN_ERRORS[kind].say}` }
-})
+// What went wrong and what to do, localized for the current interface language
+const scanFailure = (kind, lang) => {
+  const activeLang = lang || (currentLang?.value === 'en' ? 'en' : 'km')
+  const localized = getScanError(kind, activeLang)
+  return {
+    ok: false,
+    error: {
+      kind,
+      code: kind,
+      title: localized.title,
+      say: localized.say,
+      tips: localized.tips,
+      retry: localized.retry,
+      message: `${localized.title}. ${localized.say}`
+    }
+  }
+}
 
 const USER_ENGINE_SETTINGS = false
 
@@ -63,6 +75,10 @@ class OcrService {
   async recognize(file, options = {}) {
     if (!file) {
       return scanFailure('bad_file')
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return scanFailure('offline')
     }
 
     // 1. Check Cache first (Fingerprint match)
@@ -116,7 +132,8 @@ class OcrService {
       }
     } catch (err) {
       const kind = classifyScanError(err)
-      console.warn(`Scan failed (${kind}): ${SCAN_ERRORS[kind].en}`, err?.message)
+      const errInfo = getScanError(kind, 'en')
+      console.warn(`Scan failed (${kind}): ${errInfo.title}`, err?.message)
       return scanFailure(kind)
     }
   }
