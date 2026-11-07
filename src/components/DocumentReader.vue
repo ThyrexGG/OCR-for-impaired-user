@@ -262,39 +262,71 @@ const tts = useKhmerTts({
 })
 const {
   voices, selectedVoiceName, assistivePacing, rate,
-  isSpeaking, isPaused, paragraphs: wordTokens
+  isSpeaking, isPaused, paragraphs: wordTokens, estimatedDurationSecs
 } = tts
 
-const scrollToActiveWord = () => {
+const mainCanvasRef = ref(null)
+const isUserScrolling = ref(false)
+let userScrollTimer = null
+
+const handleUserScroll = () => {
+  isUserScrolling.value = true
+  if (userScrollTimer) clearTimeout(userScrollTimer)
+  userScrollTimer = setTimeout(() => {
+    isUserScrolling.value = false
+  }, 4000)
+}
+
+const scrollToActiveWord = (force = false) => {
+  if (isUserScrolling.value && !force) return
   nextTick(() => {
+    const canvas = mainCanvasRef.value
     const el = document.querySelector('.reader-text-container .reading-word-active')
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+    if (canvas && el) {
+      const cRect = canvas.getBoundingClientRect()
+      const eRect = el.getBoundingClientRect()
+      // Only scroll if outside the comfortable viewport window (above 40px or below -90px from bottom)
+      const isComfortablyVisible = eRect.top >= cRect.top + 40 && eRect.bottom <= cRect.bottom - 90
+      if (!isComfortablyVisible || force) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+      }
     }
   })
 }
 
 // Only follow the highlight while audio is playing so manual scrolling is never hijacked
 watch(activeWordIndex, (idx) => {
-  if (idx >= 0 && isSpeaking.value) scrollToActiveWord()
+  if (idx >= 0 && isSpeaking.value) scrollToActiveWord(false)
 })
 
-const toggleAudio = () => tts.toggle()
-const startAudio = (startIndex = 0) => tts.start(startIndex)
+const toggleAudio = () => {
+  isUserScrolling.value = false
+  if (userScrollTimer) clearTimeout(userScrollTimer)
+  return tts.toggle()
+}
+const startAudio = (startIndex = 0) => {
+  isUserScrolling.value = false
+  if (userScrollTimer) clearTimeout(userScrollTimer)
+  return tts.start(startIndex)
+}
 const pauseAudio = () => tts.pause()
 const stopAudio = () => tts.stop()
 
 // Click-to-seek word
 const seekToWord = (index) => {
+  isUserScrolling.value = false
+  if (userScrollTimer) clearTimeout(userScrollTimer)
   triggerHaptic(25)
   tts.seekToWord(index)
-  if (!isSpeaking.value) scrollToActiveWord()
+  if (!isSpeaking.value) scrollToActiveWord(true)
 }
 
 // Rewind / Fast-forward by 5 words
 const jumpRelative = (delta) => {
+  isUserScrolling.value = false
+  if (userScrollTimer) clearTimeout(userScrollTimer)
   tts.jumpWords(delta)
-  if (!isSpeaking.value) scrollToActiveWord()
+  if (!isSpeaking.value) scrollToActiveWord(true)
   const dirMsg = delta > 0
     ? (currentLang.value === 'km' ? 'ទៅមុខ ៥ ពាក្យ' : 'Fast forward 5 words')
     : (currentLang.value === 'km' ? 'ថយក្រោយ ៥ ពាក្យ' : 'Rewind 5 words')
@@ -316,12 +348,12 @@ const progressPercent = computed(() => {
   return Math.min(100, Math.max(0, (currentWordPos.value / (tokensCount.value - 1)) * 100))
 })
 
-// The real audio length once it is known, else an estimate from the letters: Khmer barely uses spaces,
-// so counting words made a 30-second document look like 6 seconds. The voice says about 11 characters a second.
-const spokenChars = computed(() => (props.text || '').replace(/s+/g, '').length)
+// Calibrated acoustic duration from audio metadata or phonetic syllable weights
 const totalDurationSecs = computed(() => {
   if (!tokensCount.value) return 0
-  const secsAt1x = tts.audioDuration.value > 0 ? tts.audioDuration.value : spokenChars.value / 11
+  const secsAt1x = tts.audioDuration.value > 0 
+    ? tts.audioDuration.value 
+    : (estimatedDurationSecs?.value || Math.max(1, Math.round((props.text || '').replace(/\s+/g, '').length / 11)))
   return Math.max(1, Math.round(secsAt1x / (rate.value || 1.0)))
 })
 
@@ -432,7 +464,14 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- 2. MAIN READING AREA -->
-    <div class="reader-main-canvas" @click="closeActions">
+    <div 
+      ref="mainCanvasRef"
+      class="reader-main-canvas" 
+      @click="closeActions"
+      @wheel.passive="handleUserScroll"
+      @touchstart.passive="handleUserScroll"
+      @touchmove.passive="handleUserScroll"
+    >
       <!-- Text Reading Content -->
       <div v-if="text && text.trim()" class="reader-text-container khmer-font">
         <p 
