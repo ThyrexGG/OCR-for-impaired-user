@@ -1,9 +1,11 @@
 import { ref, computed, inject, onBeforeUnmount } from 'vue'
 import { APP_VOICE_FAILED_KM, isAppVoiceOnly, synthesizeTextAzureTTS, synthesizeLocalKhmerTTS } from '../services/tts'
-import { normalizeKhmerForSpeech } from '../services/khmerNormalizer'
 import { CLOUD_API_AVAILABLE, cloudTts } from '../services/cloudApi'
 import { getTtsCache, setTtsCache } from '../services/cache'
 import { announcer } from '../services/announcer'
+import { tokenizeForReading } from '../services/readerTokenizer'
+
+export { tokenizeForReading }
 
 // Khmer TTS engine shared by the reader screens: Neural personas (Piseth, Sreymom, Sokha, Sopheap),
 // Smart Assistive Pacing, and word highlighting locked to the real audio playhead.
@@ -31,86 +33,6 @@ const safeSet = (key, value) => {
   try { localStorage.setItem(key, value) } catch (_) {}
 }
 
-// Segment a sentence into words (identical to OcrPanel.vue / TtsPanel.vue globalIndex)
-const segmentSentenceIntoWords = (sentenceText) => {
-  if (!sentenceText) return []
-  if (/[ក-៿]/.test(sentenceText) && typeof Intl !== 'undefined' && Intl.Segmenter) {
-    try {
-      const segmenter = new Intl.Segmenter('km', { granularity: 'word' })
-      const words = []
-      for (const { segment } of segmenter.segment(sentenceText)) {
-        const trimmed = segment.trim()
-        if (trimmed) words.push(trimmed)
-      }
-      if (words.length > 0) return words
-    } catch (_) {}
-  }
-  return sentenceText.split(/\s+/).filter(w => w.length > 0)
-}
-
-const computeTokenAcousticWeight = (rawToken) => {
-  const tStr = (rawToken || '').trim()
-  if (!tStr) return 0.05
-  // Pure visual separators / brackets / dashes take almost zero spoken time
-  if (/^[-‐-―=_()[\]{}"'«»/\\|+*]+$/.test(tStr)) return 0.06
-  // Clause / sentence punctuation marks correspond to brief breath pauses
-  if (/^[:;,.?!។៕]+$/.test(tStr)) return /[។៕.?!]/.test(tStr) ? 0.42 : 0.22
-  // Currency symbols spoken as words
-  if (tStr === '$' || tStr === '៛') return 1.35
-  // Expand numbers/abbreviations/compounds via Khmer normalizer so spoken length matches voice
-  const spoken = normalizeKhmerForSpeech(tStr).replace(/[^ក-៿a-zA-Z0-9]/g, '')
-  const charLen = Math.max(1, spoken.length || tStr.length)
-  let weight = Math.max(0.85, Math.pow(charLen, 0.78) * 0.62)
-  if (/[។៕.?!]$/.test(tStr)) weight += 0.38
-  return weight
-}
-
-// Tokenize text into paragraphs of words plus a cumulative acoustic timeline
-export const tokenizeForReading = (rawText) => {
-  const paragraphs = []
-  const flat = []
-  const weights = []
-  if (!rawText) return { paragraphs, tokens: flat, timeline: [] }
-
-  const rawParas = rawText.split(/\n\s*\n|\n/)
-  rawParas.forEach((paraText, pIdx) => {
-    if (!paraText.trim()) return
-    const paraStartIdx = flat.length
-    const words = []
-    const rawSentences = paraText.split(/([។៕.?!]+)/).filter(Boolean)
-    for (let i = 0; i < rawSentences.length; i += 2) {
-      const sText = (rawSentences[i] + (rawSentences[i + 1] || '')).trim()
-      if (!sText) continue
-      for (const w of segmentSentenceIntoWords(sText)) {
-        words.push({ index: flat.length, text: w, paragraphIndex: pIdx })
-        flat.push(w)
-        weights.push(computeTokenAcousticWeight(w))
-      }
-    }
-    const paraEndIdx = flat.length - 1
-    if (paraEndIdx >= paraStartIdx) {
-      // Natural pause after a numbered list item at the start of a line (e.g. "1 ." or "១ .")
-      if (/^[០-៩0-9]{1,3}\.?$/.test(flat[paraStartIdx])) {
-        weights[paraStartIdx] += 0.55
-        if (paraStartIdx + 1 <= paraEndIdx && flat[paraStartIdx + 1] === '.') {
-          weights[paraStartIdx + 1] = 0.45
-        }
-      }
-      // Full sentence line-break pause at the end of every line/paragraph
-      weights[paraEndIdx] += 0.95
-    }
-    paragraphs.push({ paragraphIndex: pIdx, words })
-  })
-
-  const totalWeight = weights.reduce((acc, w) => acc + w, 0) || 1
-  let cum = 0
-  const timeline = flat.map((w, idx) => {
-    const startFrac = cum / totalWeight
-    cum += weights[idx]
-    return { index: idx, word: w, weight: weights[idx], startFrac, endFrac: cum / totalWeight }
-  })
-  return { paragraphs, tokens: flat, timeline }
-}
 
 /**
  * Pre-warm / synthesize and cache Khmer TTS audio in the background during OCR processing.

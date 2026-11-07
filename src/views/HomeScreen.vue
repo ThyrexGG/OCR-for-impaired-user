@@ -16,6 +16,7 @@ import { t, currentLang } from '../services/i18n'
 import { tp } from '../services/talkback'
 import { sampleLibrary } from '../services/sampleDocs'
 import { prewarmKhmerTts } from '../composables/useKhmerTts'
+import { useSwipeNav } from '../composables/useSwipeNav'
 
 
 const router = useRouter()
@@ -502,68 +503,20 @@ const handleAddPage = () => {
 }
 
 // Swipe gesture navigation between Camera and Upload (Instagram-style)
-let touchStartX = 0
-let touchStartY = 0
-let touchStartTime = 0
-
-const onTouchStart = (e) => {
-  if (e.touches && e.touches.length === 1) {
-    touchStartX = e.touches[0].clientX
-    touchStartY = e.touches[0].clientY
-    touchStartTime = Date.now()
-  }
-}
-
-const onTouchEnd = (e) => {
-  if (!e.changedTouches || e.changedTouches.length !== 1) return
-  const deltaX = e.changedTouches[0].clientX - touchStartX
-  const deltaY = e.changedTouches[0].clientY - touchStartY
-  const deltaTime = Date.now() - touchStartTime
-
-  if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && deltaTime < 700) {
-    if (deltaX < -40 && activeMode.value === 'scan') {
-      // Swiped Left on Camera -> Switch to Upload
+const { onTouchStart, onTouchEnd, onPointerDown, onPointerUp } = useSwipeNav({
+  onSwipeLeft: () => {
+    if (activeMode.value === 'scan') {
       setMode('upload')
       triggerHaptic(40)
-    } else if (deltaX > 40 && activeMode.value === 'upload') {
-      // Swiped Right on Upload -> Switch to Camera
+    }
+  },
+  onSwipeRight: () => {
+    if (activeMode.value === 'upload') {
       setMode('scan')
       triggerHaptic(40)
     }
   }
-}
-
-// Pointer drag fallback for mouse / trackpad testing
-let pointerStartX = 0
-let pointerStartY = 0
-let pointerStartTime = 0
-let isDragging = false
-
-const onPointerDown = (e) => {
-  if (e.button !== 0 || e.target.closest('button, input, a, select, textarea, [role="button"]')) return
-  pointerStartX = e.clientX
-  pointerStartY = e.clientY
-  pointerStartTime = Date.now()
-  isDragging = true
-}
-
-const onPointerUp = (e) => {
-  if (!isDragging) return
-  isDragging = false
-  const deltaX = e.clientX - pointerStartX
-  const deltaY = e.clientY - pointerStartY
-  const deltaTime = Date.now() - pointerStartTime
-
-  if (Math.abs(deltaX) > 40 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2 && deltaTime < 700) {
-    if (deltaX < -40 && activeMode.value === 'scan') {
-      setMode('upload')
-      triggerHaptic(40)
-    } else if (deltaX > 40 && activeMode.value === 'upload') {
-      setMode('scan')
-      triggerHaptic(40)
-    }
-  }
-}
+})
 </script>
 
 <template>
