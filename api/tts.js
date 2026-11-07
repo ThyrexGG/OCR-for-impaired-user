@@ -21,7 +21,7 @@ const VOICES = {
   'km-KH-VitsOffline': { baseVoice: 'km-KH-PisethNeural', pitch: '+6Hz', rate: '-4%', pace: false },
 }
 
-const MAX_TEXT_LENGTH = 3000
+const MAX_TEXT_LENGTH = 12000
 const rateLimitMap = new Map()
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 const MAX_REQUESTS_PER_WINDOW = 30

@@ -8,8 +8,6 @@ import {
 } from 'lucide-vue-next'
 import DocumentUploader from '../components/DocumentUploader.vue'
 import DocumentReader from '../components/DocumentReader.vue'
-import OcrPanel from '../components/OcrPanel.vue'
-import TtsPanel from '../components/TtsPanel.vue'
 import UserHistory from '../components/UserHistory.vue'
 import AppToast from '../components/AppToast.vue'
 import { ocrService } from '../services/ocrService'
@@ -21,6 +19,7 @@ import { haptics } from '../services/haptics'
 import { t, currentLang } from '../services/i18n'
 import { tp } from '../services/talkback'
 import { sampleLibrary } from '../services/sampleDocs'
+import { prewarmKhmerTts } from '../composables/useKhmerTts'
 
 
 const router = useRouter()
@@ -55,10 +54,7 @@ const pageCounter = ref(1)
 
 // Component Refs
 const documentReaderRef = ref(null)
-const ttsPanelRef = ref(null)
-// The active audio player: dedicated DocumentReader (reader mode) or legacy TtsPanel
-const getPlayer = () => documentReaderRef.value || ttsPanelRef.value
-const ocrPanelRef = ref(null)
+const getPlayer = () => documentReaderRef.value
 const scanAgainErrorBtnRef = ref(null)
 const originMode = ref('scan')
 
@@ -86,9 +82,6 @@ const selectedFile = ref(null)
 const historyList = ref([])
 const isCached = ref(false)
 
-// Karaoke Highlighting Sync State
-const activeWordIndex = ref(-1)
-const highlightMode = ref('paragraph') // 'word' | 'sentence' | 'paragraph'
 
 // Toast System
 const toasts = ref([])
@@ -230,6 +223,9 @@ const onClearFile = () => {
 // Trigger OCR Execution (SOLID: Strategy & Port via ocrService)
 const handleTriggerOcr = async () => {
   if (isProcessing.value || !selectedFile.value) return
+  if (activeMode.value && activeMode.value !== 'reader') {
+    originMode.value = activeMode.value
+  }
   
   ocrError.value = null
   isLongProcessing.value = false
@@ -260,16 +256,23 @@ const handleTriggerOcr = async () => {
   ocrProgress.value = 0
   const result = await ocrService.recognize(selectedFile.value, {
     onProgress: (p) => {
-      ocrProgress.value = p
+      ocrProgress.value = Math.min(85, Math.round(p * 0.85))
     }
   })
 
-  clearProcessingTimers()
-  isProcessing.value = false
-  isLongProcessing.value = false
-
   if (result.ok) {
     const { text, cached, wordsCount } = result.data
+    ocrProgress.value = 90
+
+    // Pre-warm Khmer TTS voice synthesis and cache during the loading screen
+    // This eliminates the 2-5s delay and 9:00 placeholder artifact upon reaching Reader mode
+    try {
+      await prewarmKhmerTts(text)
+    } catch (_) {}
+
+    clearProcessingTimers()
+    isProcessing.value = false
+    isLongProcessing.value = false
     ocrProgress.value = 100
 
     if (isAppendingPage.value && extractedText.value) {
@@ -319,18 +322,20 @@ const handleTriggerOcr = async () => {
     }
 
     // Transition to Reader mode and start speech if auto-read is enabled
-    originMode.value = activeMode.value
+    if (activeMode.value && activeMode.value !== 'reader') {
+      originMode.value = activeMode.value
+    }
     setMode('reader')
     if (isAutoReadEnabled.value) {
       setTimeout(() => {
-        if (documentReaderRef.value) {
-          documentReaderRef.value.startSpeech()
-        } else if (ttsPanelRef.value) {
-          ttsPanelRef.value.startSpeech()
-        }
+        documentReaderRef.value?.startSpeech()
       }, 400)
     }
   } else {
+    clearProcessingTimers()
+    isProcessing.value = false
+    isLongProcessing.value = false
+
     // Remove pending item from history
     const idx = historyList.value.findIndex(i => i.id === pendingId)
     if (idx !== -1) historyList.value.splice(idx, 1)
@@ -362,7 +367,9 @@ const onLoadHistoryItem = (item) => {
   ocrError.value = null
   isCached.value = !!item.cached
   addToast({ message: currentLang.value === 'km' ? 'បានបើកឯកសារ' : 'Opened', type: 'info' })
-  originMode.value = 'recent'
+  if (activeMode.value && activeMode.value !== 'reader') {
+    originMode.value = activeMode.value
+  }
   setMode('reader')
 }
 
@@ -372,14 +379,12 @@ const onQuickPlayHistoryItem = (item) => {
   ocrError.value = null
   isCached.value = !!item.cached
   addToast({ message: currentLang.value === 'km' ? 'កំពុងអាន' : 'Playing', type: 'info' })
-  originMode.value = 'recent'
+  if (activeMode.value && activeMode.value !== 'reader') {
+    originMode.value = activeMode.value
+  }
   setMode('reader')
   setTimeout(() => {
-    if (documentReaderRef.value) {
-      documentReaderRef.value.startSpeech()
-    } else if (ttsPanelRef.value) {
-      ttsPanelRef.value.startSpeech()
-    }
+    documentReaderRef.value?.startSpeech()
   }, 300)
 }
 
@@ -425,22 +430,7 @@ const onClearHistory = () => {
   })
 }
 
-// Click-to-seek word from OCR into TTS
-const onSeekWord = (wordIndex) => {
-  activeWordIndex.value = wordIndex
-  if (ttsPanelRef.value && typeof ttsPanelRef.value.seekToWord === 'function') {
-    ttsPanelRef.value.seekToWord(wordIndex)
-  }
-}
-
-// Trigger Read Aloud from OcrPanel
-const handleReadAloud = () => {
-  if (ttsPanelRef.value) {
-    ttsPanelRef.value.togglePlayback()
-  }
-}
-
-// Scan Again from OcrPanel / Error Screen
+// Scan Again from Reader / Error Screen
 const handleScanAgain = () => {
   triggerHaptic(40)
   isAppendingPage.value = false
@@ -449,13 +439,8 @@ const handleScanAgain = () => {
   selectedFile.value = null
   selectedFileName.value = ''
   extractedText.value = ''
-  if (documentReaderRef.value) {
-    documentReaderRef.value.stopPlayback()
-  }
-  if (ttsPanelRef.value) {
-    ttsPanelRef.value.stopPlayback()
-  }
-  const returnTarget = originMode.value || 'scan'
+  documentReaderRef.value?.stopPlayback()
+  const returnTarget = (originMode.value && originMode.value !== 'reader') ? originMode.value : 'scan'
   setMode(returnTarget)
   speakAccessibility(currentLang.value === 'km' ? 'ត្រឡប់ទៅទំព័រដើម' : 'Returned back')
 }
