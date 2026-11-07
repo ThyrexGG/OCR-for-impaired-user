@@ -8,7 +8,7 @@ import {
 import { t, currentLang } from '../services/i18n'
 import { haptics } from '../services/haptics'
 import { announcer } from '../services/announcer'
-import { useKhmerTts, SPEED_PRESETS } from '../composables/useKhmerTts'
+import { useKhmerTts, SPEED_PRESETS, prewarmKhmerTts } from '../composables/useKhmerTts'
 import ReaderVoiceModal from './ReaderVoiceModal.vue'
 import signalIconUrl from '../assets/signalIcon.svg'
 import './DocumentReader.css'
@@ -400,6 +400,14 @@ const openVoiceModal = () => {
   isVoiceModalOpen.value = true
   triggerHaptic(30)
   speakAccessibility(currentLang.value === 'km' ? 'បានបើកការជ្រើសរើសសំឡេង' : 'Opened voice settings')
+  // Warm up other voice models while the modal is open for instantaneous switching
+  if (props.text && Array.isArray(voices)) {
+    for (const v of voices) {
+      if (v.name !== selectedVoiceName.value) {
+        prewarmKhmerTts(props.text, { voiceName: v.name, timeoutMs: 20000 })
+      }
+    }
+  }
 }
 
 const closeVoiceModal = () => {

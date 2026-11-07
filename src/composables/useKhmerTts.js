@@ -143,6 +143,7 @@ export function useKhmerTts({ getText, activeWordIndex }) {
     // Heard straight away: carry on from the same word in the new voice
     if (wasActive) {
       stop()
+      activeWordIndex.value = from
       start(from)
     }
   }
@@ -226,8 +227,11 @@ export function useKhmerTts({ getText, activeWordIndex }) {
         }
       }
 
-      // Mode A: locked to the HTML5 Audio playhead
-      if (currentAudio && Number.isFinite(currentAudio.duration) && currentAudio.duration > 0.15) {
+      // Mode A: strictly locked to the HTML5 Audio playhead
+      if (currentAudio) {
+        if (!Number.isFinite(currentAudio.duration) || currentAudio.duration <= 0.15 || currentAudio.paused || currentAudio.seeking) {
+          return
+        }
         const leadPad = Math.min(0.08, currentAudio.duration * 0.03)
         const trailPad = Math.min(0.14, currentAudio.duration * 0.04)
         const effectiveDur = Math.max(0.15, currentAudio.duration - leadPad - trailPad)
@@ -238,14 +242,16 @@ export function useKhmerTts({ getText, activeWordIndex }) {
         return
       }
 
-      // Mode B: weighted natural Khmer cadence (Web Speech fallback, or before audio metadata loads)
-      const totalWeights = tokenTimeline.value.reduce((acc, item) => acc + item.weight, 0) || 1
-      const estimatedTotalMs = (totalWeights * 195) / Math.max(0.5, rate.value)
-      const elapsedMs = performance.now() - fallbackStartTime
-      const progress = Math.min(1.0, fallbackStartOffsetFrac + elapsedMs / Math.max(400, estimatedTotalMs))
-      const matchedIdx = matchIndexForProgress(progress)
-      if (matchedIdx !== activeWordIndex.value) activeWordIndex.value = matchedIdx
-      if (progress >= 1.0 && !currentAudio) clearHighlightTimer()
+      // Mode B: only for Web Speech fallback (when window.speechSynthesis is used without HTML5 Audio)
+      if (usingSynth) {
+        const totalWeights = tokenTimeline.value.reduce((acc, item) => acc + item.weight, 0) || 1
+        const estimatedTotalMs = (totalWeights * 195) / Math.max(0.5, rate.value)
+        const elapsedMs = performance.now() - fallbackStartTime
+        const progress = Math.min(1.0, fallbackStartOffsetFrac + elapsedMs / Math.max(400, estimatedTotalMs))
+        const matchedIdx = matchIndexForProgress(progress)
+        if (matchedIdx !== activeWordIndex.value) activeWordIndex.value = matchedIdx
+        if (progress >= 1.0) clearHighlightTimer()
+      }
     }, 30)
   }
 
@@ -356,8 +362,11 @@ export function useKhmerTts({ getText, activeWordIndex }) {
     stop()
     isSpeaking.value = true
     isPaused.value = false
+    activeWordIndex.value = startIndex
     triggerHaptic([60, 40])
-    speakAccessibility('ចាប់ផ្តើមអាន...', false)
+    if (startIndex === 0) {
+      speakAccessibility('ចាប់ផ្តើមអាន...', false)
+    }
 
     try {
       const voiceName = selectedVoiceName.value
@@ -394,8 +403,10 @@ export function useKhmerTts({ getText, activeWordIndex }) {
       if (currentAudio !== unlockedAudio) return
 
       // Let the control label / announcement that led here finish before the document voice begins
-      await announcer.whenSilent()
-      if (currentAudio !== unlockedAudio) return
+      if (startIndex === 0) {
+        await announcer.whenSilent()
+        if (currentAudio !== unlockedAudio) return
+      }
 
       unlockedAudio.onloadedmetadata = () => {
         if (Number.isFinite(unlockedAudio.duration) && unlockedAudio.duration > 0) audioDuration.value = unlockedAudio.duration
@@ -407,13 +418,38 @@ export function useKhmerTts({ getText, activeWordIndex }) {
         stop()
         speakAccessibility('ការអានអត្ថបទបានបញ្ចប់')
       }
-      await unlockedAudio.play()
+
       // A skip tapped while the voice was still being synthesized wins over the original start
       const target = pendingSeekIndex !== null ? pendingSeekIndex : startIndex
-      startHighlighting(target)
 
-      // Jump to the requested word once the audio clock is running
-      if (target > 0) seekToWord(target)
+      // Wait for audio metadata so duration is known and seeking can happen cleanly
+      if (!Number.isFinite(unlockedAudio.duration) || unlockedAudio.duration <= 0.15) {
+        await new Promise((resolve) => {
+          const onMeta = () => {
+            unlockedAudio.removeEventListener('loadedmetadata', onMeta)
+            resolve()
+          }
+          unlockedAudio.addEventListener('loadedmetadata', onMeta, { once: true })
+          setTimeout(resolve, 800)
+        })
+      }
+
+      if (currentAudio !== unlockedAudio) return
+
+      if (Number.isFinite(unlockedAudio.duration) && unlockedAudio.duration > 0) {
+        audioDuration.value = unlockedAudio.duration
+      }
+
+      // If resuming/starting from a specific word, seek BEFORE playing so audio doesn't start at 0:00
+      if (target > 0) {
+        const seekTime = audioTimeForWord(unlockedAudio, target)
+        if (seekTime !== null && seekTime > 0) {
+          unlockedAudio.currentTime = seekTime
+        }
+      }
+
+      await unlockedAudio.play()
+      startHighlighting(target)
     } catch (error) {
       console.error('Neural Khmer TTS error, falling back to Web Speech:', error)
       isSpeaking.value = false
