@@ -48,3 +48,4 @@ local.properties
 .cxx/
 *.apk
 *.aab
+.agents/skills/ponytail/SKILL.md
